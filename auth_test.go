@@ -10,10 +10,10 @@ import (
 	"google.golang.org/grpc/status"
 )
 
-func TestAccountsServiceCreateAccount(t *testing.T) {
-	srv := accountsService{}
+func TestAuthServiceAuthenticate(t *testing.T) {
+	srv := authService{}
 
-	res, err := srv.CreateAccount(context.TODO(), &accountspb.Account{})
+	res, err := srv.Authenticate(context.TODO(), &accountspb.AuthenticateRequest{})
 	require.Error(t, err)
 	require.Equal(t, status.Code(err), codes.Unimplemented)
 	require.Nil(t, res)

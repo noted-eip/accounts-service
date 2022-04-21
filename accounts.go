@@ -1,7 +1,7 @@
 package main
 
 import (
-	"accounts-service/grpc/accounts"
+	"accounts-service/grpc/accountspb"
 	"context"
 
 	"google.golang.org/grpc/codes"
@@ -10,21 +10,23 @@ import (
 )
 
 type accountsService struct {
-	accounts.UnimplementedAccountsServiceServer
+	accountspb.UnimplementedAccountsServiceServer
 }
 
-func (srv accountsService) CreateAccount(ctx context.Context, in *accounts.Account) (*emptypb.Empty, error) {
+var _ accountspb.AccountsServiceServer = &accountsService{}
+
+func (srv *accountsService) CreateAccount(ctx context.Context, in *accountspb.Account) (*emptypb.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "not implemented")
 }
 
-func (srv accountsService) GetAccount(ctx context.Context, in *accounts.GetAccountRequest) (*accounts.Account, error) {
+func (srv *accountsService) GetAccount(ctx context.Context, in *accountspb.GetAccountRequest) (*accountspb.Account, error) {
 	return nil, status.Errorf(codes.Unimplemented, "not implemented")
 }
 
-func (srv accountsService) UpdateAccount(ctx context.Context, in *accounts.UpdateAccountRequest) (*accounts.Account, error) {
+func (srv *accountsService) UpdateAccount(ctx context.Context, in *accountspb.UpdateAccountRequest) (*accountspb.Account, error) {
 	return nil, status.Errorf(codes.Unimplemented, "not implemented")
 }
 
-func (srv accountsService) DeleteAccount(ctx context.Context, in *accounts.DeleteAccountRequest) (*emptypb.Empty, error) {
+func (srv *accountsService) DeleteAccount(ctx context.Context, in *accountspb.DeleteAccountRequest) (*emptypb.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "not implemented")
 }
