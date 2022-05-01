@@ -1,5 +1,6 @@
 # Run the protoc compiler to generate the Golang server code.
 codegen: update-submodules
+	rm -rf grpc/accountspb
 	protoc --go_out=. --go-grpc_out=. grpc/protos/accounts/*.proto
 
 # Fetch the latest version of the protos submodule.

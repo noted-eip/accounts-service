@@ -15,9 +15,7 @@ import (
 func main() {
 	srv := grpc.NewServer()
 	accSrv := accountsService{}
-	// authSrv := authService{}
 	accountspb.RegisterAccountsServiceServer(srv, &accSrv)
-	// accountspb.RegisterAuthServiceServer(srv, &authSrv)
 
 	lis, err := net.Listen("tcp", ":50051")
 	if err != nil {
