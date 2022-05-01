@@ -30,3 +30,7 @@ func (srv *accountsService) UpdateAccount(ctx context.Context, in *accountspb.Up
 func (srv *accountsService) DeleteAccount(ctx context.Context, in *accountspb.DeleteAccountRequest) (*emptypb.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "not implemented")
 }
+
+func (srv *accountsService) Authenticate(ctx context.Context, in *accountspb.AuthenticateRequest) (*accountspb.AuthenticateReply, error) {
+	return nil, status.Errorf(codes.Unimplemented, "not implemented")
+}
