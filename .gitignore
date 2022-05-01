@@ -1,2 +1,3 @@
 grpc/*
 !grpc/protos
+accounts-service.exe
