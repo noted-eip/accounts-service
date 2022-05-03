@@ -11,6 +11,7 @@ require (
 
 require (
 	github.com/davecgh/go-spew v1.1.0 // indirect
+	github.com/golang-jwt/jwt v3.2.2+incompatible
 	github.com/golang/protobuf v1.5.2 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	golang.org/x/net v0.0.0-20200822124328-c89045814202 // indirect
