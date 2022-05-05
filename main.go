@@ -1,10 +1,15 @@
 package main
 
 import (
-	"accounts-service/grpc/accountspb"
 	"net"
 
+	"accounts-service/grpc/accountspb"
+
+	_ "github.com/joho/godotenv/autoload"
+
 	"google.golang.org/grpc"
+
+	"google.golang.org/grpc/reflection"
 )
 
 func main() {
@@ -12,10 +17,12 @@ func main() {
 	accSrv := accountsService{}
 	accountspb.RegisterAccountsServiceServer(srv, &accSrv)
 
-	lis, err := net.Listen("tcp", ":3000")
+	lis, err := net.Listen("tcp", ":50051")
 	if err != nil {
 		panic(err)
 	}
+
+	reflection.Register(srv)
 	if err := srv.Serve(lis); err != nil {
 		panic(err)
 	}
