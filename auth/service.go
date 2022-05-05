@@ -8,13 +8,16 @@ import (
 	"context"
 	"crypto/ed25519"
 	"errors"
+	"fmt"
 
 	"github.com/golang-jwt/jwt"
 	"google.golang.org/grpc/metadata"
 )
 
 var (
-	ErrNoTokenInCtx = errors.New("no token in context")
+	ErrNoTokenInCtx    = errors.New("no token in context")
+	ErrNoMetadataInCtx = errors.New("no metadata in context")
+	ErrInvalidToken    = errors.New("invalid token")
 )
 
 const (
@@ -48,23 +51,35 @@ type service struct {
 }
 
 func (srv *service) TokenFromContext(ctx context.Context) (*Token, error) {
-	md, ok := metadata.FromIncomingContext(ctx)
+	md, ok := metadata.FromOutgoingContext(ctx)
 	if !ok {
-		return nil, ErrNoTokenInCtx
+		return nil, ErrNoMetadataInCtx
 	}
+
 	values := md.Get(TokenMetadataKey)
 	if len(values) == 0 {
 		return nil, ErrNoTokenInCtx
 	}
 	tokenString := values[0]
-	info := &Token{}
-	_, err := jwt.ParseWithClaims(tokenString, info.StandardClaims, func(t *jwt.Token) (interface{}, error) {
-		return srv.key, nil
+
+	tok, err := jwt.ParseWithClaims(tokenString, &Token{}, func(t *jwt.Token) (interface{}, error) {
+		pub, ok := srv.key.Public().(ed25519.PublicKey)
+		if !ok {
+			// This should never happen
+			return nil, errors.New("invalid key")
+		}
+		return pub, nil
 	})
 	if err != nil {
-		return nil, ErrNoTokenInCtx
+		return nil, fmt.Errorf("could not parse token: %v", err)
 	}
-	return nil, nil
+
+	claims, ok := tok.Claims.(*Token)
+	if !ok {
+		return nil, ErrInvalidToken
+	}
+
+	return claims, nil
 }
 
 func (srv *service) ContextWithToken(parent context.Context, info *Token) (context.Context, error) {

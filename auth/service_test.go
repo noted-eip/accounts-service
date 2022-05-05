@@ -53,6 +53,28 @@ func Test_service_ContextWithToken(t *testing.T) {
 	})
 }
 
+func Test_service_TokenFromContext(t *testing.T) {
+	// Given
+	_, priv := genKeyOrFail(t)
+	srv := auth.NewService(priv)
+	uid := uuid.New()
+	ctx, err := srv.ContextWithToken(context.TODO(), &auth.Token{
+		UserID: uid,
+		Role:   auth.RoleAdmin,
+	})
+	require.NoError(t, err)
+
+	// When
+	token, err := srv.TokenFromContext(ctx)
+
+	// Then
+	require.NoError(t, err)
+
+	t.Run("the token should contain the user data", func(t *testing.T) {
+		require.Equal(t, token.UserID, uid)
+	})
+}
+
 func genKeyOrFail(t *testing.T) (ed25519.PublicKey, ed25519.PrivateKey) {
 	pub, priv, err := ed25519.GenerateKey(nil)
 	require.NoError(t, err)
