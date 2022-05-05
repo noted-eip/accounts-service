@@ -6,6 +6,7 @@ package auth
 
 import (
 	"context"
+	"crypto/ed25519"
 	"errors"
 
 	"github.com/golang-jwt/jwt"
@@ -36,14 +37,14 @@ type Service interface {
 
 // NewService creates a new authentication service which encodes/decodes
 // signed-JWTs with the key provided as argument.
-func NewService(key []byte) Service {
+func NewService(key ed25519.PrivateKey) Service {
 	return &service{
 		key: key,
 	}
 }
 
 type service struct {
-	key []byte
+	key ed25519.PrivateKey
 }
 
 func (srv *service) TokenFromContext(ctx context.Context) (*Token, error) {
@@ -67,16 +68,10 @@ func (srv *service) TokenFromContext(ctx context.Context) (*Token, error) {
 }
 
 func (srv *service) ContextWithToken(parent context.Context, info *Token) (context.Context, error) {
-	return metadata.AppendToOutgoingContext(parent, TokenMetadataKey, "<token>"), nil
+	token := jwt.NewWithClaims(&jwt.SigningMethodEd25519{}, info)
+	ss, err := token.SignedString(srv.key)
+	if err != nil {
+		return nil, err
+	}
+	return metadata.AppendToOutgoingContext(parent, TokenMetadataKey, ss), nil
 }
-
-// func (srv *service) NewToken() Token {
-// 	return Token{
-// 		StandardClaims: jwt.StandardClaims{
-// 			Audience:  "noted",
-// 			Issuer:    "noted",
-// 			ExpiresAt: time.Now().Add(time.Hour * 24).Unix(),
-// 			IssuedAt:  time.Now().Unix(),
-// 		},
-// 	}
-// }

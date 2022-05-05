@@ -3,19 +3,58 @@ package auth_test
 import (
 	"accounts-service/auth"
 	"context"
+	"crypto/ed25519"
 	"testing"
 
-	"github.com/stretchr/testify/assert"
+	"github.com/golang-jwt/jwt"
+	"github.com/google/uuid"
+	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc/metadata"
 )
 
 func Test_service_ContextWithToken(t *testing.T) {
-	srv := auth.NewService([]byte("secret"))
+	// Given
+	pub, priv := genKeyOrFail(t)
+	srv := auth.NewService(priv)
+	uid := uuid.New()
 
-	ctx, err := srv.ContextWithToken(context.TODO(), &auth.Token{})
-	assert.NoError(t, err)
-	md, ok := metadata.FromOutgoingContext(ctx)
-	assert.True(t, ok)
-	assert.True(t, len(md) > 0)
-	assert.True(t, md.Get(auth.TokenMetadataKey)[0] == "<token>")
+	// When
+	ctx, err := srv.ContextWithToken(context.TODO(), &auth.Token{
+		UserID: uid,
+		Role:   auth.RoleAdmin,
+	})
+
+	// Then
+	require.NoError(t, err)
+
+	var tokenString string
+
+	t.Run("there should be metadata in the context", func(t *testing.T) {
+		md, ok := metadata.FromOutgoingContext(ctx)
+		require.True(t, ok)
+		tokenString = md.Get(auth.TokenMetadataKey)[0]
+		require.NotZero(t, tokenString)
+	})
+
+	var claims *auth.Token
+
+	t.Run("the token should be valid and decodable with the public key", func(t *testing.T) {
+		tok, err := jwt.ParseWithClaims(tokenString, &auth.Token{}, func(*jwt.Token) (interface{}, error) {
+			return pub, nil
+		})
+		require.NoError(t, err)
+		var ok bool
+		claims, ok = tok.Claims.(*auth.Token)
+		require.True(t, ok)
+	})
+
+	t.Run("the token should contain user data", func(t *testing.T) {
+		require.Equal(t, claims.UserID, uid)
+	})
+}
+
+func genKeyOrFail(t *testing.T) (ed25519.PublicKey, ed25519.PrivateKey) {
+	pub, priv, err := ed25519.GenerateKey(nil)
+	require.NoError(t, err)
+	return pub, priv
 }
