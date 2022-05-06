@@ -3,6 +3,7 @@ package main
 import (
 	"net"
 
+	"accounts-service/auth"
 	"accounts-service/grpc/accountspb"
 
 	_ "github.com/joho/godotenv/autoload"
@@ -13,7 +14,10 @@ import (
 )
 
 func main() {
-	srv := grpc.NewServer()
+	srv := grpc.NewServer(
+		grpc.UnaryInterceptor(auth.ForwardAuthMetadatathUnaryInterceptor),
+	)
+
 	accSrv := accountsService{}
 	accountspb.RegisterAccountsServiceServer(srv, &accSrv)
 
