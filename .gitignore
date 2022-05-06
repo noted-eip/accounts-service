@@ -1,3 +1,6 @@
+# IDE
+.vscode/
+
 # Protobuf server and stubs
 grpc/*
 !grpc/protos

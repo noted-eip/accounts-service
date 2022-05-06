@@ -21,7 +21,7 @@ var (
 )
 
 const (
-	TokenMetadataKey = "authorization"
+	AuthorizationHeaderKey = "authorization"
 )
 
 // Service is used to create JWTs for use with other services or to
@@ -56,7 +56,7 @@ func (srv *service) TokenFromContext(ctx context.Context) (*Token, error) {
 		return nil, ErrNoMetadataInCtx
 	}
 
-	values := md.Get(TokenMetadataKey)
+	values := md.Get(AuthorizationHeaderKey)
 	if len(values) == 0 {
 		return nil, ErrNoTokenInCtx
 	}
@@ -88,5 +88,5 @@ func (srv *service) ContextWithToken(parent context.Context, info *Token) (conte
 	if err != nil {
 		return nil, err
 	}
-	return metadata.AppendToOutgoingContext(parent, TokenMetadataKey, ss), nil
+	return metadata.AppendToOutgoingContext(parent, AuthorizationHeaderKey, ss), nil
 }

@@ -32,7 +32,7 @@ func Test_service_ContextWithToken(t *testing.T) {
 	t.Run("there should be metadata in the context", func(t *testing.T) {
 		md, ok := metadata.FromOutgoingContext(ctx)
 		require.True(t, ok)
-		tokenString = md.Get(auth.TokenMetadataKey)[0]
+		tokenString = md.Get(auth.AuthorizationHeaderKey)[0]
 		require.NotZero(t, tokenString)
 	})
 
