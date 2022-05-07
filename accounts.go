@@ -21,11 +21,6 @@ type accountsService struct {
 var _ accountspb.AccountsServiceServer = &accountsService{}
 
 func (srv *accountsService) CreateAccount(ctx context.Context, in *accountspb.Account) (*emptypb.Empty, error) {
-	_, err := srv.authenticate(ctx)
-	if err != nil {
-		return nil, err
-	}
-
 	return nil, status.Errorf(codes.Unimplemented, "not implemented")
 }
 
@@ -57,12 +52,15 @@ func (srv *accountsService) DeleteAccount(ctx context.Context, in *accountspb.De
 }
 
 func (srv *accountsService) Authenticate(ctx context.Context, in *accountspb.AuthenticateRequest) (*accountspb.AuthenticateReply, error) {
-	_, err := srv.authenticate(ctx)
+	ss, err := srv.auth.SignToken(&auth.Token{})
 	if err != nil {
-		return nil, err
+		srv.logger.Errorw("could not sign token", "error", err, "email", in.Email)
+		return nil, status.Errorf(codes.Internal, "unexpected failure")
 	}
 
-	return nil, status.Errorf(codes.Unimplemented, "not implemented")
+	return &accountspb.AuthenticateReply{
+		Token: ss,
+	}, nil
 }
 
 func (srv *accountsService) authenticate(ctx context.Context) (*auth.Token, error) {
