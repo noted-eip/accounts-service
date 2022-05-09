@@ -6,6 +6,8 @@ import (
 	"accounts-service/auth"
 	"accounts-service/grpc/accountspb"
 
+	"accounts-service/models"
+
 	_ "github.com/joho/godotenv/autoload"
 
 	"google.golang.org/grpc"
@@ -14,6 +16,7 @@ import (
 )
 
 func main() {
+	models.Init()
 	srv := grpc.NewServer(
 		grpc.UnaryInterceptor(auth.ForwardAuthMetadatathUnaryInterceptor),
 	)
