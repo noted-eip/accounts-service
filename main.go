@@ -10,6 +10,8 @@ import (
 	"accounts-service/auth"
 	"accounts-service/grpc/accountspb"
 
+	"accounts-service/models"
+
 	_ "github.com/joho/godotenv/autoload"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
@@ -27,6 +29,10 @@ var (
 	port          = app.Flag("port", "grpc server port").Default("3000").Int16()
 	environment   = app.Flag("environment", "either development or production").Default("development").String()
 )
+
+func init() {
+	models.Init()
+}
 
 func main() {
 	app.Parse(os.Args[1:])
