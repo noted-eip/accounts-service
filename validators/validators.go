@@ -8,17 +8,10 @@ import (
 )
 
 //Basic check for new account information
-func ValidateAccountCreation(newAccount *accountspb.CreateAccountRequest) error {
+func ValidateCreateAccountRequest(newAccount *accountspb.CreateAccountRequest) error {
 	return validation.Errors{
 		"name":     validation.Validate(newAccount.Name, validation.Required, validation.Length(4, 20)),
 		"email":    validation.Validate(newAccount.Email, validation.Required, is.Email),
 		"password": validation.Validate(newAccount.Password, validation.Required, validation.Length(4, 20)),
-	}.Filter()
-}
-
-// Compare id format from request with MongoId
-func ValidateAccountDeletion(Account *accountspb.DeleteAccountRequest) error {
-	return validation.Errors{
-		"id": validation.Validate(Account.Id, validation.Required, is.MongoID),
 	}.Filter()
 }

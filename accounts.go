@@ -47,22 +47,22 @@ var _ accountspb.AccountsServiceServer = &accountsService{}
 
 // Create an Account from username, password and email
 func (srv *accountsService) CreateAccount(ctx context.Context, in *accountspb.CreateAccountRequest) (*emptypb.Empty, error) {
-	errValidator := val.ValidateAccountCreation(in)
-	if errValidator != nil {
-		log.Print("[ERR] ", errValidator.Error())
-		return nil, status.Errorf(codes.InvalidArgument, errValidator.Error())
+	err := val.ValidateCreateAccountRequest(in)
+	if err != nil {
+		log.Print("[ERR] ", err.Error())
+		return nil, status.Errorf(codes.InvalidArgument, err.Error())
 	}
 
-	collection := models.UsersDatabase.Client().Database("Users").Collection("Accounts")
+	collection := models.AccountsDatabase.Collection("accounts")
 
 	// hash password for storage
-	hashed, errHash := bcrypt.GenerateFromPassword([]byte(in.GetPassword()), 8)
-	if errHash != nil {
-		log.Print("[ERR] ", errHash.Error())
-		return nil, status.Errorf(codes.Internal, errHash.Error())
+	hashed, err := bcrypt.GenerateFromPassword([]byte(in.GetPassword()), 8)
+	if err != nil {
+		log.Print("[ERR] ", err.Error())
+		return nil, status.Errorf(codes.Internal, err.Error())
 	}
 
-	_, err := collection.InsertOne(context.TODO(), Account{Email: in.Email, Name: in.Name, Password: hashed})
+	_, err = collection.InsertOne(context.TODO(), Account{Email: in.Email, Name: in.Name, Password: hashed})
 	if err != nil {
 		log.Print("[ERR] ", err.Error())
 		return nil, status.Errorf(codes.Internal, err.Error())
@@ -78,17 +78,17 @@ func (srv *accountsService) GetAccount(ctx context.Context, in *accountspb.GetAc
 		return nil, err
 	}
 
-	var account Account
-	_id, errIdFromHex := primitive.ObjectIDFromHex(in.Id)
-	if errIdFromHex != nil {
-		log.Print("[ERR] ", errIdFromHex.Error())
-		return nil, status.Errorf(codes.InvalidArgument, errIdFromHex.Error())
+	_id, err := primitive.ObjectIDFromHex(in.GetId())
+	if err != nil {
+		log.Print("[ERR] ", err.Error())
+		return nil, status.Errorf(codes.InvalidArgument, err.Error())
 	}
 
-	errFind := models.UsersDatabase.Client().Database("Users").Collection("Accounts").FindOne(context.TODO(), MongoId{_id}).Decode(&account)
-	if errFind != nil {
-		log.Print("[ERR] ", errFind.Error())
-		return nil, status.Errorf(codes.InvalidArgument, errFind.Error())
+	var account Account
+	err = models.AccountsDatabase.Collection("accounts").FindOne(context.TODO(), MongoId{_id}).Decode(&account)
+	if err != nil {
+		log.Print("[ERR] ", err.Error())
+		return nil, status.Errorf(codes.InvalidArgument, err.Error())
 	}
 
 	return &accountspb.Account{Email: account.Email, Name: account.Name, Id: account.ID.Hex()}, nil
@@ -101,36 +101,35 @@ func (srv *accountsService) UpdateAccount(ctx context.Context, in *accountspb.Up
 		return nil, err
 	}
 
-	var protoAccount accountspb.Account
-	var account Account
-
 	fieldMask := in.GetUpdateMask()
 	fieldMask.Normalize()
 	if !fieldMask.IsValid(in.Account) {
 		log.Print("[ERR] invalid update mask")
 		return nil, status.Errorf(codes.InvalidArgument, "")
 	}
-
-	_id, errIdFromHex := primitive.ObjectIDFromHex(in.GetAccount().GetId())
-	if errIdFromHex != nil {
-		log.Print("[ERR] ", errIdFromHex.Error())
-		return nil, status.Errorf(codes.InvalidArgument, errIdFromHex.Error())
-	}
-
 	fmutils.Filter(in.GetAccount(), fieldMask.GetPaths())
 
-	errFind := models.UsersDatabase.Client().Database("Users").Collection("Accounts").FindOne(context.TODO(), MongoId{_id}).Decode(&protoAccount)
-	if errFind != nil {
-		log.Print("[ERR] ", errFind.Error())
-		return nil, status.Errorf(codes.InvalidArgument, errFind.Error())
+	_id, err := primitive.ObjectIDFromHex(in.GetAccount().GetId())
+	if err != nil {
+		log.Print("[ERR] ", err.Error())
+		return nil, status.Errorf(codes.InvalidArgument, err.Error())
 	}
 
+	var protoAccount accountspb.Account
+
+	err = models.AccountsDatabase.Collection("accounts").FindOne(context.TODO(), MongoId{_id}).Decode(&protoAccount)
+	if err != nil {
+		log.Print("[ERR] ", err.Error())
+		return nil, status.Errorf(codes.InvalidArgument, err.Error())
+	}
 	// Now that the request is vetted we can merge it with the account entity.
 	proto.Merge(&protoAccount, in.GetAccount())
+
+	var account Account
 	// Exclude id variable from account message to Account schema (id != _id).
 	copier.Copy(&account, &protoAccount)
 	// The User can now be saved in a database.
-	_, errUpdate := models.UsersDatabase.Client().Database("Users").Collection("Accounts").UpdateOne(ctx, MongoId{_id}, bson.D{{Key: "$set", Value: &account}})
+	_, errUpdate := models.AccountsDatabase.Collection("accounts").UpdateOne(ctx, MongoId{_id}, bson.D{{Key: "$set", Value: &account}})
 	if errUpdate != nil {
 		log.Print("[ERR] ", errUpdate.Error())
 		return nil, status.Errorf(codes.InvalidArgument, errUpdate.Error())
@@ -146,16 +145,16 @@ func (srv *accountsService) DeleteAccount(ctx context.Context, in *accountspb.De
 		return nil, err
 	}
 
-	_id, errIdFromHex := primitive.ObjectIDFromHex(in.GetId())
-	if errIdFromHex != nil {
-		log.Print("[ERR] ", errIdFromHex.Error())
-		return nil, status.Errorf(codes.InvalidArgument, errIdFromHex.Error())
+	_id, err := primitive.ObjectIDFromHex(in.GetId())
+	if err != nil {
+		log.Print("[ERR] ", err.Error())
+		return nil, status.Errorf(codes.InvalidArgument, err.Error())
 	}
 
-	_, errDelete := models.UsersDatabase.Client().Database("Users").Collection("Accounts").DeleteOne(context.TODO(), MongoId{_id})
-	if errDelete != nil {
-		log.Print("[ERR] ", errDelete.Error())
-		return nil, status.Errorf(codes.InvalidArgument, errDelete.Error())
+	_, err = models.AccountsDatabase.Collection("accounts").DeleteOne(context.TODO(), MongoId{_id})
+	if err != nil {
+		log.Print("[ERR] ", err.Error())
+		return nil, status.Errorf(codes.InvalidArgument, err.Error())
 	}
 
 	return new(emptypb.Empty), nil

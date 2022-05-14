@@ -19,7 +19,7 @@ func TestAccountsServiceCreateAccount(t *testing.T) {
 		logger: zap.NewNop().Sugar(),
 	}
 
-	res, err := srv.CreateAccount(context.TODO(), &accountspb.Account{})
+	res, err := srv.CreateAccount(context.TODO(), &accountspb.CreateAccountRequest{})
 	require.Error(t, err)
 	require.Equal(t, status.Code(err), codes.Unimplemented)
 	require.Nil(t, res)

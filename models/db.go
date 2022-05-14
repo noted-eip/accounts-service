@@ -11,7 +11,7 @@ import (
 )
 
 // in interceptor
-var UsersDatabase *mongo.Database = nil
+var AccountsDatabase *mongo.Database = nil
 
 // .env
 var mongoUri string = "mongodb+srv://noted-maxime:VpMZr5O1BW3z2kf4@clusteraccount.muiuh.mongodb.net/ClusterAccount?retryWrites=true&w=majority"
@@ -31,7 +31,7 @@ func Init() {
 		log.Fatal(err)
 	}
 
-	UsersDatabase = client.Database("Users")
+	AccountsDatabase = client.Database("accounts")
 
 	err = client.Ping(ctx, readpref.Primary())
 	if err != nil {
