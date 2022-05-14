@@ -15,8 +15,11 @@ import (
 	"google.golang.org/grpc/reflection"
 )
 
-func main() {
+func init() {
 	models.Init()
+}
+
+func main() {
 	srv := grpc.NewServer(
 		grpc.UnaryInterceptor(auth.ForwardAuthMetadatathUnaryInterceptor),
 	)
