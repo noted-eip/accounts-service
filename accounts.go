@@ -116,7 +116,6 @@ func (srv *accountsService) UpdateAccount(ctx context.Context, in *accountspb.Up
 	}
 
 	var protoAccount accountspb.Account
-
 	err = models.AccountsDatabase.Collection("accounts").FindOne(context.TODO(), MongoId{_id}).Decode(&protoAccount)
 	if err != nil {
 		log.Print("[ERR] ", err.Error())
@@ -129,10 +128,10 @@ func (srv *accountsService) UpdateAccount(ctx context.Context, in *accountspb.Up
 	// Exclude id variable from account message to Account schema (id != _id).
 	copier.Copy(&account, &protoAccount)
 	// The User can now be saved in a database.
-	_, errUpdate := models.AccountsDatabase.Collection("accounts").UpdateOne(ctx, MongoId{_id}, bson.D{{Key: "$set", Value: &account}})
-	if errUpdate != nil {
-		log.Print("[ERR] ", errUpdate.Error())
-		return nil, status.Errorf(codes.InvalidArgument, errUpdate.Error())
+	_, err = models.AccountsDatabase.Collection("accounts").UpdateOne(ctx, MongoId{_id}, bson.D{{Key: "$set", Value: &account}})
+	if err != nil {
+		log.Print("[ERR] ", err.Error())
+		return nil, status.Errorf(codes.InvalidArgument, err.Error())
 	}
 
 	return &accountspb.Account{Email: account.Email, Name: account.Name, Id: account.ID.String()}, nil
