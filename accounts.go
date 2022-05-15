@@ -55,14 +55,13 @@ func (srv *accountsService) CreateAccount(ctx context.Context, in *accountspb.Cr
 		return nil, status.Errorf(codes.Internal, "could not create account")
 	}
 
-	collection := models.AccountsDatabase.Collection("accounts")
-	_, err = collection.InsertOne(ctx, Account{Email: in.Email, Name: in.Name, Hash: hashed})
+	_, err = models.AccountsDatabase.Collection("accounts").InsertOne(ctx, Account{Email: in.Email, Name: in.Name, Hash: hashed})
 	if err != nil {
 		srv.logger.Errorw("failed to insert account in db", "error", err.Error(), "email", in.Email)
-		return nil, status.Errorf(codes.Internal, err.Error())
+		return nil, status.Errorf(codes.Internal, "could not create account")
 	}
 
-	return new(emptypb.Empty), nil
+	return &emptypb.Empty{}, nil
 }
 
 func (srv *accountsService) GetAccount(ctx context.Context, in *accountspb.GetAccountRequest) (*accountspb.Account, error) {
@@ -76,14 +75,10 @@ func (srv *accountsService) GetAccount(ctx context.Context, in *accountspb.GetAc
 		return nil, status.Errorf(codes.InvalidArgument, err.Error())
 	}
 
-	if token.UserID.String() != in.Id && token.Role != auth.RoleAdmin {
-		return nil, status.Errorf(codes.NotFound, "not found")
-	}
-
 	_id, err := primitive.ObjectIDFromHex(in.Id)
 	if err != nil {
 		srv.logger.Errorw("failed to convert object id from hex", "error", err.Error())
-		return nil, status.Errorf(codes.Internal, err.Error())
+		return nil, status.Errorf(codes.Internal, "could not get account")
 	}
 
 	var account Account
@@ -94,6 +89,10 @@ func (srv *accountsService) GetAccount(ctx context.Context, in *accountspb.GetAc
 		}
 		srv.logger.Errorw("unable to query accounts", "error", err.Error())
 		return nil, status.Errorf(codes.InvalidArgument, err.Error())
+	}
+
+	if token.UserID.String() != account.ID.Hex() && token.Role != auth.RoleAdmin {
+		return nil, status.Errorf(codes.NotFound, "account not found")
 	}
 
 	return &accountspb.Account{Email: account.Email, Name: account.Name, Id: account.ID.Hex()}, nil
@@ -117,35 +116,40 @@ func (srv *accountsService) UpdateAccount(ctx context.Context, in *accountspb.Up
 	fieldMask := in.GetUpdateMask()
 	fieldMask.Normalize()
 	if !fieldMask.IsValid(in.Account) {
-		srv.logger.Debugw("invalid field mask")
 		return nil, status.Errorf(codes.InvalidArgument, "invalid field mask")
 	}
 	fmutils.Filter(in.GetAccount(), fieldMask.GetPaths())
 
-	uid, errId := primitive.ObjectIDFromHex(in.GetAccount().GetId())
-	if errId != nil {
-		srv.logger.Errorw("failed to convert object id from hex")
-		return nil, status.Errorf(codes.InvalidArgument, errId.Error())
+	uid, err := primitive.ObjectIDFromHex(in.Account.Id)
+	if err != nil {
+		srv.logger.Errorw("failed to convert object id from hex", "error", err)
+		return nil, status.Errorf(codes.Internal, "could not update account")
 	}
 
 	var protoAccount accountspb.Account
 	err = models.AccountsDatabase.Collection("accounts").FindOne(ctx, MongoId{uid}).Decode(&protoAccount)
-
 	if err != nil {
-		srv.logger.Debugw("failed to convert object id from hex", "error", err.Error())
-		return nil, status.Errorf(codes.InvalidArgument, err.Error())
+		if errors.Is(err, mongo.ErrNoDocuments) {
+			return nil, status.Errorf(codes.NotFound, "account not found")
+		}
+		srv.logger.Errorw("get account db query failed", "error", err, "user_id", uid.Hex())
+		return nil, status.Errorf(codes.Internal, "could not update account")
 	}
-	// Now that the request is vetted we can merge it with the account entity.
-	proto.Merge(&protoAccount, in.GetAccount())
 
+	// Now that the request is vetted we can merge it with the account entity.
+	proto.Merge(&protoAccount, in.Account)
 	var account Account
 	// Exclude id variable from account message to Account schema (id != _id).
 	copier.Copy(&account, &protoAccount)
-	// The User can now be saved in a database.
-	_, err = models.AccountsDatabase.Collection("accounts").UpdateOne(ctx, MongoId{uid}, bson.D{{Key: "$set", Value: &account}})
+
+	update, err := models.AccountsDatabase.Collection("accounts").UpdateOne(ctx, MongoId{uid}, bson.D{{Key: "$set", Value: &account}})
 	if err != nil {
 		srv.logger.Errorw("failed to convert object id from hex", "error", err.Error())
 		return nil, status.Errorf(codes.InvalidArgument, err.Error())
+	}
+	if update.MatchedCount == 0 {
+		srv.logger.Errorw("update account db query matched none", "user_id", uid.Hex())
+		return nil, status.Errorf(codes.Internal, "could not update account")
 	}
 
 	return &accountspb.Account{Email: account.Email, Name: account.Name, Id: account.ID.String()}, nil
@@ -166,19 +170,23 @@ func (srv *accountsService) DeleteAccount(ctx context.Context, in *accountspb.De
 		return nil, status.Errorf(codes.NotFound, "account not found")
 	}
 
-	uid, err := primitive.ObjectIDFromHex(in.GetId())
+	uid, err := primitive.ObjectIDFromHex(in.Id)
 	if err != nil {
 		srv.logger.Errorw("failed to convert object id from hex", "error", err.Error())
 		return nil, status.Errorf(codes.InvalidArgument, err.Error())
 	}
 
-	_, err = models.AccountsDatabase.Collection("accounts").DeleteOne(ctx, MongoId{uid})
+	delete, err := models.AccountsDatabase.Collection("accounts").DeleteOne(ctx, MongoId{uid})
 	if err != nil {
-		srv.logger.Errorw("failed to convert object id from hex", "error", err.Error())
-		return nil, status.Errorf(codes.InvalidArgument, err.Error())
+		srv.logger.Errorw("delete account db query failed", "error", err.Error())
+		return nil, status.Errorf(codes.Internal, "could not delete account")
+	}
+	if delete.DeletedCount == 0 {
+		srv.logger.Errorw("delete account db query matched none", "user_id", uid)
+		return nil, status.Errorf(codes.Internal, "could not delete account")
 	}
 
-	return new(emptypb.Empty), nil
+	return &emptypb.Empty{}, nil
 }
 
 func (srv *accountsService) Authenticate(ctx context.Context, in *accountspb.AuthenticateRequest) (*accountspb.AuthenticateReply, error) {
@@ -187,7 +195,11 @@ func (srv *accountsService) Authenticate(ctx context.Context, in *accountspb.Aut
 	acc := Account{}
 	err := query.Decode(&acc)
 	if err != nil {
-		return nil, status.Errorf(codes.InvalidArgument, "wrong password or email")
+		if errors.Is(err, mongo.ErrNoDocuments) {
+			return nil, status.Errorf(codes.InvalidArgument, "wrong password or email")
+		}
+		srv.logger.Errorw("get account db query failed", "error", err, "email", in.Email)
+		return nil, status.Errorf(codes.Internal, "could not authenticate user")
 	}
 
 	err = bcrypt.CompareHashAndPassword(acc.Hash, []byte(in.Password))
@@ -198,18 +210,16 @@ func (srv *accountsService) Authenticate(ctx context.Context, in *accountspb.Aut
 	uid, err := uuid.FromBytes(acc.ID[:])
 	if err != nil {
 		srv.logger.Errorw("failed to convert object id to uuid", "error", err, "object_id", acc.ID.String())
-		return nil, status.Error(codes.Internal, "failed to authenticate")
+		return nil, status.Error(codes.Internal, "could not authenticate user")
 	}
 
-	ss, err := srv.auth.SignToken(&auth.Token{UserID: uid})
+	tokenString, err := srv.auth.SignToken(&auth.Token{UserID: uid})
 	if err != nil {
 		srv.logger.Errorw("could not sign token", "error", err, "email", in.Email)
-		return nil, status.Errorf(codes.Internal, "unexpected failure")
+		return nil, status.Errorf(codes.Internal, "could not authenticate user")
 	}
 
-	return &accountspb.AuthenticateReply{
-		Token: ss,
-	}, nil
+	return &accountspb.AuthenticateReply{Token: tokenString}, nil
 }
 
 func (srv *accountsService) authenticate(ctx context.Context) (*auth.Token, error) {
