@@ -36,6 +36,10 @@ type Service interface {
 	// ContextWithToken returns a copy of parent in which a new value for the
 	// key 'noted-token' is set to a string encoded JWT.
 	ContextWithToken(parent context.Context, info *Token) (context.Context, error)
+
+	// SignToken returns a signed JWT string containing the payload
+	// of info.
+	SignToken(info *Token) (string, error)
 }
 
 // NewService creates a new authentication service which encodes/decodes
@@ -83,10 +87,14 @@ func (srv *service) TokenFromContext(ctx context.Context) (*Token, error) {
 }
 
 func (srv *service) ContextWithToken(parent context.Context, info *Token) (context.Context, error) {
-	token := jwt.NewWithClaims(&jwt.SigningMethodEd25519{}, info)
-	ss, err := token.SignedString(srv.key)
+	ss, err := srv.SignToken(info)
 	if err != nil {
 		return nil, err
 	}
 	return metadata.AppendToOutgoingContext(parent, AuthorizationHeaderKey, ss), nil
+}
+
+func (srv *service) SignToken(info *Token) (string, error) {
+	jwtTok := jwt.NewWithClaims(&jwt.SigningMethodEd25519{}, info)
+	return jwtTok.SignedString(srv.key)
 }

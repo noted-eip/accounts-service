@@ -1,6 +1,7 @@
 package main
 
 import (
+	"accounts-service/auth"
 	"accounts-service/grpc/accountspb"
 	"accounts-service/models"
 
@@ -16,6 +17,7 @@ import (
 	"log"
 
 	"github.com/jinzhu/copier"
+	"go.uber.org/zap"
 
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -25,6 +27,20 @@ import (
 
 type accountsService struct {
 	accountspb.UnimplementedAccountsServiceServer
+
+	auth   auth.Service
+	logger *zap.SugaredLogger
+}
+
+type Account struct {
+	ID       primitive.ObjectID `bson:"_id,omitempty" json:"_id,omitempty"`
+	Email    string             `bson:"email,omitempty" json:"email,omitempty"`
+	Name     string             `bson:"name,omitempty" json:"name,omitempty"`
+	Password []byte             `bson:"password,omitempty" json:"password,omitempty"`
+}
+
+type MongoId struct {
+	ID primitive.ObjectID `bson:"_id,omitempty"`
 }
 
 type Account struct {
@@ -68,7 +84,10 @@ func (srv *accountsService) CreateAccount(ctx context.Context, in *accountspb.Cr
 
 // Return Account associate to specify Id
 func (srv *accountsService) GetAccount(ctx context.Context, in *accountspb.GetAccountRequest) (*accountspb.Account, error) {
-	var account Account
+	_, err := srv.authenticate(ctx)
+	if err != nil {
+		return nil, err
+	}
 
 	_id, err := primitive.ObjectIDFromHex(in.GetId())
 	if err != nil {
@@ -76,6 +95,7 @@ func (srv *accountsService) GetAccount(ctx context.Context, in *accountspb.GetAc
 		return nil, status.Errorf(codes.InvalidArgument, err.Error())
 	}
 
+	var account Account
 	err = models.AccountsDatabase.Collection("accounts").FindOne(context.TODO(), MongoId{_id}).Decode(&account)
 	if err != nil {
 		log.Print("[ERR] ", err.Error())
@@ -87,6 +107,10 @@ func (srv *accountsService) GetAccount(ctx context.Context, in *accountspb.GetAc
 
 // Update accounts from updateMask
 func (srv *accountsService) UpdateAccount(ctx context.Context, in *accountspb.UpdateAccountRequest) (*accountspb.Account, error) {
+	_, err := srv.authenticate(ctx)
+	if err != nil {
+		return nil, err
+	}
 
 	fieldMask := in.GetUpdateMask()
 	fieldMask.Normalize()
@@ -105,6 +129,7 @@ func (srv *accountsService) UpdateAccount(ctx context.Context, in *accountspb.Up
 	var protoAccount accountspb.Account
 
 	err := models.AccountsDatabase.Collection("accounts").FindOne(context.TODO(), MongoId{_id}).Decode(&protoAccount)
+
 	if err != nil {
 		log.Print("[ERR] ", err.Error())
 		return nil, status.Errorf(codes.InvalidArgument, err.Error())
@@ -116,10 +141,10 @@ func (srv *accountsService) UpdateAccount(ctx context.Context, in *accountspb.Up
 	// Exclude id variable from account message to Account schema (id != _id).
 	copier.Copy(&account, &protoAccount)
 	// The User can now be saved in a database.
-	_, errUpdate := models.AccountsDatabase.Collection("accounts").UpdateOne(ctx, MongoId{_id}, bson.D{{Key: "$set", Value: &account}})
-	if errUpdate != nil {
-		log.Print("[ERR] ", errUpdate.Error())
-		return nil, status.Errorf(codes.InvalidArgument, errUpdate.Error())
+	_, err = models.AccountsDatabase.Collection("accounts").UpdateOne(ctx, MongoId{_id}, bson.D{{Key: "$set", Value: &account}})
+	if err != nil {
+		log.Print("[ERR] ", err.Error())
+		return nil, status.Errorf(codes.InvalidArgument, err.Error())
 	}
 
 	return &accountspb.Account{Email: account.Email, Name: account.Name, Id: account.ID.String()}, nil
@@ -127,6 +152,11 @@ func (srv *accountsService) UpdateAccount(ctx context.Context, in *accountspb.Up
 
 // Delete Account associate to specify Id
 func (srv *accountsService) DeleteAccount(ctx context.Context, in *accountspb.DeleteAccountRequest) (*emptypb.Empty, error) {
+	_, err := srv.authenticate(ctx)
+	if err != nil {
+		return nil, err
+	}
+
 	_id, err := primitive.ObjectIDFromHex(in.GetId())
 	if err != nil {
 		log.Print("[ERR] ", err.Error())
@@ -143,5 +173,22 @@ func (srv *accountsService) DeleteAccount(ctx context.Context, in *accountspb.De
 }
 
 func (srv *accountsService) Authenticate(ctx context.Context, in *accountspb.AuthenticateRequest) (*accountspb.AuthenticateReply, error) {
-	return nil, status.Errorf(codes.Unimplemented, "not implemented")
+	ss, err := srv.auth.SignToken(&auth.Token{})
+	if err != nil {
+		srv.logger.Errorw("could not sign token", "error", err, "email", in.Email)
+		return nil, status.Errorf(codes.Internal, "unexpected failure")
+	}
+
+	return &accountspb.AuthenticateReply{
+		Token: ss,
+	}, nil
+}
+
+func (srv *accountsService) authenticate(ctx context.Context) (*auth.Token, error) {
+	token, err := srv.auth.TokenFromContext(ctx)
+	if err != nil {
+		srv.logger.Infow("could not authenticate request", "error", err)
+		return nil, status.Error(codes.Unauthenticated, err.Error())
+	}
+	return token, nil
 }
