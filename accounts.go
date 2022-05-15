@@ -43,6 +43,17 @@ type MongoId struct {
 	ID primitive.ObjectID `bson:"_id,omitempty"`
 }
 
+type Account struct {
+	ID       primitive.ObjectID `bson:"_id,omitempty" json:"_id,omitempty"`
+	Email    string             `bson:"email,omitempty" json:"email,omitempty"`
+	Name     string             `bson:"name,omitempty" json:"name,omitempty"`
+	Password []byte             `bson:"password,omitempty" json:"password,omitempty"`
+}
+
+type MongoId struct {
+	ID primitive.ObjectID `bson:"_id,omitempty"`
+}
+
 var _ accountspb.AccountsServiceServer = &accountsService{}
 
 // Create an Account from username, password and email
@@ -109,14 +120,16 @@ func (srv *accountsService) UpdateAccount(ctx context.Context, in *accountspb.Up
 	}
 	fmutils.Filter(in.GetAccount(), fieldMask.GetPaths())
 
-	_id, err := primitive.ObjectIDFromHex(in.GetAccount().GetId())
-	if err != nil {
-		log.Print("[ERR] ", err.Error())
-		return nil, status.Errorf(codes.InvalidArgument, err.Error())
+	_id, errId := primitive.ObjectIDFromHex(in.GetAccount().GetId())
+	if errId != nil {
+		log.Print("[ERR] ", errId.Error())
+		return nil, status.Errorf(codes.InvalidArgument, errId.Error())
 	}
 
 	var protoAccount accountspb.Account
-	err = models.AccountsDatabase.Collection("accounts").FindOne(context.TODO(), MongoId{_id}).Decode(&protoAccount)
+
+	err := models.AccountsDatabase.Collection("accounts").FindOne(context.TODO(), MongoId{_id}).Decode(&protoAccount)
+
 	if err != nil {
 		log.Print("[ERR] ", err.Error())
 		return nil, status.Errorf(codes.InvalidArgument, err.Error())

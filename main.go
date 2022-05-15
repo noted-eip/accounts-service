@@ -13,6 +13,7 @@ import (
 	"accounts-service/models"
 
 	_ "github.com/joho/godotenv/autoload"
+
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 	"google.golang.org/grpc"
