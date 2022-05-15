@@ -34,10 +34,10 @@ type accountsService struct {
 }
 
 type Account struct {
-	ID       primitive.ObjectID `bson:"_id,omitempty" json:"_id,omitempty"`
-	Email    string             `bson:"email,omitempty" json:"email,omitempty"`
-	Name     string             `bson:"name,omitempty" json:"name,omitempty"`
-	Password []byte             `bson:"password,omitempty" json:"password,omitempty"`
+	ID    primitive.ObjectID `bson:"_id,omitempty" json:"_id,omitempty"`
+	Email string             `bson:"email,omitempty" json:"email,omitempty"`
+	Name  string             `bson:"name,omitempty" json:"name,omitempty"`
+	Hash  []byte             `bson:"hash,omitempty" json:"hash,omitempty"`
 }
 
 type MongoId struct {
@@ -57,13 +57,13 @@ func (srv *accountsService) CreateAccount(ctx context.Context, in *accountspb.Cr
 	collection := models.AccountsDatabase.Collection("accounts")
 
 	// hash password for storage
-	hashed, err := bcrypt.GenerateFromPassword([]byte(in.GetPassword()), 8)
+	hashed, err := bcrypt.GenerateFromPassword([]byte(in.Password), 8)
 	if err != nil {
 		srv.logger.Errorw("bcrypt failed to hash password", "error", err.Error())
 		return nil, status.Errorf(codes.Internal, "could not create account")
 	}
 
-	_, err = collection.InsertOne(context.TODO(), Account{Email: in.Email, Name: in.Name, Password: hashed})
+	_, err = collection.InsertOne(context.TODO(), Account{Email: in.Email, Name: in.Name, Hash: hashed})
 	if err != nil {
 		srv.logger.Errorw("failed to insert account in db", "error", err.Error(), "email", in.Email)
 		return nil, status.Errorf(codes.Internal, err.Error())
