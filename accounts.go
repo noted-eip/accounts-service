@@ -4,22 +4,18 @@ import (
 	"accounts-service/auth"
 	"accounts-service/grpc/accountspb"
 	"accounts-service/models"
+	"context"
 	"errors"
 
 	val "accounts-service/validators"
 
+	"github.com/jinzhu/copier"
 	"github.com/mennanov/fmutils"
-
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
-	"golang.org/x/crypto/bcrypt"
-
-	"context"
-
-	"github.com/jinzhu/copier"
 	"go.uber.org/zap"
-
+	"golang.org/x/crypto/bcrypt"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/proto"
@@ -54,8 +50,6 @@ func (srv *accountsService) CreateAccount(ctx context.Context, in *accountspb.Cr
 		return nil, status.Errorf(codes.InvalidArgument, err.Error())
 	}
 
-	collection := models.AccountsDatabase.Collection("accounts")
-
 	// hash password for storage
 	hashed, err := bcrypt.GenerateFromPassword([]byte(in.Password), 8)
 	if err != nil {
@@ -63,7 +57,8 @@ func (srv *accountsService) CreateAccount(ctx context.Context, in *accountspb.Cr
 		return nil, status.Errorf(codes.Internal, "could not create account")
 	}
 
-	_, err = collection.InsertOne(context.TODO(), Account{Email: in.Email, Name: in.Name, Hash: hashed})
+	collection := models.AccountsDatabase.Collection("accounts")
+	_, err = collection.InsertOne(ctx, Account{Email: in.Email, Name: in.Name, Hash: hashed})
 	if err != nil {
 		srv.logger.Errorw("failed to insert account in db", "error", err.Error(), "email", in.Email)
 		return nil, status.Errorf(codes.Internal, err.Error())
@@ -79,14 +74,14 @@ func (srv *accountsService) GetAccount(ctx context.Context, in *accountspb.GetAc
 		return nil, err
 	}
 
-	_id, err := primitive.ObjectIDFromHex(in.GetId())
+	_id, err := primitive.ObjectIDFromHex(in.Id)
 	if err != nil {
 		srv.logger.Debugw("failed to convert object id from hex", "error", err.Error())
 		return nil, status.Errorf(codes.InvalidArgument, err.Error())
 	}
 
 	var account Account
-	err = models.AccountsDatabase.Collection("accounts").FindOne(context.TODO(), MongoId{_id}).Decode(&account)
+	err = models.AccountsDatabase.Collection("accounts").FindOne(ctx, MongoId{_id}).Decode(&account)
 	if err != nil {
 		if errors.Is(err, mongo.ErrNoDocuments) {
 			srv.logger.Debugw("invalid create account request", "error", err.Error())
@@ -122,7 +117,7 @@ func (srv *accountsService) UpdateAccount(ctx context.Context, in *accountspb.Up
 
 	var protoAccount accountspb.Account
 
-	err = models.AccountsDatabase.Collection("accounts").FindOne(context.TODO(), MongoId{_id}).Decode(&protoAccount)
+	err = models.AccountsDatabase.Collection("accounts").FindOne(ctx, MongoId{_id}).Decode(&protoAccount)
 
 	if err != nil {
 		srv.logger.Debugw("failed to convert object id from hex", "error", err.Error())
@@ -157,7 +152,7 @@ func (srv *accountsService) DeleteAccount(ctx context.Context, in *accountspb.De
 		return nil, status.Errorf(codes.InvalidArgument, err.Error())
 	}
 
-	_, err = models.AccountsDatabase.Collection("accounts").DeleteOne(context.TODO(), MongoId{_id})
+	_, err = models.AccountsDatabase.Collection("accounts").DeleteOne(ctx, MongoId{_id})
 	if err != nil {
 		srv.logger.Errorw("failed to convert object id from hex", "error", err.Error())
 		return nil, status.Errorf(codes.InvalidArgument, err.Error())

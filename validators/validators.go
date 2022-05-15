@@ -7,7 +7,6 @@ import (
 	"github.com/go-ozzo/ozzo-validation/v4/is"
 )
 
-//Basic check for new account information
 func ValidateCreateAccountRequest(in *accountspb.CreateAccountRequest) error {
 	return validation.ValidateStruct(in,
 		validation.Field(&in.Name, validation.Required, validation.Length(4, 20)),
