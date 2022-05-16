@@ -3,7 +3,6 @@ module accounts-service
 go 1.18
 
 require (
-	github.com/go-ozzo/ozzo-validation v3.6.0+incompatible
 	github.com/go-ozzo/ozzo-validation/v4 v4.3.0
 	github.com/google/uuid v1.1.2
 	github.com/jinzhu/copier v0.3.5
