@@ -13,11 +13,8 @@ import (
 // in interceptor
 var AccountsDatabase *mongo.Database = nil
 
-// .env
-var mongoUri string = "mongodb+srv://noted-maxime:VpMZr5O1BW3z2kf4@clusteraccount.muiuh.mongodb.net/ClusterAccount?retryWrites=true&w=majority"
-
-func Init() {
-	client, err := mongo.NewClient(options.Client().ApplyURI(mongoUri))
+func Init(databaseUri string) {
+	client, err := mongo.NewClient(options.Client().ApplyURI(databaseUri))
 	if err != nil {
 		log.Fatal(err)
 	}
