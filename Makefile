@@ -2,6 +2,10 @@
 codegen: update-submodules
 	docker run --rm -v `pwd`/grpc:/app/grpc -v `pwd`/misc:/app/misc -w /app noted-go-protoc /bin/sh -c misc/gen_proto.sh
 
+# Run MongoDB database as a docker container
+run-db:
+	docker run --detach --publish 27017:27017 mongo
+
 # Fetch the latest version of the protos submodule.
 update-submodules:
 	git submodule update --remote
