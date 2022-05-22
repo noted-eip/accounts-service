@@ -12,6 +12,7 @@ import (
 	"accounts-service/auth"
 	"accounts-service/grpc/accountspb"
 	"accounts-service/models"
+	"accounts-service/models/mongo"
 
 	_ "github.com/joho/godotenv/autoload"
 
@@ -43,6 +44,8 @@ func main() {
 	logger := newLogger()
 	defer logger.Sync()
 
+	db := mongo.NewModels(logger)
+
 	srv := grpc.NewServer(
 		grpc.UnaryInterceptor(loggerUnaryInterceptor(logger)),
 	)
@@ -50,6 +53,7 @@ func main() {
 	accSrv := accountsService{
 		logger: logger,
 		auth:   authService,
+		db:     db,
 	}
 	accountspb.RegisterAccountsServiceServer(srv, &accSrv)
 

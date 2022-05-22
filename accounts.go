@@ -6,10 +6,10 @@ import (
 	"accounts-service/models"
 	"context"
 	"errors"
+	"fmt"
 
 	"accounts-service/validators"
 
-	"github.com/google/uuid"
 	"github.com/jinzhu/copier"
 	"github.com/mennanov/fmutils"
 	"go.mongodb.org/mongo-driver/bson"
@@ -21,6 +21,8 @@ import (
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/emptypb"
+
+	"github.com/google/uuid"
 )
 
 type accountsService struct {
@@ -28,13 +30,14 @@ type accountsService struct {
 
 	auth   auth.Service
 	logger *zap.SugaredLogger
+	db     models.AccountsRepository
 }
 
 type Account struct {
-	ID    primitive.ObjectID `bson:"_id,omitempty" json:"_id,omitempty"`
-	Email string             `bson:"email,omitempty" json:"email,omitempty"`
-	Name  string             `bson:"name,omitempty" json:"name,omitempty"`
-	Hash  []byte             `bson:"hash,omitempty" json:"hash,omitempty"`
+	ID    uuid.UUID `bson:"_id,omitempty" json:"_id,omitempty"`
+	Email string    `bson:"email,omitempty" json:"email,omitempty"`
+	Name  string    `bson:"name,omitempty" json:"name,omitempty"`
+	Hash  []byte    `bson:"hash,omitempty" json:"hash,omitempty"`
 }
 
 type MongoId struct {
@@ -55,11 +58,7 @@ func (srv *accountsService) CreateAccount(ctx context.Context, in *accountspb.Cr
 		return nil, status.Errorf(codes.Internal, "could not create account")
 	}
 
-	_, err = models.AccountsDatabase.Collection("accounts").InsertOne(ctx, Account{Email: in.Email, Name: in.Name, Hash: hashed})
-	if err != nil {
-		srv.logger.Errorw("failed to insert account in db", "error", err.Error(), "email", in.Email)
-		return nil, status.Errorf(codes.Internal, "could not create account")
-	}
+	srv.db.Create(ctx, &models.AccountPayload{Email: &in.Email, Name: &in.Name, Hash: &hashed})
 
 	return &emptypb.Empty{}, nil
 }
@@ -75,27 +74,35 @@ func (srv *accountsService) GetAccount(ctx context.Context, in *accountspb.GetAc
 		return nil, status.Errorf(codes.InvalidArgument, err.Error())
 	}
 
-	_id, err := primitive.ObjectIDFromHex(in.Id)
-	if err != nil {
-		srv.logger.Errorw("failed to convert object id from hex", "error", err.Error())
-		return nil, status.Errorf(codes.Internal, "could not get account")
-	}
+	// _id, err := primitive.ObjectIDFromHex(in.Id)
+	// if err != nil {
+	// 	srv.logger.Errorw("failed to convert object id from hex", "error", err.Error())
+	// 	return nil, status.Errorf(codes.Internal, "could not get account")
+	// }
 
-	var account Account
-	err = models.AccountsDatabase.Collection("accounts").FindOne(ctx, MongoId{_id}).Decode(&account)
+	// var account Account
+	// err = models.AccountsDatabase.Collection("accounts").FindOne(ctx, MongoId{_id}).Decode(&account)
+	// if err != nil {
+	// 	if errors.Is(err, mongo.ErrNoDocuments) {
+	// 		return nil, status.Errorf(codes.NotFound, "account not found")
+	// 	}
+	// 	srv.logger.Errorw("unable to query accounts", "error", err.Error())
+	// 	return nil, status.Errorf(codes.InvalidArgument, err.Error())
+	// }
+
+	uuid, err := uuid.FromBytes([]byte(in.Id))
 	if err != nil {
-		if errors.Is(err, mongo.ErrNoDocuments) {
-			return nil, status.Errorf(codes.NotFound, "account not found")
-		}
-		srv.logger.Errorw("unable to query accounts", "error", err.Error())
+		srv.logger.Errorw("failed to convert uuid from hex", "error", err.Error())
 		return nil, status.Errorf(codes.InvalidArgument, err.Error())
 	}
 
-	if token.UserID.String() != account.ID.Hex() && token.Role != auth.RoleAdmin {
+	account, err := srv.db.Get(ctx, &models.OneAccountFilter{ID: uuid, Email: in.Email})
+
+	if token.UserID.String() != account.ID.String() && token.Role != auth.RoleAdmin {
 		return nil, status.Errorf(codes.NotFound, "account not found")
 	}
 
-	return &accountspb.Account{Email: account.Email, Name: account.Name, Id: account.ID.Hex()}, nil
+	return &accountspb.Account{Email: account.Email, Name: account.Name, Id: account.ID.String()}, nil
 }
 
 func (srv *accountsService) UpdateAccount(ctx context.Context, in *accountspb.UpdateAccountRequest) (*accountspb.Account, error) {
@@ -191,7 +198,7 @@ func (srv *accountsService) DeleteAccount(ctx context.Context, in *accountspb.De
 
 func (srv *accountsService) Authenticate(ctx context.Context, in *accountspb.AuthenticateRequest) (*accountspb.AuthenticateReply, error) {
 	query := models.AccountsDatabase.Collection("accounts").FindOne(ctx, bson.M{"email": in.Email}, nil)
-
+	//ADD VALIDATOR
 	acc := Account{}
 	err := query.Decode(&acc)
 	if err != nil {
@@ -201,7 +208,12 @@ func (srv *accountsService) Authenticate(ctx context.Context, in *accountspb.Aut
 		srv.logger.Errorw("get account db query failed", "error", err, "email", in.Email)
 		return nil, status.Errorf(codes.Internal, "could not authenticate user")
 	}
+	fmt.Println("email = ", acc.Email)
+	fmt.Println("id = ", acc.ID)
+	fmt.Println("hash = ", acc.Hash)
+	fmt.Println("name = ", acc.Name)
 
+	fmt.Println("Password", in.Password)
 	err = bcrypt.CompareHashAndPassword(acc.Hash, []byte(in.Password))
 	if err != nil {
 		return nil, status.Errorf(codes.InvalidArgument, "wrong password or email")
@@ -210,13 +222,13 @@ func (srv *accountsService) Authenticate(ctx context.Context, in *accountspb.Aut
 	uid, err := uuid.FromBytes(acc.ID[:])
 	if err != nil {
 		srv.logger.Errorw("failed to convert object id to uuid", "error", err, "object_id", acc.ID.String())
-		return nil, status.Error(codes.Internal, "could not authenticate user")
+		return nil, status.Error(codes.Internal, "could ss not authenticate user")
 	}
 
 	tokenString, err := srv.auth.SignToken(&auth.Token{UserID: uid})
 	if err != nil {
 		srv.logger.Errorw("could not sign token", "error", err, "email", in.Email)
-		return nil, status.Errorf(codes.Internal, "could not authenticate user")
+		return nil, status.Errorf(codes.Internal, "could aa not authenticate user")
 	}
 
 	return &accountspb.AuthenticateReply{Token: tokenString}, nil
