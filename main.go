@@ -32,7 +32,7 @@ var (
 	jwtPrivateKey = app.Flag("jwt-private-key", "base64 encoded ed25519 private key").Default("SGfCQAb05CtmhEesWxcrfXSQR6JjmEMeyjR7Mo21S60ZDW9VVTUuCvEMlGjlqiw4I/z8T11KqAXexvGIPiuffA==").String()
 	port          = app.Flag("port", "grpc server port").Default("3000").Int16()
 	databaseUri   = app.Flag("database-uri", "uri of the database").Default("mongodb://localhost:27017").String()
-	environment   = app.Flag("environment", "either development or production").Default("development").String()
+	environment   = app.Flag("env", "either development or production").Default("production").String()
 )
 
 func main() {
@@ -68,9 +68,9 @@ func newLogger() *zap.SugaredLogger {
 	var logger *zap.Logger
 	var err error
 	if *environment == "development" {
-		logger, err = zap.NewDevelopment(zap.AddCaller(), zap.AddStacktrace(zapcore.FatalLevel))
+		logger, err = zap.NewDevelopment(zap.AddStacktrace(zapcore.FatalLevel))
 	} else {
-		logger, err = zap.NewProduction(zap.AddCaller(), zap.AddStacktrace(zapcore.FatalLevel))
+		logger, err = zap.NewProduction(zap.AddStacktrace(zapcore.FatalLevel))
 	}
 	if err != nil {
 		panic("unable to create logger: " + err.Error())
