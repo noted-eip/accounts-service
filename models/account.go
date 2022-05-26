@@ -6,13 +6,13 @@ import (
 	"context"
 
 	"github.com/google/uuid"
-	"google.golang.org/protobuf/types/known/fieldmaskpb"
 )
 
 type Account struct {
 	ID    uuid.UUID `json:"id" bson:"_id,omitempty"`
 	Email string    `json:"email" bson:"email,omitempty"`
 	Name  string    `json:"name" bson:"name,omitempty"`
+	Hash  *[]byte   `json:"hash" bson:"hash,omitempty"`
 }
 
 type AccountPayload struct {
@@ -36,7 +36,7 @@ type AccountsRepository interface {
 
 	Delete(ctx context.Context, filter *OneAccountFilter) error
 
-	Update(ctx context.Context, filter *OneAccountFilter, account *AccountPayload, mask *fieldmaskpb.FieldMask) error
+	Update(ctx context.Context, filter *OneAccountFilter, account *AccountPayload) error
 
 	List(ctx context.Context) (*[]Account, error)
 }
