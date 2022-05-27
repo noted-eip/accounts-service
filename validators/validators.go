@@ -18,18 +18,15 @@ func ValidateCreateAccountRequest(in *accountspb.CreateAccountRequest) error {
 func ValidateGetAccountRequest(in *accountspb.GetAccountRequest) error {
 	return validation.ValidateStruct(in,
 		validation.Field(&in.Id, validation.When(in.Email == "", validation.Required), is.UUID),
-		// validation.Field(&in.Email, validation.By(func(value interface{}) error {
-		// 	return errors.New("get account by email is unimplemented")
-		// })),
+		validation.Field(&in.Email, validation.When(in.Id == "", validation.Required), is.Email),
 	)
 }
 
 func ValidateUpdateAccountRequest(in *accountspb.UpdateAccountRequest) error {
 	return validation.Validate(in.Account.Id,
-		validation.Required, // not empty
+		validation.Required,
 		is.UUID,
 	)
-
 }
 
 func ValidateDeleteAccountRequest(in *accountspb.DeleteAccountRequest) error {

@@ -27,7 +27,7 @@ type accountsRepository struct {
 	logger *zap.SugaredLogger
 }
 
-func NewModels(log *zap.SugaredLogger) models.AccountsRepository {
+func NewAccountsRepository(log *zap.SugaredLogger) models.AccountsRepository {
 	return &accountsRepository{logger: log}
 }
 
@@ -118,27 +118,23 @@ func (srv *accountsRepository) Update(ctx context.Context, filter *models.OneAcc
 
 func (srv *accountsRepository) List(ctx context.Context) (*[]models.Account, error) {
 	var accounts []account
-	cursors, err := models.AccountsDatabase.Collection("accounts").Find(ctx, bson.D{})
+	cursor, err := models.AccountsDatabase.Collection("accounts").Find(ctx, bson.D{})
 	if err != nil {
 		srv.logger.Errorw("failed get documents ", "error", err.Error())
 		return &[]models.Account{}, status.Errorf(codes.Internal, err.Error())
 	}
 
-	for cursors.Next(ctx) {
+	defer cursor.Close(ctx)
+
+	for cursor.Next(ctx) {
 		var elem account
 		//Create a value into which the single document can be decoded
-		err := cursors.Decode(&elem)
+		err := cursor.Decode(&elem)
 		if err != nil {
-			srv.logger.Errorw("list account error in cursors decode", "error")
+			srv.logger.Errorw("list account error in cursor decode", "error", err.Error())
 		}
 		accounts = append(accounts, elem)
 	}
-
-	if err := cursors.Err(); err != nil {
-		srv.logger.Errorw("failed to close cursors", "error")
-	}
-	//Close the cursor once finished
-	cursors.Close(ctx)
 
 	return &[]models.Account{}, nil
 }

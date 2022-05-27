@@ -10,7 +10,6 @@ import (
 
 	"github.com/jinzhu/copier"
 	"github.com/mennanov/fmutils"
-	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.uber.org/zap"
 	"golang.org/x/crypto/bcrypt"
 	"google.golang.org/grpc/codes"
@@ -26,18 +25,7 @@ type accountsService struct {
 
 	auth   auth.Service
 	logger *zap.SugaredLogger
-	db     models.AccountsRepository
-}
-
-type Account struct {
-	ID    uuid.UUID `bson:"_id,omitempty" json:"_id,omitempty"`
-	Email string    `bson:"email,omitempty" json:"email,omitempty"`
-	Name  string    `bson:"name,omitempty" json:"name,omitempty"`
-	Hash  []byte    `bson:"hash,omitempty" json:"hash,omitempty"`
-}
-
-type MongoId struct {
-	ID primitive.ObjectID `bson:"_id,omitempty"`
+	repo   models.AccountsRepository
 }
 
 var _ accountspb.AccountsServiceServer = &accountsService{}
@@ -54,7 +42,7 @@ func (srv *accountsService) CreateAccount(ctx context.Context, in *accountspb.Cr
 		return nil, status.Errorf(codes.Internal, "could not create account")
 	}
 
-	srv.db.Create(ctx, &models.AccountPayload{Email: &in.Email, Name: &in.Name, Hash: &hashed})
+	srv.repo.Create(ctx, &models.AccountPayload{Email: &in.Email, Name: &in.Name, Hash: &hashed})
 
 	return &emptypb.Empty{}, nil
 }
@@ -70,13 +58,13 @@ func (srv *accountsService) GetAccount(ctx context.Context, in *accountspb.GetAc
 		return nil, status.Errorf(codes.InvalidArgument, err.Error())
 	}
 
-	uuid, err := uuid.Parse(in.Id)
+	id, err := uuid.Parse(in.Id)
 	if err != nil {
 		srv.logger.Errorw("failed to convert uuid from string", "error", err.Error())
 		return nil, status.Errorf(codes.Internal, "could not get account")
 	}
 
-	account, err := srv.db.Get(ctx, &models.OneAccountFilter{ID: uuid, Email: in.Email})
+	account, err := srv.repo.Get(ctx, &models.OneAccountFilter{ID: id, Email: in.Email})
 	if err != nil {
 		srv.logger.Errorw("failed to get account", "error", err.Error())
 		return nil, status.Errorf(codes.Internal, "could not get account")
@@ -104,7 +92,7 @@ func (srv *accountsService) UpdateAccount(ctx context.Context, in *accountspb.Up
 		return nil, status.Errorf(codes.NotFound, "account not found")
 	}
 
-	uuid, err := uuid.Parse(in.Account.Id)
+	id, err := uuid.Parse(in.Account.Id)
 	if err != nil {
 		srv.logger.Errorw("failed to convert uuid from string", "error", err.Error())
 		return nil, status.Errorf(codes.Internal, "could not update account")
@@ -117,7 +105,7 @@ func (srv *accountsService) UpdateAccount(ctx context.Context, in *accountspb.Up
 	}
 	fmutils.Filter(in.GetAccount(), fieldMask.GetPaths())
 
-	acc, err := srv.db.Get(ctx, &models.OneAccountFilter{ID: uuid})
+	acc, err := srv.repo.Get(ctx, &models.OneAccountFilter{ID: id})
 	if err != nil {
 		srv.logger.Errorw("failed to get account", "error", err.Error())
 		return nil, status.Errorf(codes.Internal, "could not update account")
@@ -127,12 +115,12 @@ func (srv *accountsService) UpdateAccount(ctx context.Context, in *accountspb.Up
 	copier.Copy(&protoAccount, &acc)
 	proto.Merge(&protoAccount, in.Account)
 
-	err = srv.db.Update(ctx, &models.OneAccountFilter{ID: uuid}, &models.AccountPayload{Email: &protoAccount.Email, Name: &protoAccount.Name})
+	err = srv.repo.Update(ctx, &models.OneAccountFilter{ID: id}, &models.AccountPayload{Email: &protoAccount.Email, Name: &protoAccount.Name})
 	if err != nil {
 		srv.logger.Errorw("failed to update account", "error", err.Error())
 		return nil, status.Errorf(codes.Internal, "could not update account")
 	}
-	return &accountspb.Account{Email: protoAccount.Email, Name: protoAccount.Name, Id: uuid.String()}, nil
+	return &accountspb.Account{Email: protoAccount.Email, Name: protoAccount.Name, Id: id.String()}, nil
 }
 
 func (srv *accountsService) DeleteAccount(ctx context.Context, in *accountspb.DeleteAccountRequest) (*emptypb.Empty, error) {
@@ -150,13 +138,13 @@ func (srv *accountsService) DeleteAccount(ctx context.Context, in *accountspb.De
 		return nil, status.Errorf(codes.NotFound, "account not found")
 	}
 
-	uuid, err := uuid.Parse(in.Id)
+	id, err := uuid.Parse(in.Id)
 	if err != nil {
 		srv.logger.Errorw("failed to convert uuid from string", "error", err.Error())
 		return nil, status.Errorf(codes.Internal, "could not delete account")
 	}
 
-	err = srv.db.Delete(ctx, &models.OneAccountFilter{ID: uuid})
+	err = srv.repo.Delete(ctx, &models.OneAccountFilter{ID: id})
 	if err != nil {
 		srv.logger.Errorw("failed to delete account", "error", err.Error())
 		return nil, status.Errorf(codes.Internal, "could not delete account")
@@ -167,7 +155,7 @@ func (srv *accountsService) DeleteAccount(ctx context.Context, in *accountspb.De
 
 func (srv *accountsService) Authenticate(ctx context.Context, in *accountspb.AuthenticateRequest) (*accountspb.AuthenticateReply, error) {
 
-	acc, err := srv.db.Get(ctx, &models.OneAccountFilter{Email: in.Email})
+	acc, err := srv.repo.Get(ctx, &models.OneAccountFilter{Email: in.Email})
 	if err != nil {
 		srv.logger.Errorw("failed to get account", "error", err.Error())
 		return nil, status.Errorf(codes.Internal, "could not get account")

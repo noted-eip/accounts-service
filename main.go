@@ -44,7 +44,7 @@ func main() {
 	logger := newLogger()
 	defer logger.Sync()
 
-	db := mongo.NewModels(logger)
+	repo := mongo.NewAccountsRepository(logger)
 
 	srv := grpc.NewServer(
 		grpc.UnaryInterceptor(loggerUnaryInterceptor(logger)),
@@ -53,7 +53,7 @@ func main() {
 	accSrv := accountsService{
 		logger: logger,
 		auth:   authService,
-		db:     db,
+		repo:   repo,
 	}
 	accountspb.RegisterAccountsServiceServer(srv, &accSrv)
 
