@@ -9,8 +9,6 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
 )
 
 func TestAccountsServiceCreateAccount(t *testing.T) {
@@ -19,10 +17,9 @@ func TestAccountsServiceCreateAccount(t *testing.T) {
 		logger: zap.NewNop().Sugar(),
 	}
 
-	res, err := srv.CreateAccount(context.TODO(), &accountspb.CreateAccountRequest{})
-	require.Error(t, err)
-	require.Equal(t, status.Code(err), codes.Unimplemented)
-	require.Nil(t, res)
+	res, err := srv.CreateAccount(context.TODO(), &accountspb.CreateAccountRequest{Email: "mail.test@gmail.com", Password: "password", Name: "Maxime"})
+	require.Nil(t, err)
+	require.Empty(t, res)
 }
 
 func genKeyOrFail(t *testing.T) ed25519.PrivateKey {
