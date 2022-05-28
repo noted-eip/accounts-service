@@ -102,7 +102,7 @@ func (s *server) initRepositories() {
 	var err error
 	s.mongoDB, err = mongo.NewDatabase(context.Background(), *mongoUri, *mongoDbName, s.logger)
 	must(err, "could not instantiate mongo database")
-	s.accountsRepository = mongo.NewAccountsRepository(s.mongoDB.DB, s.slogger)
+	s.accountsRepository = mongo.NewAccountsRepository(s.mongoDB.DB, s.logger)
 }
 
 func (s *server) initAccountsService() {
