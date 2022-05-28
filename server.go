@@ -3,6 +3,7 @@ package main
 import (
 	"accounts-service/auth"
 	"accounts-service/grpc/accountspb"
+	"accounts-service/grpc/groupspb"
 	"accounts-service/models"
 	"accounts-service/models/mongo"
 	"context"
@@ -30,6 +31,7 @@ type server struct {
 
 	accountsRepository models.AccountsRepository
 	accountsService    accountspb.AccountsServiceServer
+	groupsService      groupspb.GroupServiceServer
 
 	grpcServer *grpc.Server
 }
@@ -40,6 +42,7 @@ func (s *server) Init(opt ...grpc.ServerOption) {
 	s.initAuthService()
 	s.initRepositories()
 	s.initAccountsService()
+	s.initGroupService()
 	s.initGrpcServer(opt...)
 }
 
@@ -113,9 +116,17 @@ func (s *server) initAccountsService() {
 	}
 }
 
+func (s *server) initGroupService() {
+	s.groupsService = &groupsService{
+		logger: s.slogger,
+		repo:   s.accountsRepository,
+	}
+}
+
 func (s *server) initGrpcServer(opt ...grpc.ServerOption) {
 	s.grpcServer = grpc.NewServer(opt...)
 	accountspb.RegisterAccountsServiceServer(s.grpcServer, s.accountsService)
+	groupspb.RegisterGroupServiceServer(s.grpcServer, s.groupsService)
 }
 
 func must(err error, msg string) {
