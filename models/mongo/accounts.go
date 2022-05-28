@@ -25,10 +25,14 @@ type account struct {
 
 type accountsRepository struct {
 	logger *zap.SugaredLogger
+	db     *mongo.Database
 }
 
-func NewAccountsRepository(log *zap.SugaredLogger) models.AccountsRepository {
-	return &accountsRepository{logger: log}
+func NewAccountsRepository(db *mongo.Database, log *zap.SugaredLogger) models.AccountsRepository {
+	return &accountsRepository{
+		db:     db,
+		logger: log,
+	}
 }
 
 func buildQuery(filter *models.OneAccountFilter) bson.M {

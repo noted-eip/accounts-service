@@ -26,6 +26,8 @@ type server struct {
 
 	authService auth.Service
 
+	mongoDB *mongo.Database
+
 	accountsRepository models.AccountsRepository
 	accountsService    accountspb.AccountsServiceServer
 
@@ -55,6 +57,7 @@ func (s *server) Run() {
 
 func (s *server) Close() {
 	s.logger.Sync()
+	s.mongoDB.Disconnect(context.Background())
 }
 
 func (s *server) LoggerUnaryInterceptor(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (interface{}, error) {
@@ -96,7 +99,10 @@ func (s *server) initAuthService() {
 }
 
 func (s *server) initRepositories() {
-	s.accountsRepository = mongo.NewAccountsRepository(s.slogger)
+	var err error
+	s.mongoDB, err = mongo.NewDatabase(context.Background(), *mongoUri, *mongoDbName, s.logger)
+	must(err, "could not instantiate mongo database")
+	s.accountsRepository = mongo.NewAccountsRepository(s.mongoDB.DB, s.slogger)
 }
 
 func (s *server) initAccountsService() {
