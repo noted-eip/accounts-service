@@ -56,8 +56,8 @@ func (s *server) Run() {
 
 func (s *server) Close() {
 	s.logger.Info("graceful shutdown")
-	s.logger.Sync()
 	s.mongoDB.Disconnect(context.Background())
+	s.logger.Sync()
 }
 
 func (s *server) LoggerUnaryInterceptor(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (interface{}, error) {
