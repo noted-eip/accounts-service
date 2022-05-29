@@ -8,8 +8,10 @@ import (
 	"context"
 	"crypto/ed25519"
 	"encoding/base64"
+	"errors"
 	"fmt"
 	"net"
+	"strings"
 	"time"
 
 	"go.uber.org/zap"
@@ -48,7 +50,7 @@ func (s *server) Run() {
 		panic(err)
 	}
 	reflection.Register(s.grpcServer)
-	s.slogger.Infof("running service on :%d", *port)
+	s.slogger.Infof("service running on :%d", *port)
 	if err := s.grpcServer.Serve(lis); err != nil {
 		panic(err)
 	}
@@ -64,10 +66,18 @@ func (s *server) LoggerUnaryInterceptor(ctx context.Context, req interface{}, in
 	start := time.Now()
 	res, err := handler(ctx, req)
 	end := time.Now()
+
+	st, ok := status.FromError(err)
+	if ok {
+		err = errors.New(st.Message())
+	}
+
+	method := info.FullMethod[strings.LastIndexByte(info.FullMethod, '/')+1:]
+
 	if err != nil {
 		s.logger.Warn("failed rpc",
 			zap.String("code", status.Code(err).String()),
-			zap.String("method", info.FullMethod),
+			zap.String("method", method),
 			zap.Duration("duration", end.Sub(start)),
 			zap.Error(err),
 		)
@@ -75,9 +85,10 @@ func (s *server) LoggerUnaryInterceptor(ctx context.Context, req interface{}, in
 	}
 	s.logger.Info("rpc",
 		zap.String("code", status.Code(err).String()),
-		zap.String("method", info.FullMethod),
+		zap.String("method", method),
 		zap.Duration("duration", end.Sub(start)),
 	)
+
 	return res, nil
 }
 
