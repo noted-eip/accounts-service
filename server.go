@@ -15,7 +15,6 @@ import (
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/peer"
 	"google.golang.org/grpc/reflection"
 	"google.golang.org/grpc/status"
 )
@@ -56,6 +55,7 @@ func (s *server) Run() {
 }
 
 func (s *server) Close() {
+	s.logger.Info("graceful shutdown")
 	s.logger.Sync()
 	s.mongoDB.Disconnect(context.Background())
 }
@@ -64,21 +64,21 @@ func (s *server) LoggerUnaryInterceptor(ctx context.Context, req interface{}, in
 	start := time.Now()
 	res, err := handler(ctx, req)
 	end := time.Now()
-
-	fields := []zapcore.Field{
-		zap.String("method", info.FullMethod),
-		zap.Duration("time", end.Sub(start)),
-	}
-	if peer, ok := peer.FromContext(ctx); ok {
-		fields = append(fields, zap.String("peer", peer.Addr.String()))
-	}
 	if err != nil {
-		fields = append(fields, zap.String("code", status.Code(err).String()), zap.String("error", err.Error()))
-		s.logger.Warn("failed rpc", fields...)
+		s.logger.Warn("failed rpc",
+			zap.String("code", status.Code(err).String()),
+			zap.String("method", info.FullMethod),
+			zap.Duration("duration", end.Sub(start)),
+			zap.Error(err),
+		)
 		return res, err
 	}
-	s.logger.Info("rpc", fields...)
-	return res, err
+	s.logger.Info("rpc",
+		zap.String("code", status.Code(err).String()),
+		zap.String("method", info.FullMethod),
+		zap.Duration("duration", end.Sub(start)),
+	)
+	return res, nil
 }
 
 func (s *server) initLogger() {

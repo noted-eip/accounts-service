@@ -5,8 +5,6 @@ import (
 
 	"accounts-service/auth"
 
-	_ "github.com/joho/godotenv/autoload"
-
 	"google.golang.org/grpc"
 	"gopkg.in/alecthomas/kingpin.v2"
 )
@@ -27,7 +25,7 @@ var (
 )
 
 func main() {
-	app.Parse(os.Args[1:])
+	kingpin.MustParse(app.Parse(os.Args[1:]))
 
 	s := &server{}
 	s.Init(grpc.ChainUnaryInterceptor(s.LoggerUnaryInterceptor, auth.ForwardAuthMetadatathUnaryInterceptor))
