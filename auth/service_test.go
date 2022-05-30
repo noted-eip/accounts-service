@@ -27,23 +27,24 @@ func Test_service_ContextWithToken(t *testing.T) {
 	// Then
 	require.NoError(t, err)
 
-	var tokenString string
+	var authHeader string
 
 	t.Run("there should be metadata in the context", func(t *testing.T) {
 		md, ok := metadata.FromOutgoingContext(ctx)
 		require.True(t, ok)
-		tokenString = md.Get(auth.AuthorizationHeaderKey)[0]
-		require.NotZero(t, tokenString)
+		authHeader = md.Get(auth.AuthorizationHeaderKey)[0]
+		require.NotZero(t, authHeader)
 	})
 
 	var claims *auth.Token
 
 	t.Run("the token should be valid and decodable with the public key", func(t *testing.T) {
+		tokenString, ok := auth.TokenFromAuthorizationHeader(authHeader)
+		require.True(t, ok)
 		tok, err := jwt.ParseWithClaims(tokenString, &auth.Token{}, func(*jwt.Token) (interface{}, error) {
 			return pub, nil
 		})
 		require.NoError(t, err)
-		var ok bool
 		claims, ok = tok.Claims.(*auth.Token)
 		require.True(t, ok)
 	})

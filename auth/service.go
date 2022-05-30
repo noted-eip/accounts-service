@@ -9,6 +9,7 @@ import (
 	"crypto/ed25519"
 	"errors"
 	"fmt"
+	"strings"
 
 	"github.com/golang-jwt/jwt"
 	"google.golang.org/grpc/metadata"
@@ -17,11 +18,15 @@ import (
 var (
 	ErrNoTokenInCtx    = errors.New("no token in context")
 	ErrNoMetadataInCtx = errors.New("no metadata in context")
-	ErrInvalidToken    = errors.New("invalid token")
+	ErrInvalidClaims   = errors.New("token has invalid claims")
 )
 
 const (
+	// The key inside the gRPC metadata which must contain the bearer token.
 	AuthorizationHeaderKey = "authorization"
+
+	// The value of the authorization header must be "Bearer <token>".
+	AuthorizationHeaderPrefix = "Bearer"
 )
 
 // Service is used to create JWTs for use with other services or to
@@ -61,10 +66,18 @@ func (srv *service) TokenFromContext(ctx context.Context) (*Token, error) {
 	}
 
 	values := md.Get(AuthorizationHeaderKey)
-	if len(values) == 0 {
+	tokenString := ""
+
+	for i := range values {
+		tokenString, ok = TokenFromAuthorizationHeader(values[i])
+		if ok {
+			break
+		}
+	}
+
+	if tokenString == "" {
 		return nil, ErrNoTokenInCtx
 	}
-	tokenString := values[0]
 
 	tok, err := jwt.ParseWithClaims(tokenString, &Token{}, func(t *jwt.Token) (interface{}, error) {
 		pub, ok := srv.key.Public().(ed25519.PublicKey)
@@ -80,7 +93,7 @@ func (srv *service) TokenFromContext(ctx context.Context) (*Token, error) {
 
 	claims, ok := tok.Claims.(*Token)
 	if !ok {
-		return nil, ErrInvalidToken
+		return nil, ErrInvalidClaims
 	}
 
 	return claims, nil
@@ -91,10 +104,22 @@ func (srv *service) ContextWithToken(parent context.Context, info *Token) (conte
 	if err != nil {
 		return nil, err
 	}
-	return metadata.AppendToOutgoingContext(parent, AuthorizationHeaderKey, ss), nil
+	return metadata.AppendToOutgoingContext(parent, AuthorizationHeaderKey, fmt.Sprint(AuthorizationHeaderPrefix, " ", ss)), nil
 }
 
 func (srv *service) SignToken(info *Token) (string, error) {
 	jwtTok := jwt.NewWithClaims(&jwt.SigningMethodEd25519{}, info)
 	return jwtTok.SignedString(srv.key)
+}
+
+// TokenFromBearerString extracts the token from "Bearer <token>".
+func TokenFromAuthorizationHeader(ah string) (string, bool) {
+	if !strings.HasPrefix(ah, AuthorizationHeaderPrefix) {
+		return "", false
+	}
+	words := strings.Split(ah, " ")
+	if len(words) != 2 {
+		return "", false
+	}
+	return words[1], true
 }
