@@ -46,14 +46,11 @@ func (s *server) Init(opt ...grpc.ServerOption) {
 
 func (s *server) Run() {
 	lis, err := net.Listen("tcp", fmt.Sprint(":", *port))
-	if err != nil {
-		panic(err)
-	}
+	must(err, "failed to create tcp listener")
 	reflection.Register(s.grpcServer)
 	s.slogger.Infof("service running on :%d", *port)
-	if err := s.grpcServer.Serve(lis); err != nil {
-		panic(err)
-	}
+	err = s.grpcServer.Serve(lis)
+	must(err, "failed to run grpc server")
 }
 
 func (s *server) Close() {
@@ -67,22 +64,23 @@ func (s *server) LoggerUnaryInterceptor(ctx context.Context, req interface{}, in
 	res, err := handler(ctx, req)
 	end := time.Now()
 
-	st, ok := status.FromError(err)
-	if ok {
-		err = errors.New(st.Message())
-	}
-
 	method := info.FullMethod[strings.LastIndexByte(info.FullMethod, '/')+1:]
 
 	if err != nil {
+		var displayErr = err
+		st, ok := status.FromError(err)
+		if ok {
+			displayErr = errors.New(st.Message())
+		}
 		s.logger.Warn("failed rpc",
 			zap.String("code", status.Code(err).String()),
 			zap.String("method", method),
 			zap.Duration("duration", end.Sub(start)),
-			zap.Error(err),
+			zap.Error(displayErr),
 		)
 		return res, err
 	}
+
 	s.logger.Info("rpc",
 		zap.String("code", status.Code(err).String()),
 		zap.String("method", method),
