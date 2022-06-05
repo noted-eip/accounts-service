@@ -3,6 +3,7 @@ package main
 import (
 	"accounts-service/auth"
 	"accounts-service/grpc/accountspb"
+	"accounts-service/grpc/groupspb"
 	"accounts-service/models"
 	"accounts-service/models/mongo"
 	"context"
@@ -30,7 +31,10 @@ type server struct {
 	mongoDB *mongo.Database
 
 	accountsRepository models.AccountsRepository
-	accountsService    accountspb.AccountsServiceServer
+	groupsRepository   models.GroupsRepository
+
+	accountsService accountspb.AccountsServiceServer
+	groupsService   groupspb.GroupServiceServer
 
 	grpcServer *grpc.Server
 }
@@ -41,6 +45,7 @@ func (s *server) Init(opt ...grpc.ServerOption) {
 	s.initAuthService()
 	s.initRepositories()
 	s.initAccountsService()
+	s.initGroupsService()
 	s.initGrpcServer(opt...)
 }
 
@@ -112,6 +117,7 @@ func (s *server) initRepositories() {
 	s.mongoDB, err = mongo.NewDatabase(context.Background(), *mongoUri, *mongoDbName, s.logger)
 	must(err, "could not instantiate mongo database")
 	s.accountsRepository = mongo.NewAccountsRepository(s.mongoDB.DB, s.logger)
+	s.groupsRepository = mongo.NewGroupsRepository(s.mongoDB.DB, s.logger)
 }
 
 func (s *server) initAccountsService() {
@@ -122,9 +128,17 @@ func (s *server) initAccountsService() {
 	}
 }
 
+func (s *server) initGroupsService() {
+	s.groupsService = &groupsService{
+		logger: s.slogger,
+		repo:   s.groupsRepository,
+	}
+}
+
 func (s *server) initGrpcServer(opt ...grpc.ServerOption) {
 	s.grpcServer = grpc.NewServer(opt...)
 	accountspb.RegisterAccountsServiceServer(s.grpcServer, s.accountsService)
+	groupspb.RegisterGroupServiceServer(s.grpcServer, s.groupsService)
 }
 
 func must(err error, msg string) {

@@ -98,24 +98,24 @@ func (srv *accountsRepository) Update(ctx context.Context, filter *models.OneAcc
 }
 
 func (srv *accountsRepository) List(ctx context.Context) (*[]models.Account, error) {
-	var accounts []account
-	cursor, err := srv.db.Collection("accounts").Find(ctx, bson.D{})
-	if err != nil {
-		srv.logger.Error("mongo find accounts query failed", zap.Error(err))
-		return nil, status.Errorf(codes.Internal, err.Error())
-	}
-	defer cursor.Close(ctx)
+	// var accounts []account
+	// cursor, err := srv.db.Collection("accounts").Find(ctx, bson.D{})
+	// if err != nil {
+	// 	srv.logger.Error("mongo find accounts query failed", zap.Error(err))
+	// 	return nil, status.Errorf(codes.Internal, err.Error())
+	// }
+	// defer cursor.Close(ctx)
 
-	for cursor.Next(ctx) {
-		var elem account
-		err := cursor.Decode(&elem)
-		if err != nil {
-			srv.logger.Error("failed to decode mongo cursor result", zap.Error(err))
-		}
-		accounts = append(accounts, elem)
-	}
+	// for cursor.Next(ctx) {
+	// 	var elem account
+	// 	err := cursor.Decode(&elem)
+	// 	if err != nil {
+	// 		srv.logger.Error("failed to decode mongo cursor result", zap.Error(err))
+	// 	}
+	// 	accounts = append(accounts, elem)
+	// }
 
-	return &[]models.Account{}, nil
+	return &[]models.Account{}, status.Errorf(codes.Unimplemented, "could not list account")
 }
 
 func buildQuery(filter *models.OneAccountFilter) bson.M {
