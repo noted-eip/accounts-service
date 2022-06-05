@@ -44,7 +44,7 @@ func (srv *accountsService) CreateAccount(ctx context.Context, in *accountspb.Cr
 
 	err = srv.repo.Create(ctx, &models.AccountPayload{Email: &in.Email, Name: &in.Name, Hash: &hashed})
 	if err != nil {
-		srv.logger.Errorw("failed to create account", "error", err.Error())
+		srv.logger.Errorw("failed to create account", zap.Error(err))
 		return nil, status.Errorf(codes.Internal, "could not create account")
 	}
 
