@@ -38,5 +38,5 @@ type GroupsRepository interface {
 
 	Update(ctx context.Context, filter *OneGroupFilter, account *GroupPayload) error
 
-	List(ctx context.Context) (*[]Group, error)
+	List(ctx context.Context) ([]Group, error)
 }

@@ -44,7 +44,7 @@ func (s *server) Init(opt ...grpc.ServerOption) {
 	s.initAuthService()
 	s.initRepositories()
 	s.initAccountsService()
-	s.initGroupService()
+	s.initGroupsService()
 	s.initGrpcServer(opt...)
 }
 
@@ -119,7 +119,7 @@ func (s *server) initAccountsService() {
 	}
 }
 
-func (s *server) initGroupService() {
+func (s *server) initGroupsService() {
 	s.groupsService = &groupsService{
 		logger: s.slogger,
 		repo:   s.groupsRepository,

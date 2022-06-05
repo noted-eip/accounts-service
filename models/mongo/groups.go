@@ -60,6 +60,7 @@ func (srv *groupsRepository) Delete(ctx context.Context, filter *models.OneGroup
 		srv.logger.Error("delete group db query failed", zap.Error(err))
 		return status.Errorf(codes.Internal, "could not delete group")
 	}
+
 	if delete.DeletedCount == 0 {
 		srv.logger.Info("mongo delete group matched none", zap.String("_id", filter.ID.String()))
 		return status.Errorf(codes.Internal, "could not delete group")
@@ -80,8 +81,8 @@ func (srv *groupsRepository) Update(ctx context.Context, filter *models.OneGroup
 	return nil
 }
 
-func (srv *groupsRepository) List(ctx context.Context) (*[]models.Group, error) {
-	return &[]models.Group{}, nil
+func (srv *groupsRepository) List(ctx context.Context) ([]models.Group, error) {
+	return []models.Group{}, nil
 }
 
 func buildGroupQuery(filter *models.OneGroupFilter) bson.M {
