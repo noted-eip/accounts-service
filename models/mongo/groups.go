@@ -17,11 +17,7 @@ import (
 type group struct {
 	ID      string    `json:"id" bson:"_id,omitempty"`
 	Name    *string   `json:"name" bson:"name,omitempty"`
-	Members *[]member `json:"members" bson:"members,omitempty"`
-}
-
-type member struct {
-	ID string `json:"account_id" bson:"_id,omitempty"`
+	Members *[]string `json:"members" bson:"members,omitempty"`
 }
 
 type groupsRepository struct {
@@ -42,7 +38,8 @@ func (srv *groupsRepository) Create(ctx context.Context, payload *models.GroupPa
 		srv.logger.Error("failed to generate new random uuid", zap.Error(err))
 		return status.Errorf(codes.Internal, "could not create group")
 	}
-	group := group{ID: id.String(), Name: payload.Name, Members: payload.Members}
+
+	group := group{ID: id.String(), Name: payload.Name, Members: &[]string{(*payload.Members)[0].ID.String()}}
 
 	_, err = srv.db.Collection("groups").InsertOne(ctx, group)
 	if err != nil {
@@ -60,17 +57,26 @@ func (srv *groupsRepository) Delete(ctx context.Context, filter *models.OneGroup
 	delete, err := srv.db.Collection("groups").DeleteOne(ctx, buildGroupQuery(filter))
 
 	if err != nil {
-		srv.logger.Error("delete account db query failed", zap.Error(err))
+		srv.logger.Error("delete group db query failed", zap.Error(err))
 		return status.Errorf(codes.Internal, "could not delete group")
 	}
 	if delete.DeletedCount == 0 {
-		srv.logger.Info("mongo delete account matched none", zap.String("user_id", filter.ID.String()))
+		srv.logger.Info("mongo delete group matched none", zap.String("_id", filter.ID.String()))
 		return status.Errorf(codes.Internal, "could not delete group")
 	}
 	return nil
 }
 
-func (srv *groupsRepository) Update(ctx context.Context, filter *models.OneGroupFilter, account *models.GroupPayload) error {
+func (srv *groupsRepository) Update(ctx context.Context, filter *models.OneGroupFilter, group *models.GroupPayload) error {
+	update, err := srv.db.Collection("groups").UpdateOne(ctx, buildGroupQuery(filter), bson.D{{Key: "$set", Value: &group}})
+	if err != nil {
+		srv.logger.Error("failed to convert object id from hex", zap.Error(err))
+		return status.Errorf(codes.InvalidArgument, err.Error())
+	}
+	if update.MatchedCount == 0 {
+		srv.logger.Error("mongo update account query matched none", zap.String("group_id", filter.ID.String()))
+		return status.Errorf(codes.Internal, "could not update group")
+	}
 	return nil
 }
 
@@ -84,7 +90,7 @@ func buildGroupQuery(filter *models.OneGroupFilter) bson.M {
 		query["_id"] = filter.ID.String()
 	}
 	if filter.Name != "" {
-		query["email"] = filter.Name
+		query["name"] = filter.Name
 	}
 	return query
 }

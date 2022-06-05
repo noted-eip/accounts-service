@@ -42,7 +42,11 @@ func (srv *accountsService) CreateAccount(ctx context.Context, in *accountspb.Cr
 		return nil, status.Errorf(codes.Internal, "could not create account")
 	}
 
-	srv.repo.Create(ctx, &models.AccountPayload{Email: &in.Email, Name: &in.Name, Hash: &hashed})
+	err = srv.repo.Create(ctx, &models.AccountPayload{Email: &in.Email, Name: &in.Name, Hash: &hashed})
+	if err != nil {
+		srv.logger.Errorw("failed to create account", "error", err.Error())
+		return nil, status.Errorf(codes.Internal, "could not create account")
+	}
 
 	return &emptypb.Empty{}, nil
 }
@@ -112,7 +116,11 @@ func (srv *accountsService) UpdateAccount(ctx context.Context, in *accountspb.Up
 	}
 
 	var protoAccount accountspb.Account
-	copier.Copy(&protoAccount, &acc)
+	err = copier.Copy(&protoAccount, &acc)
+	if err != nil {
+		srv.logger.Errorw("invalid account conversion", "error", err.Error())
+		return nil, status.Errorf(codes.Internal, "could not update account")
+	}
 	proto.Merge(&protoAccount, in.Account)
 
 	err = srv.repo.Update(ctx, &models.OneAccountFilter{ID: id}, &models.AccountPayload{Email: &protoAccount.Email, Name: &protoAccount.Name})

@@ -30,8 +30,10 @@ type server struct {
 	mongoDB *mongo.Database
 
 	accountsRepository models.AccountsRepository
-	accountsService    accountspb.AccountsServiceServer
-	groupsService      groupspb.GroupServiceServer
+	groupsRepository   models.GroupsRepository
+
+	accountsService accountspb.AccountsServiceServer
+	groupsService   groupspb.GroupServiceServer
 
 	grpcServer *grpc.Server
 }
@@ -106,6 +108,7 @@ func (s *server) initRepositories() {
 	s.mongoDB, err = mongo.NewDatabase(context.Background(), *mongoUri, *mongoDbName, s.logger)
 	must(err, "could not instantiate mongo database")
 	s.accountsRepository = mongo.NewAccountsRepository(s.mongoDB.DB, s.logger)
+	s.groupsRepository = mongo.NewGroupsRepository(s.mongoDB.DB, s.logger)
 }
 
 func (s *server) initAccountsService() {
@@ -119,7 +122,7 @@ func (s *server) initAccountsService() {
 func (s *server) initGroupService() {
 	s.groupsService = &groupsService{
 		logger: s.slogger,
-		repo:   s.accountsRepository,
+		repo:   s.groupsRepository,
 	}
 }
 
