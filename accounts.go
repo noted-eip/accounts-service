@@ -2,8 +2,8 @@ package main
 
 import (
 	"accounts-service/auth"
-	"accounts-service/grpc/accountspb"
 	"accounts-service/models"
+	accountsv1 "accounts-service/protorepo/noted/accounts/v1"
 	"context"
 
 	"accounts-service/validators"
@@ -15,22 +15,21 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/proto"
-	"google.golang.org/protobuf/types/known/emptypb"
 
 	"github.com/google/uuid"
 )
 
-type accountsService struct {
-	accountspb.UnimplementedAccountsServiceServer
+type accountsAPI struct {
+	accountsv1.UnimplementedAccountsAPIServer
 
 	auth   auth.Service
 	logger *zap.SugaredLogger
 	repo   models.AccountsRepository
 }
 
-var _ accountspb.AccountsServiceServer = &accountsService{}
+var _ accountsv1.AccountsAPIServer = &accountsAPI{}
 
-func (srv *accountsService) CreateAccount(ctx context.Context, in *accountspb.CreateAccountRequest) (*emptypb.Empty, error) {
+func (srv *accountsAPI) CreateAccount(ctx context.Context, in *accountsv1.CreateAccountRequest) (*accountsv1.CreateAccountResponse, error) {
 	err := validators.ValidateCreateAccountRequest(in)
 	if err != nil {
 		return nil, status.Errorf(codes.InvalidArgument, err.Error())
@@ -48,10 +47,10 @@ func (srv *accountsService) CreateAccount(ctx context.Context, in *accountspb.Cr
 		return nil, status.Errorf(codes.Internal, "could not create account")
 	}
 
-	return &emptypb.Empty{}, nil
+	return &accountsv1.CreateAccountResponse{}, nil
 }
 
-func (srv *accountsService) GetAccount(ctx context.Context, in *accountspb.GetAccountRequest) (*accountspb.Account, error) {
+func (srv *accountsAPI) GetAccount(ctx context.Context, in *accountsv1.GetAccountRequest) (*accountsv1.GetAccountResponse, error) {
 	token, err := srv.authenticate(ctx)
 	if err != nil {
 		return nil, err
@@ -77,11 +76,11 @@ func (srv *accountsService) GetAccount(ctx context.Context, in *accountspb.GetAc
 	if token.UserID.String() != account.ID.String() && token.Role != auth.RoleAdmin {
 		return nil, status.Errorf(codes.NotFound, "account not found")
 	}
-
-	return &accountspb.Account{Email: account.Email, Name: account.Name, Id: account.ID.String()}, nil
+	acc := accountsv1.Account{Email: account.Email, Name: account.Name, Id: account.ID.String()}
+	return &accountsv1.GetAccountResponse{Account: &acc}, nil
 }
 
-func (srv *accountsService) UpdateAccount(ctx context.Context, in *accountspb.UpdateAccountRequest) (*accountspb.Account, error) {
+func (srv *accountsAPI) UpdateAccount(ctx context.Context, in *accountsv1.UpdateAccountRequest) (*accountsv1.UpdateAccountResponse, error) {
 	token, err := srv.authenticate(ctx)
 	if err != nil {
 		return nil, err
@@ -115,7 +114,7 @@ func (srv *accountsService) UpdateAccount(ctx context.Context, in *accountspb.Up
 		return nil, status.Errorf(codes.Internal, "could not update account")
 	}
 
-	var protoAccount accountspb.Account
+	var protoAccount accountsv1.Account
 	err = copier.Copy(&protoAccount, &acc)
 	if err != nil {
 		srv.logger.Errorw("invalid account conversion", "error", err.Error())
@@ -128,10 +127,11 @@ func (srv *accountsService) UpdateAccount(ctx context.Context, in *accountspb.Up
 		srv.logger.Errorw("failed to update account", "error", err.Error())
 		return nil, status.Errorf(codes.Internal, "could not update account")
 	}
-	return &accountspb.Account{Email: protoAccount.Email, Name: protoAccount.Name, Id: id.String()}, nil
+	protoAccount.Id = id.String()
+	return &accountsv1.UpdateAccountResponse{Account: &protoAccount}, nil
 }
 
-func (srv *accountsService) DeleteAccount(ctx context.Context, in *accountspb.DeleteAccountRequest) (*emptypb.Empty, error) {
+func (srv *accountsAPI) DeleteAccount(ctx context.Context, in *accountsv1.DeleteAccountRequest) (*accountsv1.DeleteAccountResponse, error) {
 	token, err := srv.authenticate(ctx)
 	if err != nil {
 		return nil, err
@@ -158,10 +158,10 @@ func (srv *accountsService) DeleteAccount(ctx context.Context, in *accountspb.De
 		return nil, status.Errorf(codes.Internal, "could not delete account")
 	}
 
-	return &emptypb.Empty{}, nil
+	return &accountsv1.DeleteAccountResponse{}, nil
 }
 
-func (srv *accountsService) Authenticate(ctx context.Context, in *accountspb.AuthenticateRequest) (*accountspb.AuthenticateReply, error) {
+func (srv *accountsAPI) Authenticate(ctx context.Context, in *accountsv1.AuthenticateRequest) (*accountsv1.AuthenticateResponse, error) {
 
 	acc, err := srv.repo.Get(ctx, &models.OneAccountFilter{Email: in.Email})
 	if err != nil {
@@ -180,10 +180,10 @@ func (srv *accountsService) Authenticate(ctx context.Context, in *accountspb.Aut
 		return nil, status.Errorf(codes.Internal, "could not authenticate user")
 	}
 
-	return &accountspb.AuthenticateReply{Token: tokenString}, nil
+	return &accountsv1.AuthenticateResponse{Token: tokenString}, nil
 }
 
-func (srv *accountsService) authenticate(ctx context.Context) (*auth.Token, error) {
+func (srv *accountsAPI) authenticate(ctx context.Context) (*auth.Token, error) {
 	token, err := srv.auth.TokenFromContext(ctx)
 	if err != nil {
 		srv.logger.Debugw("could not authenticate request", "error", err)

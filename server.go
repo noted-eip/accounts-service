@@ -2,10 +2,9 @@ package main
 
 import (
 	"accounts-service/auth"
-	"accounts-service/grpc/accountspb"
-	"accounts-service/grpc/groupspb"
 	"accounts-service/models"
 	"accounts-service/models/mongo"
+	accountsv1 "accounts-service/protorepo/noted/accounts/v1"
 	"context"
 	"crypto/ed25519"
 	"encoding/base64"
@@ -33,8 +32,8 @@ type server struct {
 	accountsRepository models.AccountsRepository
 	groupsRepository   models.GroupsRepository
 
-	accountsService accountspb.AccountsServiceServer
-	groupsService   groupspb.GroupServiceServer
+	accountsService accountsv1.AccountsAPIServer
+	groupsService   accountsv1.GroupsAPIServer
 
 	grpcServer *grpc.Server
 }
@@ -121,7 +120,7 @@ func (s *server) initRepositories() {
 }
 
 func (s *server) initAccountsService() {
-	s.accountsService = &accountsService{
+	s.accountsService = &accountsAPI{
 		auth:   s.authService,
 		logger: s.slogger,
 		repo:   s.accountsRepository,
@@ -137,8 +136,8 @@ func (s *server) initGroupsService() {
 
 func (s *server) initGrpcServer(opt ...grpc.ServerOption) {
 	s.grpcServer = grpc.NewServer(opt...)
-	accountspb.RegisterAccountsServiceServer(s.grpcServer, s.accountsService)
-	groupspb.RegisterGroupServiceServer(s.grpcServer, s.groupsService)
+	accountsv1.RegisterAccountsAPIServer(s.grpcServer, s.accountsService)
+	accountsv1.RegisterGroupsAPIServer(s.grpcServer, s.groupsService)
 }
 
 func must(err error, msg string) {
