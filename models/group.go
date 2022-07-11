@@ -9,18 +9,26 @@ import (
 )
 
 type Group struct {
-	ID      uuid.UUID `json:"id" bson:"_id,omitempty"`
-	Name    *string   `json:"name" bson:"name,omitempty"`
-	Members *[]Member `json:"members" bson:"members,omitempty"`
+	ID          uuid.UUID `json:"id" bson:"_id,omitempty"`
+	Name        *string   `json:"name" bson:"name,omitempty"`
+	Description *string   `json:"descrition" bson:"descrition,omitempty"`
+	Members     *[]Member `json:"members" bson:"members,omitempty"`
+	Notes       *[]Note   `json:"notes" bson:"notes,omitempty"`
 }
 
 type GroupPayload struct {
-	Name    *string   `json:"name" bson:"name,omitempty"`
-	Members *[]Member `json:"members" bson:"members,omitempty"`
+	Name        *string   `json:"name" bson:"name,omitempty"`
+	Description *string   `json:"descrition" bson:"descrition,omitempty"`
+	Members     *[]Member `json:"members" bson:"members,omitempty"`
+	Notes       *[]Note   `json:"notes" bson:"notes,omitempty"`
 }
 
 type Member struct {
 	ID uuid.UUID `json:"account_id" bson:"_id,omitempty"`
+}
+
+type Note struct {
+	ID uuid.UUID `json:"note_id" bson:"_id,omitempty"`
 }
 
 type OneGroupFilter struct {
