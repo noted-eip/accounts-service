@@ -1,10 +1,6 @@
 # IDE
 .vscode/
 
-# Protobuf server and stubs
-grpc/*
-!grpc/protos
-
 # Binaries
 accounts-service.exe
 accounts-service
