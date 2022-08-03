@@ -4,15 +4,13 @@ package models
 
 import (
 	"context"
-
-	"github.com/google/uuid"
 )
 
 type Account struct {
-	ID    uuid.UUID `json:"id" bson:"_id,omitempty"`
-	Email string    `json:"email" bson:"email,omitempty"`
-	Name  string    `json:"name" bson:"name,omitempty"`
-	Hash  *[]byte   `json:"hash" bson:"hash,omitempty"`
+	ID    string  `json:"id" bson:"_id,omitempty"`
+	Email *string `json:"email" bson:"email,omitempty"`
+	Name  *string `json:"name" bson:"name,omitempty"`
+	Hash  *[]byte `json:"hash" bson:"hash,omitempty"`
 }
 
 type AccountPayload struct {
@@ -22,8 +20,8 @@ type AccountPayload struct {
 }
 
 type OneAccountFilter struct {
-	ID    uuid.UUID `json:"id" bson:"_id,omitempty"`
-	Email string    `json:"email" bson:"email,omitempty"`
+	ID    string  `json:"id" bson:"_id,omitempty"`
+	Email *string `json:"email" bson:"email,omitempty"`
 }
 
 type ManyAccountFilter struct{}

@@ -53,11 +53,13 @@ func (srv *accountsAPI) CreateAccount(ctx context.Context, in *accountsv1.Create
 func (srv *accountsAPI) GetAccount(ctx context.Context, in *accountsv1.GetAccountRequest) (*accountsv1.GetAccountResponse, error) {
 	token, err := srv.authenticate(ctx)
 	if err != nil {
+		srv.logger.Error("error authentificate", zap.Error(err))
 		return nil, err
 	}
 
 	err = validators.ValidateGetAccountRequest(in)
 	if err != nil {
+		srv.logger.Error("error validator", zap.Error(err))
 		return nil, status.Errorf(codes.InvalidArgument, err.Error())
 	}
 
@@ -67,16 +69,16 @@ func (srv *accountsAPI) GetAccount(ctx context.Context, in *accountsv1.GetAccoun
 		return nil, status.Errorf(codes.Internal, "could not get account")
 	}
 
-	account, err := srv.repo.Get(ctx, &models.OneAccountFilter{ID: id, Email: in.Email})
+	account, err := srv.repo.Get(ctx, &models.OneAccountFilter{ID: id.String(), Email: &in.Email})
 	if err != nil {
 		srv.logger.Errorw("failed to get account", "error", err.Error())
 		return nil, status.Errorf(codes.Internal, "could not get account")
 	}
 
-	if token.UserID.String() != account.ID.String() && token.Role != auth.RoleAdmin {
+	if token.UserID.String() != account.ID && token.Role != auth.RoleAdmin {
 		return nil, status.Errorf(codes.NotFound, "account not found")
 	}
-	acc := accountsv1.Account{Email: account.Email, Name: account.Name, Id: account.ID.String()}
+	acc := accountsv1.Account{Email: *account.Email, Name: *account.Name, Id: account.ID}
 	return &accountsv1.GetAccountResponse{Account: &acc}, nil
 }
 
@@ -108,7 +110,7 @@ func (srv *accountsAPI) UpdateAccount(ctx context.Context, in *accountsv1.Update
 	}
 	fmutils.Filter(in.GetAccount(), fieldMask.GetPaths())
 
-	acc, err := srv.repo.Get(ctx, &models.OneAccountFilter{ID: id})
+	acc, err := srv.repo.Get(ctx, &models.OneAccountFilter{ID: id.String()})
 	if err != nil {
 		srv.logger.Errorw("failed to get account", "error", err.Error())
 		return nil, status.Errorf(codes.Internal, "could not update account")
@@ -122,7 +124,7 @@ func (srv *accountsAPI) UpdateAccount(ctx context.Context, in *accountsv1.Update
 	}
 	proto.Merge(&protoAccount, in.Account)
 
-	err = srv.repo.Update(ctx, &models.OneAccountFilter{ID: id}, &models.AccountPayload{Email: &protoAccount.Email, Name: &protoAccount.Name})
+	err = srv.repo.Update(ctx, &models.OneAccountFilter{ID: id.String()}, &models.AccountPayload{Email: &protoAccount.Email, Name: &protoAccount.Name})
 	if err != nil {
 		srv.logger.Errorw("failed to update account", "error", err.Error())
 		return nil, status.Errorf(codes.Internal, "could not update account")
@@ -152,7 +154,7 @@ func (srv *accountsAPI) DeleteAccount(ctx context.Context, in *accountsv1.Delete
 		return nil, status.Errorf(codes.Internal, "could not delete account")
 	}
 
-	err = srv.repo.Delete(ctx, &models.OneAccountFilter{ID: id})
+	err = srv.repo.Delete(ctx, &models.OneAccountFilter{ID: id.String()})
 	if err != nil {
 		srv.logger.Errorw("failed to delete account", "error", err.Error())
 		return nil, status.Errorf(codes.Internal, "could not delete account")
@@ -163,7 +165,7 @@ func (srv *accountsAPI) DeleteAccount(ctx context.Context, in *accountsv1.Delete
 
 func (srv *accountsAPI) Authenticate(ctx context.Context, in *accountsv1.AuthenticateRequest) (*accountsv1.AuthenticateResponse, error) {
 
-	acc, err := srv.repo.Get(ctx, &models.OneAccountFilter{Email: in.Email})
+	acc, err := srv.repo.Get(ctx, &models.OneAccountFilter{Email: &in.Email})
 	if err != nil {
 		srv.logger.Errorw("failed to get account", "error", err.Error())
 		return nil, status.Errorf(codes.Internal, "could not get account")
@@ -174,7 +176,13 @@ func (srv *accountsAPI) Authenticate(ctx context.Context, in *accountsv1.Authent
 		return nil, status.Errorf(codes.InvalidArgument, "wrong password or email")
 	}
 
-	tokenString, err := srv.auth.SignToken(&auth.Token{UserID: acc.ID})
+	id, err := uuid.Parse(acc.ID)
+	if err != nil {
+		srv.logger.Errorw("failed to convert uuid from string", "error", err.Error())
+		return nil, status.Errorf(codes.Internal, "could not get account")
+	}
+
+	tokenString, err := srv.auth.SignToken(&auth.Token{UserID: id})
 	if err != nil {
 		srv.logger.Errorw("could not sign token", "error", err, "email", in.Email)
 		return nil, status.Errorf(codes.Internal, "could not authenticate user")
