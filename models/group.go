@@ -4,36 +4,34 @@ package models
 
 import (
 	"context"
-
-	"github.com/google/uuid"
 )
 
 type Group struct {
-	ID          uuid.UUID `json:"id" bson:"_id,omitempty"`
+	ID          string    `json:"id" bson:"_id,omitempty"`
 	Name        *string   `json:"name" bson:"name,omitempty"`
-	Description *string   `json:"descrition" bson:"descrition,omitempty"`
+	Description *string   `json:"description" bson:"description,omitempty"`
 	Members     *[]Member `json:"members" bson:"members,omitempty"`
 	Notes       *[]Note   `json:"notes" bson:"notes,omitempty"`
 }
 
 type GroupPayload struct {
 	Name        *string   `json:"name" bson:"name,omitempty"`
-	Description *string   `json:"descrition" bson:"descrition,omitempty"`
+	Description *string   `json:"description" bson:"description,omitempty"`
 	Members     *[]Member `json:"members" bson:"members,omitempty"`
 	Notes       *[]Note   `json:"notes" bson:"notes,omitempty"`
 }
 
 type Member struct {
-	ID uuid.UUID `json:"account_id" bson:"_id,omitempty"`
+	ID string `json:"account_id" bson:"_id,omitempty"`
 }
 
 type Note struct {
-	ID uuid.UUID `json:"note_id" bson:"_id,omitempty"`
+	ID string `json:"note_id" bson:"_id,omitempty"`
 }
 
 type OneGroupFilter struct {
-	ID   uuid.UUID `json:"id" bson:"_id,omitempty"`
-	Name string    `json:"name" bson:"name,omitempty"`
+	ID   string  `json:"id" bson:"_id,omitempty"`
+	Name *string `json:"name" bson:"name,omitempty"`
 }
 
 // GroupsRepository is safe for use in multiple goroutines.

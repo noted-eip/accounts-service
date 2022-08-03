@@ -27,8 +27,8 @@ func (srv *groupsService) CreateGroup(ctx context.Context, in *accountsv1.Create
 		srv.logger.Errorw("failed to convert uuid from string", "error", err.Error())
 		return nil, status.Errorf(codes.Internal, "could not get account")
 	}
-
-	srv.repo.Create(ctx, &models.GroupPayload{Name: &in.Name, Members: &[]models.Member{{ID: id}}, Description: &in.Description})
+	fmt.Println("description => ", in)
+	srv.repo.Create(ctx, &models.GroupPayload{Name: &in.Name, Members: &[]models.Member{{ID: id.String()}}, Description: &in.Description})
 	return &accountsv1.CreateGroupResponse{}, nil
 }
 
@@ -38,7 +38,7 @@ func (srv *groupsService) DeleteGroup(ctx context.Context, in *accountsv1.Delete
 		srv.logger.Errorw("failed to convert uuid from string", "error", err.Error())
 		return nil, status.Errorf(codes.Internal, "could not get account")
 	}
-	srv.repo.Delete(ctx, &models.OneGroupFilter{ID: id, Name: in.Name})
+	srv.repo.Delete(ctx, &models.OneGroupFilter{ID: id.String(), Name: &in.Name})
 	return &accountsv1.DeleteGroupResponse{}, nil
 }
 
@@ -86,7 +86,7 @@ func (srv *groupsService) GetGroup(ctx context.Context, in *accountsv1.GetGroupR
 		srv.logger.Errorw("failed to convert uuid from string", "error", err.Error())
 		return nil, status.Errorf(codes.Internal, "could not get group")
 	}
-	accountModel, err := srv.repo.Get(ctx, &models.OneGroupFilter{ID: id, Name: in.Name})
+	accountModel, err := srv.repo.Get(ctx, &models.OneGroupFilter{ID: id.String(), Name: &in.Name})
 	if err != nil {
 		srv.logger.Errorw("failed to get group", "error", err.Error())
 		return nil, status.Errorf(codes.Internal, "could not get group")
@@ -94,7 +94,12 @@ func (srv *groupsService) GetGroup(ctx context.Context, in *accountsv1.GetGroupR
 
 	var members []*accountsv1.GroupMember
 	for _, m := range *accountModel.Members {
-		members = append(members, &accountsv1.GroupMember{AccountId: m.ID.String()})
+		memberId, err := uuid.Parse(m.ID)
+		if err != nil {
+			srv.logger.Errorw("failed to convert members uuid from string", "error", err.Error())
+			return nil, status.Errorf(codes.Internal, "could not get group")
+		}
+		members = append(members, &accountsv1.GroupMember{AccountId: memberId.String()})
 	}
 
 	account := accountsv1.Group{Id: in.Id, Name: *accountModel.Name, Members: members, Description: *accountModel.Description}
@@ -108,21 +113,22 @@ func (srv *groupsService) JoinGroup(ctx context.Context, in *accountsv1.JoinGrou
 		return nil, status.Errorf(codes.Internal, "could not join group")
 	}
 
-	member, err := uuid.Parse(in.MemberId)
+	memberId, err := uuid.Parse(in.MemberId)
 	if err != nil {
 		srv.logger.Errorw("failed to convert uuid from string", "error", err.Error())
 		return nil, status.Errorf(codes.Internal, "could not join group")
 	}
 
-	acc, err := srv.repo.Get(ctx, &models.OneGroupFilter{ID: id})
+	acc, err := srv.repo.Get(ctx, &models.OneGroupFilter{ID: id.String()})
 	if err != nil {
 		srv.logger.Errorw("failed to get group", "error", err.Error())
 		return nil, status.Errorf(codes.Internal, "could not join group")
 	}
-	newMember := *acc.Members
-	newMember = append(newMember, models.Member{ID: member})
 
-	err = srv.repo.Update(ctx, &models.OneGroupFilter{ID: id}, &models.GroupPayload{Members: &newMember})
+	newMember := *acc.Members
+	newMember = append(newMember, models.Member{ID: memberId.String()})
+
+	err = srv.repo.Update(ctx, &models.OneGroupFilter{ID: id.String()}, &models.GroupPayload{Members: &newMember})
 	if err != nil {
 		srv.logger.Errorw("failed to update group", "error", err.Error())
 		return nil, status.Errorf(codes.Internal, "could not join group")
@@ -137,25 +143,22 @@ func (srv *groupsService) AddNoteToGroup(ctx context.Context, in *accountsv1.Add
 		return nil, status.Errorf(codes.Internal, "could not join group")
 	}
 
-	note, err := uuid.Parse(in.NoteId)
+	noteId, err := uuid.Parse(in.NoteId)
 	if err != nil {
 		srv.logger.Errorw("failed to convert uuid from string", "error", err.Error())
 		return nil, status.Errorf(codes.Internal, "could not join group")
 	}
 
-	acc, err := srv.repo.Get(ctx, &models.OneGroupFilter{ID: id})
+	acc, err := srv.repo.Get(ctx, &models.OneGroupFilter{ID: id.String()})
 	if err != nil {
 		srv.logger.Errorw("failed to get group", "error", err.Error())
 		return nil, status.Errorf(codes.Internal, "could not join group")
 	}
-	fmt.Println(acc)
-	fmt.Println("test")
-	fmt.Println(*acc)
 
 	newNote := *acc.Notes
-	newNote = append(newNote, models.Note{ID: note})
+	newNote = append(newNote, models.Note{ID: noteId.String()})
 
-	err = srv.repo.Update(ctx, &models.OneGroupFilter{ID: id}, &models.GroupPayload{Notes: &newNote})
+	err = srv.repo.Update(ctx, &models.OneGroupFilter{ID: id.String()}, &models.GroupPayload{Notes: &newNote})
 	if err != nil {
 		srv.logger.Errorw("failed to update group", "error", err.Error())
 		return nil, status.Errorf(codes.Internal, "could not join group")
