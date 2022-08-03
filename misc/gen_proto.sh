@@ -1,2 +1,2 @@
-rm -rf grpc/*pb/
-protoc --go_out=. --go-grpc_out=. grpc/protos/accounts/*.proto
+rm -rf protorepo/noted/accounts/v1/*pb/
+protoc --go_out=. --go-grpc_out=. protorepo/noted/accounts/v1/*.proto

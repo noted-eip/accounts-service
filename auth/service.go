@@ -78,7 +78,6 @@ func (srv *service) TokenFromContext(ctx context.Context) (*Token, error) {
 	if tokenString == "" {
 		return nil, ErrNoTokenInCtx
 	}
-
 	tok, err := jwt.ParseWithClaims(tokenString, &Token{}, func(t *jwt.Token) (interface{}, error) {
 		pub, ok := srv.key.Public().(ed25519.PublicKey)
 		if !ok {
@@ -117,6 +116,7 @@ func TokenFromAuthorizationHeader(ah string) (string, bool) {
 	if !strings.HasPrefix(ah, AuthorizationHeaderPrefix) {
 		return "", false
 	}
+
 	words := strings.Split(ah, " ")
 	if len(words) != 2 {
 		return "", false
