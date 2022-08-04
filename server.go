@@ -129,6 +129,7 @@ func (s *server) initAccountsService() {
 
 func (s *server) initGroupsService() {
 	s.groupsService = &groupsService{
+		auth:   s.authService,
 		logger: s.slogger,
 		repo:   s.groupsRepository,
 	}
