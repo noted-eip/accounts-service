@@ -44,7 +44,7 @@ func NewDatabase(ctx context.Context, uri string, name string, logger *zap.Logge
 	return &Database{
 		client: client,
 		DB:     client.Database(name),
-		logger: logger,
+		logger: logger.Named("mongo"),
 	}, nil
 }
 

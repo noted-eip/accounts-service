@@ -1,5 +1,3 @@
-// Package models defines the data types, payloads and repository interfaces
-// of the accounts service.
 package models
 
 import (
@@ -24,17 +22,17 @@ type OneAccountFilter struct {
 	Email *string `json:"email" bson:"email,omitempty"`
 }
 
-type ManyAccountFilter struct{}
+type ManyAccountsFilter struct{}
 
 // AccountsRepository is safe for use in multiple goroutines.
 type AccountsRepository interface {
-	Create(ctx context.Context, filter *AccountPayload) error
+	Create(ctx context.Context, filter *AccountPayload) (*Account, error)
 
 	Get(ctx context.Context, filter *OneAccountFilter) (*Account, error)
 
 	Delete(ctx context.Context, filter *OneAccountFilter) error
 
-	Update(ctx context.Context, filter *OneAccountFilter, account *AccountPayload) error
+	Update(ctx context.Context, filter *OneAccountFilter, account *AccountPayload) (*Account, error)
 
-	List(ctx context.Context) (*[]Account, error)
+	List(ctx context.Context, filter *ManyAccountsFilter, pagination *Pagination) ([]Account, error)
 }

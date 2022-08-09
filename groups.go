@@ -6,7 +6,6 @@ import (
 	accountsv1 "accounts-service/protorepo/noted/accounts/v1"
 	"context"
 
-	"github.com/google/uuid"
 	"go.uber.org/zap"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -28,17 +27,31 @@ func (srv *groupsService) CreateGroup(ctx context.Context, in *accountsv1.Create
 		return nil, err
 	}
 
-	srv.repo.Create(ctx, &models.GroupPayload{Name: &in.Name, Members: &[]models.Member{{ID: token.UserID.String()}}, Description: &in.Description})
-	return &accountsv1.CreateGroupResponse{}, nil
+	group, err := srv.repo.Create(ctx, &models.GroupPayload{Name: &in.Name, Members: &[]models.GroupMember{{ID: token.UserID.String()}}, Description: &in.Description})
+	if err != nil {
+		// TODO: Translate error from models.Err to gRPC.
+		return nil, status.Error(codes.Internal, "could not create group")
+	}
+
+	return &accountsv1.CreateGroupResponse{
+		Group: &accountsv1.Group{
+			Id:          group.ID,
+			Name:        *group.Name,
+			Description: *group.Description,
+			OwnerId:     *group.OwnerID,
+		},
+	}, nil
 }
 
 func (srv *groupsService) DeleteGroup(ctx context.Context, in *accountsv1.DeleteGroupRequest) (*accountsv1.DeleteGroupResponse, error) {
-	id, err := uuid.Parse(in.Id)
+	// TODO: validation.
+	// TODO: Cannot a delete a group which I do not own.
+
+	err := srv.repo.Delete(ctx, &models.OneGroupFilter{ID: in.Id})
 	if err != nil {
-		srv.logger.Errorw("failed to convert uuid from string", "error", err.Error())
-		return nil, status.Errorf(codes.Internal, "could not get account")
+		return nil, status.Error(codes.Internal, "unable to delete group")
 	}
-	srv.repo.Delete(ctx, &models.OneGroupFilter{ID: id.String(), Name: &in.Name})
+
 	return &accountsv1.DeleteGroupResponse{}, nil
 }
 
@@ -46,13 +59,13 @@ func (srv *groupsService) UpdateGroup(ctx context.Context, in *accountsv1.Update
 	// 	id, err := uuid.Parse(in.Group.Id)
 	// 	if err != nil {
 	// 		srv.logger.Errorw("failed to convert uuid from string", "error", err.Error())
-	// 		return nil, status.Errorf(codes.Internal, "could not update account")
+	// 		return nil, status.Error(codes.Internal, "could not update account")
 	// 	}
 
 	// 	fieldMask := in.GetUpdateMask()
 	// 	fieldMask.Normalize()
 	// 	if !fieldMask.IsValid(in.Group) {
-	// 		return nil, status.Errorf(codes.InvalidArgument, "invalid field mask")
+	// 		return nil, status.Error(codes.InvalidArgument, "invalid field mask")
 	// 	}
 	// 	fmutils.Filter(in.GetGroup
 	// (), fieldMask.GetPaths())
@@ -60,24 +73,25 @@ func (srv *groupsService) UpdateGroup(ctx context.Context, in *accountsv1.Update
 	// 	acc, err := srv.repo.Get(ctx, &models.OneGroupFilter{ID: id})
 	// 	if err != nil {
 	// 		srv.logger.Errorw("failed to get Group", "error", err.Error())
-	// 		return nil, status.Errorf(codes.Internal, "could not update Group")
+	// 		return nil, status.Error(codes.Internal, "could not update Group")
 	// 	}
 
 	// 	var protoGroup accountsv1.Account
 	// 	err = copier.Copy(&protoGroup, &acc)
 	// 	if err != nil {
 	// 		srv.logger.Errorw("invalid account conversion", "error", err.Error())
-	// 		return nil, status.Errorf(codes.Internal, "could not update account")
+	// 		return nil, status.Error(codes.Internal, "could not update account")
 	// 	}
 	// 	proto.Merge(&protoGroup, in.Group)
 
 	// 	err = srv.repo.Update(ctx, &models.OneGroupFilter{ID: id}, &models.GroupPayload{Name: &protoAccount.Email, Name: &protoAccount.Name})
 	// 	if err != nil {
 	// 		srv.logger.Errorw("failed to update account", "error", err.Error())
-	// 		return nil, status.Errorf(codes.Internal, "could not update account")
+	// 		return nil, status.Error(codes.Internal, "could not update account")
 	// 	}
 	// 	protoAccount.Id = id.String()
-	return &accountsv1.UpdateGroupResponse{}, nil
+
+	return nil, status.Error(codes.Unimplemented, "not implemented")
 }
 
 func (srv *groupsService) JoinGroup(ctx context.Context, in *accountsv1.JoinGroupRequest) (*accountsv1.JoinGroupResponse, error) {
@@ -86,59 +100,57 @@ func (srv *groupsService) JoinGroup(ctx context.Context, in *accountsv1.JoinGrou
 		return nil, err
 	}
 
-	id, err := uuid.Parse(in.Id)
-	if err != nil {
-		srv.logger.Errorw("failed to convert uuid from string", "error", err.Error())
-		return nil, status.Errorf(codes.Internal, "could not join group")
-	}
-
-	acc, err := srv.repo.Get(ctx, &models.OneGroupFilter{ID: id.String()})
+	acc, err := srv.repo.Get(ctx, &models.OneGroupFilter{ID: in.Id})
 	if err != nil {
 		srv.logger.Errorw("failed to get group", "error", err.Error())
-		return nil, status.Errorf(codes.Internal, "could not join group")
+		return nil, status.Error(codes.Internal, "could not join group")
 	}
 
 	newMember := *acc.Members
-	newMember = append(newMember, models.Member{ID: token.UserID.String()})
+	newMember = append(newMember, models.GroupMember{ID: token.UserID.String()})
 
-	err = srv.repo.Update(ctx, &models.OneGroupFilter{ID: id.String()}, &models.GroupPayload{Members: &newMember})
+	_, err = srv.repo.Update(ctx, &models.OneGroupFilter{ID: in.Id}, &models.GroupPayload{Members: &newMember})
 	if err != nil {
 		srv.logger.Errorw("failed to update group", "error", err.Error())
-		return nil, status.Errorf(codes.Internal, "could not join group")
+		return nil, status.Error(codes.Internal, "could not join group")
 	}
 	return &accountsv1.JoinGroupResponse{}, nil
 }
 
 func (srv *groupsService) AddNoteToGroup(ctx context.Context, in *accountsv1.AddNoteToGroupRequest) (*accountsv1.AddNoteToGroupResponse, error) {
-	id, err := uuid.Parse(in.Id)
-	if err != nil {
-		srv.logger.Errorw("failed to convert uuid from string", "error", err.Error())
-		return nil, status.Errorf(codes.Internal, "could not join group")
-	}
+	// id, err := uuid.Parse(in.Id)
+	// if err != nil {
+	// 	srv.logger.Errorw("failed to convert uuid from string", "error", err.Error())
+	// 	return nil, status.Error(codes.Internal, "could not join group")
+	// }
 
-	noteId, err := uuid.Parse(in.NoteId)
-	if err != nil {
-		srv.logger.Errorw("failed to convert uuid from string", "error", err.Error())
-		return nil, status.Errorf(codes.Internal, "could not join group")
-	}
+	// noteId, err := uuid.Parse(in.NoteId)
+	// if err != nil {
+	// 	srv.logger.Errorw("failed to convert uuid from string", "error", err.Error())
+	// 	return nil, status.Error(codes.Internal, "could not join group")
+	// }
 
-	acc, err := srv.repo.Get(ctx, &models.OneGroupFilter{ID: id.String()})
-	if err != nil {
-		srv.logger.Errorw("failed to get group", "error", err.Error())
-		return nil, status.Errorf(codes.Internal, "could not join group")
-	}
+	// acc, err := srv.repo.Get(ctx, &models.OneGroupFilter{ID: id.String()})
+	// if err != nil {
+	// 	srv.logger.Errorw("failed to get group", "error", err.Error())
+	// 	return nil, status.Error(codes.Internal, "could not join group")
+	// }
 
-	newNote := *acc.Notes
-	newNote = append(newNote, models.Note{ID: noteId.String()})
+	// newNote := *acc.Notes
+	// newNote = append(newNote, models.Note{ID: noteId.String()})
 
-	err = srv.repo.Update(ctx, &models.OneGroupFilter{ID: id.String()}, &models.GroupPayload{Notes: &newNote})
-	if err != nil {
-		srv.logger.Errorw("failed to update group", "error", err.Error())
-		return nil, status.Errorf(codes.Internal, "could not join group")
-	}
-	return &accountsv1.AddNoteToGroupResponse{}, nil
+	// err = srv.repo.Update(ctx, &models.OneGroupFilter{ID: id.String()}, &models.GroupPayload{Notes: &newNote})
+	// if err != nil {
+	// 	srv.logger.Errorw("failed to update group", "error", err.Error())
+	// 	return nil, status.Error(codes.Internal, "could not join group")
+	// }
+
+	return nil, status.Error(codes.Unimplemented, "not implemented")
 }
 
+// TODO: This function is duplicated from accountsService.authenticate().
+// Find a way to extract this into a separate function or use a base class
+// to share common behaviour.
 func (srv *groupsService) authenticate(ctx context.Context) (*auth.Token, error) {
 	token, err := srv.auth.TokenFromContext(ctx)
 	if err != nil {

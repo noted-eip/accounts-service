@@ -26,6 +26,6 @@ func NewDatabase(ctx context.Context, shema *memdb.DBSchema, logger *zap.Logger)
 
 	return &Database{
 		DB:     db,
-		logger: logger,
+		logger: logger.Named("memory"),
 	}, nil
 }

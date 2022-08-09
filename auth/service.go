@@ -39,7 +39,7 @@ type Service interface {
 	TokenFromContext(ctx context.Context) (*Token, error)
 
 	// ContextWithToken returns a copy of parent in which a new value for the
-	// key 'noted-token' is set to a string encoded JWT.
+	// key 'authorization' is set to a string encoded JWT.
 	ContextWithToken(parent context.Context, info *Token) (context.Context, error)
 
 	// SignToken returns a signed JWT string containing the payload

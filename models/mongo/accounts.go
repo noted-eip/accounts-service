@@ -11,83 +11,84 @@ import (
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.uber.org/zap"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
 )
 
 type accountsRepository struct {
 	logger *zap.Logger
 	db     *mongo.Database
+	coll   *mongo.Collection
 }
 
 func NewAccountsRepository(db *mongo.Database, logger *zap.Logger) models.AccountsRepository {
 	return &accountsRepository{
-		logger: logger,
+		logger: logger.Named("mongo").Named("accounts"),
 		db:     db,
+		coll:   db.Collection("accounts"),
 	}
 }
 
-func (srv *accountsRepository) Create(ctx context.Context, payload *models.AccountPayload) error {
+func (srv *accountsRepository) Create(ctx context.Context, payload *models.AccountPayload) (*models.Account, error) {
 	id, err := uuid.NewRandom()
 	if err != nil {
 		srv.logger.Error("failed to generate new random uuid", zap.Error(err))
-		return status.Errorf(codes.Internal, "could not create account")
+		return nil, err
 	}
+
 	account := models.Account{ID: id.String(), Email: payload.Email, Name: payload.Name, Hash: payload.Hash}
 
 	_, err = srv.db.Collection("accounts").InsertOne(ctx, account)
 	if err != nil {
-		srv.logger.Error("mongo insert account failed", zap.Error(err), zap.String("email", *account.Email))
-		return status.Errorf(codes.Internal, "could not create account")
+		srv.logger.Error("insert failed", zap.Error(err), zap.String("email", *account.Email))
+		return nil, err
 	}
-	return nil
+
+	return &account, nil
 }
 
 func (srv *accountsRepository) Get(ctx context.Context, filter *models.OneAccountFilter) (*models.Account, error) {
 	var account models.Account
-
-	err := srv.db.Collection("accounts").FindOne(ctx, filter).Decode(&account)
+	err := srv.coll.FindOne(ctx, filter).Decode(&account)
 	if err != nil {
 		if errors.Is(err, mongo.ErrNoDocuments) {
-			return nil, status.Errorf(codes.NotFound, "account not found")
+			return nil, models.ErrNotFound
 		}
-		srv.logger.Error("unable to query accounts", zap.Error(err))
-		return nil, status.Errorf(codes.InvalidArgument, err.Error())
+		srv.logger.Error("query failed", zap.Error(err))
+		return nil, err
 	}
 
 	return &account, nil
 }
 
 func (srv *accountsRepository) Delete(ctx context.Context, filter *models.OneAccountFilter) error {
-	delete, err := srv.db.Collection("accounts").DeleteOne(ctx, filter)
-
+	delete, err := srv.coll.DeleteOne(ctx, filter)
 	if err != nil {
-		srv.logger.Error("delete account db query failed", zap.Error(err))
-		return status.Errorf(codes.Internal, "could not delete account")
+		srv.logger.Error("delete failed", zap.Error(err))
+		return err
 	}
 	if delete.DeletedCount == 0 {
-		srv.logger.Info("mongo delete account matched none", zap.String("user_id", filter.ID))
-		return status.Errorf(codes.Internal, "could not delete account")
+		return models.ErrNotFound
 	}
+
 	return nil
 }
 
-func (srv *accountsRepository) Update(ctx context.Context, filter *models.OneAccountFilter, account *models.AccountPayload) error {
-	update, err := srv.db.Collection("accounts").UpdateOne(ctx, filter, bson.D{{Key: "$set", Value: &account}})
+func (srv *accountsRepository) Update(ctx context.Context, filter *models.OneAccountFilter, account *models.AccountPayload) (*models.Account, error) {
+	update, err := srv.coll.UpdateOne(ctx, filter, bson.D{{Key: "$set", Value: &account}})
 	if err != nil {
 		srv.logger.Error("failed to convert object id from hex", zap.Error(err))
-		return status.Errorf(codes.InvalidArgument, err.Error())
+		return nil, err
 	}
 	if update.MatchedCount == 0 {
-		srv.logger.Error("mongo update account query matched none", zap.String("user_id", filter.ID))
-		return status.Errorf(codes.Internal, "could not update account")
+		return nil, models.ErrNotFound
 	}
-	return nil
+
+	// TODO: Return the updated representation of the account.
+	return nil, nil
 }
 
-func (srv *accountsRepository) List(ctx context.Context) (*[]models.Account, error) {
+func (srv *accountsRepository) List(ctx context.Context, filter *models.ManyAccountsFilter, pagination *models.Pagination) ([]models.Account, error) {
 	// var accounts []account
-	// cursor, err := srv.db.Collection("accounts").Find(ctx, bson.D{})
+	// cursor, err := srv.coll.Find(ctx, bson.D{})
 	// if err != nil {
 	// 	srv.logger.Error("mongo find accounts query failed", zap.Error(err))
 	// 	return nil, status.Errorf(codes.Internal, err.Error())
@@ -103,5 +104,5 @@ func (srv *accountsRepository) List(ctx context.Context) (*[]models.Account, err
 	// 	accounts = append(accounts, elem)
 	// }
 
-	return &[]models.Account{}, status.Errorf(codes.Unimplemented, "could not list account")
+	return nil, errors.New("not implemeted")
 }
