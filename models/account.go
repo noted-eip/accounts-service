@@ -28,7 +28,7 @@ type ManyAccountFilter struct{}
 
 // AccountsRepository is safe for use in multiple goroutines.
 type AccountsRepository interface {
-	Create(ctx context.Context, filter *AccountPayload) error
+	Create(ctx context.Context, filter *AccountPayload) (*Account, error)
 
 	Get(ctx context.Context, filter *OneAccountFilter) (*Account, error)
 

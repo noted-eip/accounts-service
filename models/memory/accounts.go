@@ -5,9 +5,8 @@ import (
 	"accounts-service/models"
 	"context"
 
+	"github.com/google/uuid"
 	"go.uber.org/zap"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
 )
 
 type accountsRepository struct {
@@ -22,34 +21,41 @@ func NewAccountsRepository(db *Database, logger *zap.Logger) models.AccountsRepo
 	}
 }
 
-func (srv *accountsRepository) Create(ctx context.Context, payload *models.AccountPayload) error {
+func (srv *accountsRepository) Create(ctx context.Context, payload *models.AccountPayload) (*models.Account, error) {
 
 	txn := srv.db.DB.Txn(true)
 	defer txn.Abort()
 
-	id := "90defb10-e691-422f-8575-1e565518fd9a"
+	id, err := uuid.NewRandom()
+	if err != nil {
+		srv.logger.Error("failed to generate new random uuid", zap.Error(err))
+		return nil, err
+	}
 
-	account := models.Account{ID: id, Email: payload.Email, Name: payload.Name, Hash: payload.Hash}
-	err := txn.Insert("account", &account)
+	account := models.Account{ID: id.String(), Email: payload.Email, Name: payload.Name, Hash: payload.Hash}
+	err = txn.Insert("account", &account)
 	if err != nil {
 		srv.logger.Error("in-memory insert account failed", zap.Error(err), zap.String("email", *account.Email))
-		return status.Errorf(codes.Internal, "could not create account")
+		return nil, err
 	}
 
 	txn.Commit()
-	return nil
+	return &account, nil
 }
 func (srv *accountsRepository) Get(ctx context.Context, filter *models.OneAccountFilter) (*models.Account, error) {
 	txn := srv.db.DB.Txn(false)
 	defer txn.Abort()
 
-	raw, err := txn.First("account", "email", filter.Email)
+	raw, err := txn.First("account", "email", *filter.Email)
 	if err != nil {
 		srv.logger.Error("unable to query account", zap.Error(err))
-		return nil, status.Errorf(codes.InvalidArgument, err.Error())
+		return nil, err
 	}
 
-	return raw.(*models.Account), nil
+	if raw != nil {
+		return raw.(*models.Account), nil
+	}
+	return nil, nil
 }
 
 func (srv *accountsRepository) Delete(ctx context.Context, filter *models.OneAccountFilter) error {
@@ -59,7 +65,7 @@ func (srv *accountsRepository) Delete(ctx context.Context, filter *models.OneAcc
 	err := txn.Delete("account", models.Account{ID: filter.ID})
 	if err != nil {
 		srv.logger.Error("unable to delete account", zap.Error(err))
-		return status.Errorf(codes.Internal, "could not delete account")
+		return err
 	}
 
 	return nil
@@ -79,7 +85,7 @@ func (srv *accountsRepository) Update(ctx context.Context, filter *models.OneAcc
 }
 
 func (srv *accountsRepository) List(ctx context.Context) (*[]models.Account, error) {
-	var acccounts []models.Account
+	var accounts []models.Account
 
 	txn := srv.db.DB.Txn(false)
 
@@ -89,8 +95,8 @@ func (srv *accountsRepository) List(ctx context.Context) (*[]models.Account, err
 	}
 
 	for obj := it.Next(); obj != nil; obj = it.Next() {
-		acccounts = append(acccounts, obj.(models.Account))
+		accounts = append(accounts, obj.(models.Account))
 	}
 
-	return &acccounts, nil
+	return &accounts, nil
 }

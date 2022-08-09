@@ -27,20 +27,21 @@ func NewAccountsRepository(db *mongo.Database, logger *zap.Logger) models.Accoun
 	}
 }
 
-func (srv *accountsRepository) Create(ctx context.Context, payload *models.AccountPayload) error {
+func (srv *accountsRepository) Create(ctx context.Context, payload *models.AccountPayload) (*models.Account, error) {
 	id, err := uuid.NewRandom()
 	if err != nil {
 		srv.logger.Error("failed to generate new random uuid", zap.Error(err))
-		return status.Errorf(codes.Internal, "could not create account")
+		return nil, err
 	}
 	account := models.Account{ID: id.String(), Email: payload.Email, Name: payload.Name, Hash: payload.Hash}
 
 	_, err = srv.db.Collection("accounts").InsertOne(ctx, account)
 	if err != nil {
 		srv.logger.Error("mongo insert account failed", zap.Error(err), zap.String("email", *account.Email))
-		return status.Errorf(codes.Internal, "could not create account")
+		return nil, err
 	}
-	return nil
+
+	return &account, nil
 }
 
 func (srv *accountsRepository) Get(ctx context.Context, filter *models.OneAccountFilter) (*models.Account, error) {
@@ -49,10 +50,10 @@ func (srv *accountsRepository) Get(ctx context.Context, filter *models.OneAccoun
 	err := srv.db.Collection("accounts").FindOne(ctx, filter).Decode(&account)
 	if err != nil {
 		if errors.Is(err, mongo.ErrNoDocuments) {
-			return nil, status.Errorf(codes.NotFound, "account not found")
+			return nil, err
 		}
 		srv.logger.Error("unable to query accounts", zap.Error(err))
-		return nil, status.Errorf(codes.InvalidArgument, err.Error())
+		return nil, err
 	}
 
 	return &account, nil
@@ -63,7 +64,7 @@ func (srv *accountsRepository) Delete(ctx context.Context, filter *models.OneAcc
 
 	if err != nil {
 		srv.logger.Error("delete account db query failed", zap.Error(err))
-		return status.Errorf(codes.Internal, "could not delete account")
+		return err
 	}
 	if delete.DeletedCount == 0 {
 		srv.logger.Info("mongo delete account matched none", zap.String("user_id", filter.ID))

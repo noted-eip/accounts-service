@@ -1,10 +1,10 @@
 package main
 
 import (
+	"accounts-service/auth"
 	"accounts-service/models"
 	accountsv1 "accounts-service/protorepo/noted/accounts/v1"
 	"context"
-	"fmt"
 
 	"github.com/google/uuid"
 	"go.uber.org/zap"
@@ -15,6 +15,7 @@ import (
 type groupsService struct {
 	accountsv1.UnimplementedGroupsAPIServer
 
+	auth   auth.Service
 	logger *zap.SugaredLogger
 	repo   models.GroupsRepository
 }
@@ -22,13 +23,12 @@ type groupsService struct {
 var _ accountsv1.GroupsAPIServer = &groupsService{}
 
 func (srv *groupsService) CreateGroup(ctx context.Context, in *accountsv1.CreateGroupRequest) (*accountsv1.CreateGroupResponse, error) {
-	id, err := uuid.Parse(in.OwnerId)
+	token, err := srv.authenticate(ctx)
 	if err != nil {
-		srv.logger.Errorw("failed to convert uuid from string", "error", err.Error())
-		return nil, status.Errorf(codes.Internal, "could not get account")
+		return nil, err
 	}
-	fmt.Println("description => ", in)
-	srv.repo.Create(ctx, &models.GroupPayload{Name: &in.Name, Members: &[]models.Member{{ID: id.String()}}, Description: &in.Description})
+
+	srv.repo.Create(ctx, &models.GroupPayload{Name: &in.Name, Members: &[]models.Member{{ID: token.UserID.String()}}, Description: &in.Description})
 	return &accountsv1.CreateGroupResponse{}, nil
 }
 
@@ -80,40 +80,13 @@ func (srv *groupsService) UpdateGroup(ctx context.Context, in *accountsv1.Update
 	return &accountsv1.UpdateGroupResponse{}, nil
 }
 
-func (srv *groupsService) GetGroup(ctx context.Context, in *accountsv1.GetGroupRequest) (*accountsv1.GetGroupResponse, error) {
-	id, err := uuid.Parse(in.Id)
-	if err != nil {
-		srv.logger.Errorw("failed to convert uuid from string", "error", err.Error())
-		return nil, status.Errorf(codes.Internal, "could not get group")
-	}
-	accountModel, err := srv.repo.Get(ctx, &models.OneGroupFilter{ID: id.String(), Name: &in.Name})
-	if err != nil {
-		srv.logger.Errorw("failed to get group", "error", err.Error())
-		return nil, status.Errorf(codes.Internal, "could not get group")
-	}
-
-	var members []*accountsv1.GroupMember
-	for _, m := range *accountModel.Members {
-		memberId, err := uuid.Parse(m.ID)
-		if err != nil {
-			srv.logger.Errorw("failed to convert members uuid from string", "error", err.Error())
-			return nil, status.Errorf(codes.Internal, "could not get group")
-		}
-		members = append(members, &accountsv1.GroupMember{AccountId: memberId.String()})
-	}
-
-	account := accountsv1.Group{Id: in.Id, Name: *accountModel.Name, Members: members, Description: *accountModel.Description}
-	return &accountsv1.GetGroupResponse{Group: &account}, nil
-}
-
 func (srv *groupsService) JoinGroup(ctx context.Context, in *accountsv1.JoinGroupRequest) (*accountsv1.JoinGroupResponse, error) {
-	id, err := uuid.Parse(in.Id)
+	token, err := srv.authenticate(ctx)
 	if err != nil {
-		srv.logger.Errorw("failed to convert uuid from string", "error", err.Error())
-		return nil, status.Errorf(codes.Internal, "could not join group")
+		return nil, err
 	}
 
-	memberId, err := uuid.Parse(in.MemberId)
+	id, err := uuid.Parse(in.Id)
 	if err != nil {
 		srv.logger.Errorw("failed to convert uuid from string", "error", err.Error())
 		return nil, status.Errorf(codes.Internal, "could not join group")
@@ -126,7 +99,7 @@ func (srv *groupsService) JoinGroup(ctx context.Context, in *accountsv1.JoinGrou
 	}
 
 	newMember := *acc.Members
-	newMember = append(newMember, models.Member{ID: memberId.String()})
+	newMember = append(newMember, models.Member{ID: token.UserID.String()})
 
 	err = srv.repo.Update(ctx, &models.OneGroupFilter{ID: id.String()}, &models.GroupPayload{Members: &newMember})
 	if err != nil {
@@ -164,4 +137,13 @@ func (srv *groupsService) AddNoteToGroup(ctx context.Context, in *accountsv1.Add
 		return nil, status.Errorf(codes.Internal, "could not join group")
 	}
 	return &accountsv1.AddNoteToGroupResponse{}, nil
+}
+
+func (srv *groupsService) authenticate(ctx context.Context) (*auth.Token, error) {
+	token, err := srv.auth.TokenFromContext(ctx)
+	if err != nil {
+		srv.logger.Debugw("could not authenticate request", "error", err)
+		return nil, status.Error(codes.Unauthenticated, "invalid token")
+	}
+	return token, nil
 }

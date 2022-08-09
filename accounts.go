@@ -41,13 +41,14 @@ func (srv *accountsAPI) CreateAccount(ctx context.Context, in *accountsv1.Create
 		return nil, status.Errorf(codes.Internal, "could not create account")
 	}
 
-	err = srv.repo.Create(ctx, &models.AccountPayload{Email: &in.Email, Name: &in.Name, Hash: &hashed})
+	account, err := srv.repo.Create(ctx, &models.AccountPayload{Email: &in.Email, Name: &in.Name, Hash: &hashed})
 	if err != nil {
 		srv.logger.Errorw("failed to create account", zap.Error(err))
 		return nil, status.Errorf(codes.Internal, "could not create account")
 	}
 
-	return &accountsv1.CreateAccountResponse{}, nil
+	acc := accountsv1.Account{Email: *account.Email, Name: *account.Name, Id: account.ID}
+	return &accountsv1.CreateAccountResponse{Account: &acc}, nil
 }
 
 func (srv *accountsAPI) GetAccount(ctx context.Context, in *accountsv1.GetAccountRequest) (*accountsv1.GetAccountResponse, error) {
@@ -75,7 +76,7 @@ func (srv *accountsAPI) GetAccount(ctx context.Context, in *accountsv1.GetAccoun
 		return nil, status.Errorf(codes.Internal, "could not get account")
 	}
 
-	if token.UserID.String() != account.ID && token.Role != auth.RoleAdmin {
+	if account == nil || token.UserID.String() != account.ID && token.Role != auth.RoleAdmin {
 		return nil, status.Errorf(codes.NotFound, "account not found")
 	}
 	acc := accountsv1.Account{Email: *account.Email, Name: *account.Name, Id: account.ID}
