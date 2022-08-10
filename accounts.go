@@ -23,7 +23,7 @@ type accountsAPI struct {
 	accountsv1.UnimplementedAccountsAPIServer
 
 	auth   auth.Service
-	logger *zap.SugaredLogger
+	logger *zap.Logger
 	repo   models.AccountsRepository
 }
 
@@ -37,13 +37,13 @@ func (srv *accountsAPI) CreateAccount(ctx context.Context, in *accountsv1.Create
 
 	hashed, err := bcrypt.GenerateFromPassword([]byte(in.Password), 8)
 	if err != nil {
-		srv.logger.Errorw("bcrypt failed to hash password", "error", err.Error())
+		srv.logger.Error("bcrypt failed to hash password", zap.Error(err))
 		return nil, status.Error(codes.Internal, "failed to create account")
 	}
 
 	acc, err := srv.repo.Create(ctx, &models.AccountPayload{Email: &in.Email, Name: &in.Name, Hash: &hashed})
 	if err != nil {
-		srv.logger.Errorw("failed to create account", zap.Error(err))
+		srv.logger.Error("failed to create account", zap.Error(err))
 		return nil, status.Error(codes.Internal, "failed to create account")
 	}
 
@@ -73,7 +73,7 @@ func (srv *accountsAPI) GetAccount(ctx context.Context, in *accountsv1.GetAccoun
 
 	account, err := srv.repo.Get(ctx, &models.OneAccountFilter{ID: in.Id, Email: &in.Email})
 	if err != nil {
-		srv.logger.Errorw("failed to get account", "error", err.Error())
+		srv.logger.Error("failed to get account", zap.Error(err))
 		return nil, status.Error(codes.Internal, "failed to get account")
 	}
 
@@ -101,7 +101,7 @@ func (srv *accountsAPI) UpdateAccount(ctx context.Context, in *accountsv1.Update
 
 	id, err := uuid.Parse(in.Account.Id)
 	if err != nil {
-		srv.logger.Errorw("failed to convert uuid from string", "error", err.Error())
+		srv.logger.Error("failed to convert uuid from string", zap.Error(err))
 		return nil, status.Error(codes.Internal, "failed to update account")
 	}
 
@@ -114,14 +114,14 @@ func (srv *accountsAPI) UpdateAccount(ctx context.Context, in *accountsv1.Update
 
 	acc, err := srv.repo.Get(ctx, &models.OneAccountFilter{ID: id.String()})
 	if err != nil {
-		srv.logger.Errorw("failed to get account", "error", err.Error())
+		srv.logger.Error("failed to get account", zap.Error(err))
 		return nil, status.Error(codes.Internal, "failed to update account")
 	}
 
 	var protoAccount accountsv1.Account
 	err = copier.Copy(&protoAccount, &acc)
 	if err != nil {
-		srv.logger.Errorw("invalid account conversion", "error", err.Error())
+		srv.logger.Error("invalid account conversion", zap.Error(err))
 		return nil, status.Error(codes.Internal, "failed to update account")
 	}
 	proto.Merge(&protoAccount, in.Account)
@@ -151,13 +151,13 @@ func (srv *accountsAPI) DeleteAccount(ctx context.Context, in *accountsv1.Delete
 
 	id, err := uuid.Parse(in.Id)
 	if err != nil {
-		srv.logger.Errorw("failed to convert uuid from string", "error", err.Error())
+		srv.logger.Error("failed to convert uuid from string", zap.Error(err))
 		return nil, status.Error(codes.Internal, "failed to delete account")
 	}
 
 	err = srv.repo.Delete(ctx, &models.OneAccountFilter{ID: id.String()})
 	if err != nil {
-		srv.logger.Errorw("failed to delete account", "error", err.Error())
+		srv.logger.Error("failed to delete account", zap.Error(err))
 		return nil, status.Error(codes.Internal, "failed to delete account")
 	}
 
@@ -167,7 +167,7 @@ func (srv *accountsAPI) DeleteAccount(ctx context.Context, in *accountsv1.Delete
 func (srv *accountsAPI) Authenticate(ctx context.Context, in *accountsv1.AuthenticateRequest) (*accountsv1.AuthenticateResponse, error) {
 	acc, err := srv.repo.Get(ctx, &models.OneAccountFilter{Email: &in.Email})
 	if err != nil {
-		srv.logger.Errorw("failed to get account", "error", err.Error())
+		srv.logger.Error("failed to get account", zap.Error(err))
 		return nil, status.Error(codes.Internal, "failed to get account")
 	}
 
@@ -178,13 +178,13 @@ func (srv *accountsAPI) Authenticate(ctx context.Context, in *accountsv1.Authent
 
 	id, err := uuid.Parse(acc.ID)
 	if err != nil {
-		srv.logger.Errorw("failed to convert uuid from string", "error", err.Error())
+		srv.logger.Error("failed to convert uuid from string", zap.Error(err))
 		return nil, status.Error(codes.Internal, "failed to get account")
 	}
 
 	tokenString, err := srv.auth.SignToken(&auth.Token{UserID: id})
 	if err != nil {
-		srv.logger.Errorw("failed to sign token", "error", err, "email", in.Email)
+		srv.logger.Error("failed to sign token", zap.Error(err))
 		return nil, status.Error(codes.Internal, "failed to authenticate user")
 	}
 
@@ -194,7 +194,7 @@ func (srv *accountsAPI) Authenticate(ctx context.Context, in *accountsv1.Authent
 func (srv *accountsAPI) authenticate(ctx context.Context) (*auth.Token, error) {
 	token, err := srv.auth.TokenFromContext(ctx)
 	if err != nil {
-		srv.logger.Debugw("failed to authenticate request", "error", err)
+		srv.logger.Debug("failed to authenticate request", zap.Error(err))
 		return nil, status.Error(codes.Unauthenticated, "invalid token")
 	}
 	return token, nil

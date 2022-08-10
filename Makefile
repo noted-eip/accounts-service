@@ -14,3 +14,4 @@ run-db:
 # Stop MongoDB database.
 stop-db:
 	docker kill accounts-mongo
+	docker rm accounts-mongo

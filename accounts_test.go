@@ -3,9 +3,7 @@ package main
 import (
 	"accounts-service/auth"
 	"accounts-service/models/memory"
-
 	accountsv1 "accounts-service/protorepo/noted/accounts/v1"
-
 	"context"
 	"crypto/ed25519"
 	"testing"
@@ -13,7 +11,6 @@ import (
 	"github.com/google/uuid"
 	"github.com/hashicorp/go-memdb"
 	"github.com/stretchr/testify/require"
-
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 )
@@ -30,7 +27,7 @@ func TestAccountsService_CreateAccount(t *testing.T) {
 	db := newAccountsDatabaseOrFail(t, logger)
 	srv := &accountsAPI{
 		auth:   auth.NewService(genKeyOrFail(t)),
-		logger: logger.Sugar(),
+		logger: logger,
 		repo:   memory.NewAccountsRepository(db, logger),
 	}
 
@@ -45,7 +42,7 @@ func TestAccountsService_GetAccount(t *testing.T) {
 
 	srv := &accountsAPI{
 		auth:   auth.NewService(genKeyOrFail(t)),
-		logger: logger.Sugar(),
+		logger: logger,
 		repo:   memory.NewAccountsRepository(db, logger),
 	}
 
@@ -72,7 +69,7 @@ func TestAccountsService_DeleteAccount(t *testing.T) {
 
 	srv := &accountsAPI{
 		auth:   auth.NewService(genKeyOrFail(t)),
-		logger: zap.NewNop().Sugar(),
+		logger: logger,
 		repo:   memory.NewAccountsRepository(db, logger),
 	}
 

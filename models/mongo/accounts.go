@@ -36,7 +36,7 @@ func (srv *accountsRepository) Create(ctx context.Context, payload *models.Accou
 
 	account := models.Account{ID: id.String(), Email: payload.Email, Name: payload.Name, Hash: payload.Hash}
 
-	_, err = srv.db.Collection("accounts").InsertOne(ctx, account)
+	_, err = srv.coll.InsertOne(ctx, account)
 	if err != nil {
 		srv.logger.Error("insert failed", zap.Error(err), zap.String("email", *account.Email))
 		return nil, err
@@ -75,7 +75,7 @@ func (srv *accountsRepository) Delete(ctx context.Context, filter *models.OneAcc
 func (srv *accountsRepository) Update(ctx context.Context, filter *models.OneAccountFilter, account *models.AccountPayload) (*models.Account, error) {
 	update, err := srv.coll.UpdateOne(ctx, filter, bson.D{{Key: "$set", Value: &account}})
 	if err != nil {
-		srv.logger.Error("failed to convert object id from hex", zap.Error(err))
+		srv.logger.Error("update one failed", zap.Error(err))
 		return nil, err
 	}
 	if update.MatchedCount == 0 {
