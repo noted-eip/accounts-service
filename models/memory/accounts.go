@@ -16,13 +16,12 @@ type accountsRepository struct {
 
 func NewAccountsRepository(db *Database, logger *zap.Logger) models.AccountsRepository {
 	return &accountsRepository{
-		logger: logger,
+		logger: logger.Named("memory").Named("accounts"),
 		db:     db,
 	}
 }
 
 func (srv *accountsRepository) Create(ctx context.Context, payload *models.AccountPayload) (*models.Account, error) {
-
 	txn := srv.db.DB.Txn(true)
 	defer txn.Abort()
 
@@ -35,18 +34,20 @@ func (srv *accountsRepository) Create(ctx context.Context, payload *models.Accou
 	account := models.Account{ID: id.String(), Email: payload.Email, Name: payload.Name, Hash: payload.Hash}
 	err = txn.Insert("account", &account)
 	if err != nil {
-		srv.logger.Error("in-memory insert account failed", zap.Error(err), zap.String("email", *account.Email))
+		srv.logger.Error("insert account failed", zap.Error(err), zap.String("email", *account.Email))
 		return nil, err
 	}
 
 	txn.Commit()
 	return &account, nil
 }
+
 func (srv *accountsRepository) Get(ctx context.Context, filter *models.OneAccountFilter) (*models.Account, error) {
 	txn := srv.db.DB.Txn(false)
 	defer txn.Abort()
 
 	raw, err := txn.First("account", "email", *filter.Email)
+	// Check for memdb.ErrNotFound and return a models.ErrNotFound.
 	if err != nil {
 		srv.logger.Error("unable to query account", zap.Error(err))
 		return nil, err
@@ -63,6 +64,7 @@ func (srv *accountsRepository) Delete(ctx context.Context, filter *models.OneAcc
 	defer txn.Abort()
 
 	err := txn.Delete("account", models.Account{ID: filter.ID})
+	// Check for memdb.ErrNotFound and return a models.ErrNotFound.
 	if err != nil {
 		srv.logger.Error("unable to delete account", zap.Error(err))
 		return err
@@ -71,32 +73,32 @@ func (srv *accountsRepository) Delete(ctx context.Context, filter *models.OneAcc
 	return nil
 }
 
-func (srv *accountsRepository) Update(ctx context.Context, filter *models.OneAccountFilter, account *models.AccountPayload) error {
+func (srv *accountsRepository) Update(ctx context.Context, filter *models.OneAccountFilter, account *models.AccountPayload) (*models.Account, error) {
 	// update, err := srv.db.Collection("accounts").UpdateOne(ctx, filter, bson.D{{Key: "$set", Value: &account}})
 	// if err != nil {
 	// 	srv.logger.Error("failed to convert object id from hex", zap.Error(err))
-	// 	return status.Errorf(codes.InvalidArgument, err.Error())
+	// 	return err
 	// }
 	// if update.MatchedCount == 0 {
 	// 	srv.logger.Error("mongo update account query matched none", zap.String("user_id", filter.ID))
-	// 	return status.Errorf(codes.Internal, "could not update account")
+	// 	return err
 	// }
-	return nil
+	return nil, nil
 }
 
-func (srv *accountsRepository) List(ctx context.Context) (*[]models.Account, error) {
+func (srv *accountsRepository) List(ctx context.Context, filter *models.ManyAccountsFilter, pagination *models.Pagination) ([]models.Account, error) {
 	var accounts []models.Account
 
 	txn := srv.db.DB.Txn(false)
 
 	it, err := txn.Get("account", "id")
 	if err != nil {
-		panic(err)
+		return nil, err
 	}
 
 	for obj := it.Next(); obj != nil; obj = it.Next() {
 		accounts = append(accounts, obj.(models.Account))
 	}
 
-	return &accounts, nil
+	return accounts, nil
 }

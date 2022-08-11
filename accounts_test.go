@@ -182,3 +182,47 @@ func genKeyOrFail(t *testing.T) ed25519.PrivateKey {
 	require.NoError(t, err)
 	return priv
 }
+
+func newAccountsDatabaseSchema() *memdb.DBSchema {
+	return &memdb.DBSchema{
+		Tables: map[string]*memdb.TableSchema{
+			"account": {
+				Name: "account",
+				Indexes: map[string]*memdb.IndexSchema{
+					"id": {
+						Name:    "id",
+						Unique:  true,
+						Indexer: &memdb.StringFieldIndex{Field: "ID"},
+					},
+					"email": {
+						Name:    "email",
+						Unique:  true,
+						Indexer: &memdb.StringFieldIndex{Field: "Email"},
+					},
+					"name": {
+						Name:    "name",
+						Unique:  false,
+						Indexer: &memdb.StringFieldIndex{Field: "Name"},
+					},
+					"hash": {
+						Name:    "hash",
+						Unique:  false,
+						Indexer: &memdb.StringFieldIndex{Field: "Hash"},
+					},
+				},
+			},
+		},
+	}
+}
+
+func newAccountsDatabaseOrFail(t *testing.T, logger *zap.Logger) *memory.Database {
+	db, err := memory.NewDatabase(context.Background(), newAccountsDatabaseSchema(), logger)
+	require.NoError(t, err, "could not instantiate in-memory database")
+	return db
+}
+
+func newLoggerOrFail(t *testing.T) *zap.Logger {
+	logger, err := zap.NewDevelopment(zap.AddStacktrace(zapcore.FatalLevel), zap.WithCaller(false))
+	require.NoError(t, err, "could not instantiate zap logger")
+	return logger
+}
