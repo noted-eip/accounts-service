@@ -39,13 +39,14 @@ func NewDatabase(ctx context.Context, uri string, name string, logger *zap.Logge
 		return nil, err
 	}
 
-	logger.Info("mongo database connection successful")
-
-	return &Database{
+	db := &Database{
 		client: client,
 		DB:     client.Database(name),
 		logger: logger.Named("mongo"),
-	}, nil
+	}
+	db.logger.Info("mongo database connection successful")
+
+	return db, nil
 }
 
 // Disconnect the TCP connection to the cluster.

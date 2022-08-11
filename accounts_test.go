@@ -4,10 +4,9 @@ import (
 	"accounts-service/auth"
 	"accounts-service/models/memory"
 	accountsv1 "accounts-service/protorepo/noted/accounts/v1"
-	"fmt"
-
 	"context"
 	"crypto/ed25519"
+	"fmt"
 	"testing"
 
 	"github.com/google/uuid"
@@ -36,49 +35,14 @@ func TestAccountsService(t *testing.T) {
 }
 
 func (s *MainSuite) TestAccountServiceSetup() {
-	fmt.Println("from SetupAccount")
-	log, err := zap.NewDevelopment(zap.AddStacktrace(zapcore.FatalLevel), zap.WithCaller(false))
-	must(err, "could not instantiate zap logger")
+	logger := newLoggerOrFail(s.T())
+	db := newAccountsDatabaseOrFail(s.T(), logger)
 
 	s.srv = &accountsAPI{
 		auth:   auth.NewService(genKeyOrFail(s.T())),
-		logger: zap.NewNop().Sugar(),
+		logger: logger,
+		repo:   memory.NewAccountsRepository(db, logger),
 	}
-
-	schema := &memdb.DBSchema{
-		Tables: map[string]*memdb.TableSchema{
-			"account": &memdb.TableSchema{
-				Name: "account",
-				Indexes: map[string]*memdb.IndexSchema{
-					"id": &memdb.IndexSchema{
-						Name:    "id",
-						Unique:  true,
-						Indexer: &memdb.StringFieldIndex{Field: "ID"},
-					},
-					"email": &memdb.IndexSchema{
-						Name:    "email",
-						Unique:  true,
-						Indexer: &memdb.StringFieldIndex{Field: "Email"},
-					},
-					"name": &memdb.IndexSchema{
-						Name:    "name",
-						Unique:  false,
-						Indexer: &memdb.StringFieldIndex{Field: "Name"},
-					},
-					"hash": &memdb.IndexSchema{
-						Name:    "hash",
-						Unique:  false,
-						Indexer: &memdb.StringFieldIndex{Field: "Hash"},
-					},
-				},
-			},
-		},
-	}
-
-	db, err := memory.NewDatabase(context.Background(), schema, log)
-	must(err, "could not instantiate in-memory database")
-	s.srv.repo = memory.NewAccountsRepository(db, log)
-
 }
 
 func (s *MainSuite) TestAccountsServiceCreateAccount() {
@@ -225,4 +189,42 @@ func newLoggerOrFail(t *testing.T) *zap.Logger {
 	logger, err := zap.NewDevelopment(zap.AddStacktrace(zapcore.FatalLevel), zap.WithCaller(false))
 	require.NoError(t, err, "could not instantiate zap logger")
 	return logger
+}
+
+func TestAccountsService_CreateAccount_tmp(t *testing.T) {
+	logger := newLoggerOrFail(t)
+	db := newAccountsDatabaseOrFail(t, logger)
+	srv := &accountsAPI{
+		auth:   auth.NewService(genKeyOrFail(t)),
+		logger: logger,
+		repo:   memory.NewAccountsRepository(db, logger),
+	}
+
+	res, err := srv.CreateAccount(context.TODO(), &accountsv1.CreateAccountRequest{Email: "mail.test@gmail.com", Password: "password", Name: "Maxime"})
+	require.NoError(t, err)
+	require.NotEmpty(t, res)
+}
+
+func TestAccountsService_GetAccount_tmp(t *testing.T) {
+	logger := newLoggerOrFail(t)
+	db := newAccountsDatabaseOrFail(t, logger)
+
+	srv := &accountsAPI{
+		auth:   auth.NewService(genKeyOrFail(t)),
+		logger: logger,
+		repo:   memory.NewAccountsRepository(db, logger),
+	}
+
+	createAccRes, err := srv.CreateAccount(context.TODO(), &accountsv1.CreateAccountRequest{Email: "mail.test@gmail.com", Password: "password", Name: "Maxime"})
+	require.NoError(t, err)
+
+	ctx, err := srv.auth.ContextWithToken(context.TODO(), &auth.Token{
+		UserID: uuid.MustParse(createAccRes.Account.Id),
+	})
+	require.NoError(t, err)
+
+	res, err := srv.GetAccount(ctx, &accountsv1.GetAccountRequest{Id: createAccRes.Account.Id})
+	require.NoError(t, err)
+	require.Equal(t, "mail.test@gmail.com", res.Account.Email)
+	require.Equal(t, "Maxime", res.Account.Name)
 }

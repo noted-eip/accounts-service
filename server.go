@@ -22,8 +22,7 @@ import (
 )
 
 type server struct {
-	logger  *zap.Logger
-	slogger *zap.SugaredLogger
+	logger *zap.Logger
 
 	authService auth.Service
 
@@ -52,7 +51,7 @@ func (s *server) Run() {
 	lis, err := net.Listen("tcp", fmt.Sprint(":", *port))
 	must(err, "failed to create tcp listener")
 	reflection.Register(s.grpcServer)
-	s.slogger.Infof("service running on :%d", *port)
+	s.logger.Info(fmt.Sprint("service running on :", *port))
 	err = s.grpcServer.Serve(lis)
 	must(err, "failed to run grpc server")
 }
@@ -102,7 +101,6 @@ func (s *server) initLogger() {
 		s.logger, err = zap.NewDevelopment(zap.AddStacktrace(zapcore.FatalLevel), zap.WithCaller(false))
 	}
 	must(err, "unable to instantiate zap.Logger")
-	s.slogger = s.logger.Sugar()
 }
 
 func (s *server) initAuthService() {
@@ -122,7 +120,7 @@ func (s *server) initRepositories() {
 func (s *server) initAccountsService() {
 	s.accountsService = &accountsAPI{
 		auth:   s.authService,
-		logger: s.slogger,
+		logger: s.logger,
 		repo:   s.accountsRepository,
 	}
 }
@@ -130,7 +128,7 @@ func (s *server) initAccountsService() {
 func (s *server) initGroupsService() {
 	s.groupsService = &groupsService{
 		auth:   s.authService,
-		logger: s.slogger,
+		logger: s.logger,
 		repo:   s.groupsRepository,
 	}
 }
