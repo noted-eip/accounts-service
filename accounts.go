@@ -5,6 +5,7 @@ import (
 	"accounts-service/models"
 	accountsv1 "accounts-service/protorepo/noted/accounts/v1"
 	"context"
+	"errors"
 
 	"accounts-service/validators"
 
@@ -44,6 +45,9 @@ func (srv *accountsAPI) CreateAccount(ctx context.Context, in *accountsv1.Create
 	acc, err := srv.repo.Create(ctx, &models.AccountPayload{Email: &in.Email, Name: &in.Name, Hash: &hashed})
 	if err != nil {
 		srv.logger.Error("failed to create account", zap.Error(err))
+		if errors.Is(err, models.ErrDuplicateKeyFound) {
+			return nil, status.Error(codes.InvalidArgument, "failed to create account, email already use")
+		}
 		return nil, status.Error(codes.Internal, "failed to create account")
 	}
 
@@ -67,11 +71,8 @@ func (srv *accountsAPI) GetAccount(ctx context.Context, in *accountsv1.GetAccoun
 		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}
 
-	if in.Email != "" {
-		return nil, status.Error(codes.Unimplemented, "get account by email not implemented")
-	}
-
-	account, err := srv.repo.Get(ctx, &models.OneAccountFilter{ID: in.Id, Email: &in.Email})
+	filter := buildAccountFilter(models.OneAccountFilter{ID: in.Id, Email: &in.Email})
+	account, err := srv.repo.Get(ctx, &filter)
 	if err != nil {
 		srv.logger.Error("failed to get account", zap.Error(err))
 		return nil, status.Error(codes.Internal, "failed to get account")
@@ -80,6 +81,7 @@ func (srv *accountsAPI) GetAccount(ctx context.Context, in *accountsv1.GetAccoun
 	if account == nil || token.UserID.String() != account.ID && token.Role != auth.RoleAdmin {
 		return nil, status.Error(codes.NotFound, "account not found")
 	}
+
 	acc := accountsv1.Account{Email: *account.Email, Name: *account.Name, Id: account.ID}
 	return &accountsv1.GetAccountResponse{Account: &acc}, nil
 }
@@ -198,4 +200,13 @@ func (srv *accountsAPI) authenticate(ctx context.Context) (*auth.Token, error) {
 		return nil, status.Error(codes.Unauthenticated, "invalid token")
 	}
 	return token, nil
+}
+
+func buildAccountFilter(filter models.OneAccountFilter) models.OneAccountFilter {
+	if *filter.Email == "" {
+		return models.OneAccountFilter{ID: filter.ID}
+	} else if filter.ID == "" {
+		return models.OneAccountFilter{Email: filter.Email}
+	}
+	return models.OneAccountFilter{Email: filter.Email, ID: filter.ID}
 }

@@ -79,7 +79,7 @@ func (s *MainSuite) TestAccountsServiceGetAccount() {
 	})
 	s.Nil(err)
 
-	acc, err := s.srv.GetAccount(ctx, &accountsv1.GetAccountRequest{Email: "get.test@gmail.com", Id: uuid.String()})
+	acc, err := s.srv.GetAccount(ctx, &accountsv1.GetAccountRequest{Id: uuid.String()})
 	s.Nil(err)
 	s.EqualValues("get.test@gmail.com", acc.Account.Email)
 }
@@ -191,40 +191,40 @@ func newLoggerOrFail(t *testing.T) *zap.Logger {
 	return logger
 }
 
-func TestAccountsService_CreateAccount_tmp(t *testing.T) {
-	logger := newLoggerOrFail(t)
-	db := newAccountsDatabaseOrFail(t, logger)
-	srv := &accountsAPI{
-		auth:   auth.NewService(genKeyOrFail(t)),
-		logger: logger,
-		repo:   memory.NewAccountsRepository(db, logger),
-	}
+// func TestAccountsService_CreateAccount_tmp(t *testing.T) {
+// 	logger := newLoggerOrFail(t)
+// 	db := newAccountsDatabaseOrFail(t, logger)
+// 	srv := &accountsAPI{
+// 		auth:   auth.NewService(genKeyOrFail(t)),
+// 		logger: logger,
+// 		repo:   memory.NewAccountsRepository(db, logger),
+// 	}
 
-	res, err := srv.CreateAccount(context.TODO(), &accountsv1.CreateAccountRequest{Email: "mail.test@gmail.com", Password: "password", Name: "Maxime"})
-	require.NoError(t, err)
-	require.NotEmpty(t, res)
-}
+// 	res, err := srv.CreateAccount(context.TODO(), &accountsv1.CreateAccountRequest{Email: "mail.test@gmail.com", Password: "password", Name: "Maxime"})
+// 	require.NoError(t, err)
+// 	require.NotEmpty(t, res)
+// }
 
-func TestAccountsService_GetAccount_tmp(t *testing.T) {
-	logger := newLoggerOrFail(t)
-	db := newAccountsDatabaseOrFail(t, logger)
+// func TestAccountsService_GetAccount_tmp(t *testing.T) {
+// 	logger := newLoggerOrFail(t)
+// 	db := newAccountsDatabaseOrFail(t, logger)
 
-	srv := &accountsAPI{
-		auth:   auth.NewService(genKeyOrFail(t)),
-		logger: logger,
-		repo:   memory.NewAccountsRepository(db, logger),
-	}
+// 	srv := &accountsAPI{
+// 		auth:   auth.NewService(genKeyOrFail(t)),
+// 		logger: logger,
+// 		repo:   memory.NewAccountsRepository(db, logger),
+// 	}
 
-	createAccRes, err := srv.CreateAccount(context.TODO(), &accountsv1.CreateAccountRequest{Email: "mail.test@gmail.com", Password: "password", Name: "Maxime"})
-	require.NoError(t, err)
+// 	createAccRes, err := srv.CreateAccount(context.TODO(), &accountsv1.CreateAccountRequest{Email: "mail.test@gmail.com", Password: "password", Name: "Maxime"})
+// 	require.NoError(t, err)
 
-	ctx, err := srv.auth.ContextWithToken(context.TODO(), &auth.Token{
-		UserID: uuid.MustParse(createAccRes.Account.Id),
-	})
-	require.NoError(t, err)
+// 	ctx, err := srv.auth.ContextWithToken(context.TODO(), &auth.Token{
+// 		UserID: uuid.MustParse(createAccRes.Account.Id),
+// 	})
+// 	require.NoError(t, err)
 
-	res, err := srv.GetAccount(ctx, &accountsv1.GetAccountRequest{Id: createAccRes.Account.Id})
-	require.NoError(t, err)
-	require.Equal(t, "mail.test@gmail.com", res.Account.Email)
-	require.Equal(t, "Maxime", res.Account.Name)
-}
+// 	res, err := srv.GetAccount(ctx, &accountsv1.GetAccountRequest{Id: createAccRes.Account.Id})
+// 	require.NoError(t, err)
+// 	require.Equal(t, "mail.test@gmail.com", res.Account.Email)
+// 	require.Equal(t, "Maxime", res.Account.Name)
+// }

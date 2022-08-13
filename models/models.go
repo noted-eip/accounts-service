@@ -13,5 +13,6 @@ type Pagination struct {
 
 var (
 	// Returned when a `Get`, `Update` or `Delete` call matches no entity.
-	ErrNotFound = errors.New("entity not found")
+	ErrNotFound          = errors.New("entity not found")
+	ErrDuplicateKeyFound = errors.New("duplicate key found")
 )

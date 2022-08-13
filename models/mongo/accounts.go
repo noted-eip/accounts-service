@@ -10,6 +10,7 @@ import (
 	"github.com/google/uuid"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
+	"go.mongodb.org/mongo-driver/mongo/options"
 	"go.uber.org/zap"
 )
 
@@ -20,11 +21,24 @@ type accountsRepository struct {
 }
 
 func NewAccountsRepository(db *mongo.Database, logger *zap.Logger) models.AccountsRepository {
-	return &accountsRepository{
+	rep := &accountsRepository{
 		logger: logger.Named("mongo").Named("accounts"),
 		db:     db,
 		coll:   db.Collection("accounts"),
 	}
+
+	_, err := rep.coll.Indexes().CreateOne(
+		context.Background(),
+		mongo.IndexModel{
+			Keys:    bson.D{{Key: "email", Value: 1}},
+			Options: options.Index().SetUnique(true),
+		},
+	)
+	if err != nil {
+		rep.logger.Error("index creation failed", zap.Error(err))
+	}
+
+	return rep
 }
 
 func (srv *accountsRepository) Create(ctx context.Context, payload *models.AccountPayload) (*models.Account, error) {
@@ -38,6 +52,9 @@ func (srv *accountsRepository) Create(ctx context.Context, payload *models.Accou
 
 	_, err = srv.coll.InsertOne(ctx, account)
 	if err != nil {
+		if mongo.IsDuplicateKeyError(err) {
+			return nil, models.ErrDuplicateKeyFound
+		}
 		srv.logger.Error("insert failed", zap.Error(err), zap.String("email", *account.Email))
 		return nil, err
 	}
@@ -47,6 +64,7 @@ func (srv *accountsRepository) Create(ctx context.Context, payload *models.Accou
 
 func (srv *accountsRepository) Get(ctx context.Context, filter *models.OneAccountFilter) (*models.Account, error) {
 	var account models.Account
+
 	err := srv.coll.FindOne(ctx, filter).Decode(&account)
 	if err != nil {
 		if errors.Is(err, mongo.ErrNoDocuments) {
