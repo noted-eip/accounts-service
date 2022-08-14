@@ -166,6 +166,29 @@ func (srv *accountsAPI) DeleteAccount(ctx context.Context, in *accountsv1.Delete
 	return &accountsv1.DeleteAccountResponse{}, nil
 }
 
+func (srv *accountsAPI) ListAccount(ctx context.Context, in *accountsv1.ListAccountRequest) (*accountsv1.ListAccountResponse, error) {
+	_, err := srv.authenticate(ctx)
+	if err != nil {
+		return nil, status.Error(codes.Unauthenticated, err.Error())
+	}
+
+	accounts, err := srv.repo.List(ctx, &models.ManyAccountsFilter{}, &models.Pagination{Offset: in.Paginate.Offset, Limit: in.Paginate.Limit})
+	if err != nil {
+		srv.logger.Error("failed to list accounts", zap.Error(err))
+		return nil, status.Error(codes.Internal, "failed to list accounts")
+	}
+
+	var accountsResp []*accountsv1.Account
+	for _, account := range accounts {
+		elem := &accountsv1.Account{Id: account.ID, Name: *account.Name, Email: *account.Email}
+		if err != nil {
+			srv.logger.Error("failed to decode account", zap.Error(err))
+		}
+		accountsResp = append(accountsResp, elem)
+	}
+	return &accountsv1.ListAccountResponse{Accounts: accountsResp}, nil
+}
+
 func (srv *accountsAPI) Authenticate(ctx context.Context, in *accountsv1.AuthenticateRequest) (*accountsv1.AuthenticateResponse, error) {
 	acc, err := srv.repo.Get(ctx, &models.OneAccountFilter{Email: &in.Email})
 	if err != nil {

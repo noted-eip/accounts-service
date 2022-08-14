@@ -7,8 +7,8 @@ import "errors"
 // Pagination is used in List repository operations to limit or offset the
 // elements returned.
 type Pagination struct {
-	Limit  int
-	Offset int
+	Limit  int64
+	Offset int64
 }
 
 var (

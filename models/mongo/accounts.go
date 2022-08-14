@@ -109,24 +109,29 @@ func (srv *accountsRepository) Update(ctx context.Context, filter *models.OneAcc
 }
 
 func (srv *accountsRepository) List(ctx context.Context, filter *models.ManyAccountsFilter, pagination *models.Pagination) ([]models.Account, error) {
-	// var accounts []account
-	// cursor, err := srv.coll.Find(ctx, bson.D{})
-	// if err != nil {
-	// 	srv.logger.Error("mongo find accounts query failed", zap.Error(err))
-	// 	return nil, status.Errorf(codes.Internal, err.Error())
-	// }
-	// defer cursor.Close(ctx)
+	var accounts []models.Account
 
-	// for cursor.Next(ctx) {
-	// 	var elem account
-	// 	err := cursor.Decode(&elem)
-	// 	if err != nil {
-	// 		srv.logger.Error("failed to decode mongo cursor result", zap.Error(err))
-	// 	}
-	// 	accounts = append(accounts, elem)
-	// }
+	opt := options.FindOptions{
+		Limit: &pagination.Limit,
+		Skip:  &pagination.Offset,
+	}
+	cursor, err := srv.coll.Find(ctx, bson.D{}, &opt)
+	if err != nil {
+		srv.logger.Error("mongo find accounts query failed", zap.Error(err))
+		return nil, err
+	}
+	defer cursor.Close(ctx)
 
-	return nil, errors.New("not implemeted")
+	for cursor.Next(ctx) {
+		var elem models.Account
+		err := cursor.Decode(&elem)
+		if err != nil {
+			srv.logger.Error("failed to decode mongo cursor result", zap.Error(err))
+		}
+		accounts = append(accounts, elem)
+	}
+
+	return accounts, nil
 }
 
 func buildAccountFilter(filter *models.OneAccountFilter) *models.OneAccountFilter {
