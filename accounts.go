@@ -71,8 +71,7 @@ func (srv *accountsAPI) GetAccount(ctx context.Context, in *accountsv1.GetAccoun
 		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}
 
-	filter := buildAccountFilter(models.OneAccountFilter{ID: in.Id, Email: &in.Email})
-	account, err := srv.repo.Get(ctx, &filter)
+	account, err := srv.repo.Get(ctx, &models.OneAccountFilter{ID: in.Id, Email: &in.Email})
 	if err != nil {
 		srv.logger.Error("failed to get account", zap.Error(err))
 		return nil, status.Error(codes.Internal, "failed to get account")
@@ -201,13 +200,4 @@ func (srv *accountsAPI) authenticate(ctx context.Context) (*auth.Token, error) {
 		return nil, status.Error(codes.Unauthenticated, "invalid token")
 	}
 	return token, nil
-}
-
-func buildAccountFilter(filter models.OneAccountFilter) models.OneAccountFilter {
-	if *filter.Email == "" {
-		return models.OneAccountFilter{ID: filter.ID}
-	} else if filter.ID == "" {
-		return models.OneAccountFilter{Email: filter.Email}
-	}
-	return models.OneAccountFilter{Email: filter.Email, ID: filter.ID}
 }

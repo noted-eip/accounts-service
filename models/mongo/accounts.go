@@ -65,7 +65,8 @@ func (srv *accountsRepository) Create(ctx context.Context, payload *models.Accou
 func (srv *accountsRepository) Get(ctx context.Context, filter *models.OneAccountFilter) (*models.Account, error) {
 	var account models.Account
 
-	err := srv.coll.FindOne(ctx, filter).Decode(&account)
+	accFilter := buildAccountFilter(filter)
+	err := srv.coll.FindOne(ctx, accFilter).Decode(&account)
 	if err != nil {
 		if errors.Is(err, mongo.ErrNoDocuments) {
 			return nil, models.ErrNotFound
@@ -93,11 +94,9 @@ func (srv *accountsRepository) Delete(ctx context.Context, filter *models.OneAcc
 func (srv *accountsRepository) Update(ctx context.Context, filter *models.OneAccountFilter, account *models.AccountPayload) (*models.Account, error) {
 	var accountUpdated models.Account
 
-	upsert := true
 	after := options.After
 	opt := options.FindOneAndUpdateOptions{
 		ReturnDocument: &after,
-		Upsert:         &upsert,
 	}
 
 	err := srv.coll.FindOneAndUpdate(ctx, filter, bson.D{{Key: "$set", Value: &account}}, &opt).Decode(&accountUpdated)
@@ -106,7 +105,6 @@ func (srv *accountsRepository) Update(ctx context.Context, filter *models.OneAcc
 		return nil, err
 	}
 
-	// TODO: Return the updated representation of the account.
 	return &accountUpdated, nil
 }
 
@@ -129,4 +127,13 @@ func (srv *accountsRepository) List(ctx context.Context, filter *models.ManyAcco
 	// }
 
 	return nil, errors.New("not implemeted")
+}
+
+func buildAccountFilter(filter *models.OneAccountFilter) *models.OneAccountFilter {
+	if *filter.Email == "" {
+		return &models.OneAccountFilter{ID: filter.ID}
+	} else if filter.ID == "" {
+		return &models.OneAccountFilter{Email: filter.Email}
+	}
+	return &models.OneAccountFilter{Email: filter.Email, ID: filter.ID}
 }
