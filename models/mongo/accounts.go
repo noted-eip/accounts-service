@@ -91,17 +91,23 @@ func (srv *accountsRepository) Delete(ctx context.Context, filter *models.OneAcc
 }
 
 func (srv *accountsRepository) Update(ctx context.Context, filter *models.OneAccountFilter, account *models.AccountPayload) (*models.Account, error) {
-	update, err := srv.coll.UpdateOne(ctx, filter, bson.D{{Key: "$set", Value: &account}})
+	var accountUpdated models.Account
+
+	upsert := true
+	after := options.After
+	opt := options.FindOneAndUpdateOptions{
+		ReturnDocument: &after,
+		Upsert:         &upsert,
+	}
+
+	err := srv.coll.FindOneAndUpdate(ctx, filter, bson.D{{Key: "$set", Value: &account}}, &opt).Decode(&accountUpdated)
 	if err != nil {
 		srv.logger.Error("update one failed", zap.Error(err))
 		return nil, err
 	}
-	if update.MatchedCount == 0 {
-		return nil, models.ErrNotFound
-	}
 
 	// TODO: Return the updated representation of the account.
-	return nil, nil
+	return &accountUpdated, nil
 }
 
 func (srv *accountsRepository) List(ctx context.Context, filter *models.ManyAccountsFilter, pagination *models.Pagination) ([]models.Account, error) {

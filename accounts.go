@@ -128,12 +128,13 @@ func (srv *accountsAPI) UpdateAccount(ctx context.Context, in *accountsv1.Update
 	}
 	proto.Merge(&protoAccount, in.Account)
 
-	_, err = srv.repo.Update(ctx, &models.OneAccountFilter{ID: id.String()}, &models.AccountPayload{Email: &protoAccount.Email, Name: &protoAccount.Name})
+	updatedAccount, err := srv.repo.Update(ctx, &models.OneAccountFilter{ID: id.String()}, &models.AccountPayload{Email: &protoAccount.Email, Name: &protoAccount.Name})
 	if err != nil {
 		return nil, status.Error(codes.Internal, "failed to update account")
 	}
-	protoAccount.Id = id.String()
-	return &accountsv1.UpdateAccountResponse{Account: &protoAccount}, nil
+
+	newAccount := accountsv1.Account{Email: *updatedAccount.Email, Name: *updatedAccount.Name, Id: updatedAccount.ID}
+	return &accountsv1.UpdateAccountResponse{Account: &newAccount}, nil
 }
 
 func (srv *accountsAPI) DeleteAccount(ctx context.Context, in *accountsv1.DeleteAccountRequest) (*accountsv1.DeleteAccountResponse, error) {
