@@ -10,6 +10,7 @@ import (
 	"github.com/google/uuid"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
+	"go.mongodb.org/mongo-driver/mongo/options"
 	"go.uber.org/zap"
 )
 
@@ -73,17 +74,20 @@ func (srv *groupsRepository) Delete(ctx context.Context, filter *models.OneGroup
 }
 
 func (srv *groupsRepository) Update(ctx context.Context, filter *models.OneGroupFilter, group *models.GroupPayload) (*models.Group, error) {
-	update, err := srv.coll.UpdateOne(ctx, filter, bson.D{{Key: "$set", Value: &group}})
+	var updatedGroup models.Group
+
+	after := options.After
+	opt := options.FindOneAndUpdateOptions{
+		ReturnDocument: &after,
+	}
+
+	err := srv.coll.FindOneAndUpdate(ctx, filter, bson.D{{Key: "$set", Value: &group}}, &opt).Decode(&updatedGroup)
 	if err != nil {
 		srv.logger.Error("update failed", zap.Error(err))
 		return nil, err
 	}
-	if update.MatchedCount == 0 {
-		return nil, mongo.ErrNoDocuments
-	}
 
-	// TODO: return the lastest version of the object.
-	return nil, nil
+	return &updatedGroup, nil
 }
 
 func (srv *groupsRepository) List(ctx context.Context, filter *models.ManyGroupsFilter, pagination *models.Pagination) ([]models.Group, error) {

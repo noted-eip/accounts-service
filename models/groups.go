@@ -24,7 +24,8 @@ type GroupMember struct {
 }
 
 type OneGroupFilter struct {
-	ID string `json:"id" bson:"_id,omitempty"`
+	ID      string  `json:"id" bson:"_id,omitempty"`
+	OwnerID *string `json:"owner_id" bson:"owner_id,omitempty"`
 }
 
 type ManyGroupsFilter struct {
