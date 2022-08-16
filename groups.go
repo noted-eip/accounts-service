@@ -4,11 +4,15 @@ import (
 	"accounts-service/auth"
 	"accounts-service/models"
 	accountsv1 "accounts-service/protorepo/noted/accounts/v1"
+	"accounts-service/validators"
 	"context"
 
+	"github.com/jinzhu/copier"
+	"github.com/mennanov/fmutils"
 	"go.uber.org/zap"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/proto"
 )
 
 type groupsService struct {
@@ -27,9 +31,10 @@ func (srv *groupsService) CreateGroup(ctx context.Context, in *accountsv1.Create
 		return nil, err
 	}
 
-	group, err := srv.repo.Create(ctx, &models.GroupPayload{Name: &in.Name, Members: &[]models.GroupMember{{ID: token.UserID.String()}}, Description: &in.Description})
+	id := token.UserID.String()
+
+	group, err := srv.repo.Create(ctx, &models.GroupPayload{Name: &in.Name, OwnerID: &id, Description: &in.Description, Members: &[]models.GroupMember{{ID: token.UserID.String()}}})
 	if err != nil {
-		// TODO: Translate error from models.Err to gRPC.
 		return nil, status.Error(codes.Internal, "could not create group")
 	}
 
@@ -44,10 +49,18 @@ func (srv *groupsService) CreateGroup(ctx context.Context, in *accountsv1.Create
 }
 
 func (srv *groupsService) DeleteGroup(ctx context.Context, in *accountsv1.DeleteGroupRequest) (*accountsv1.DeleteGroupResponse, error) {
-	// TODO: validation.
-	// TODO: Cannot a delete a group which I do not own.
+	err := validators.ValidateDeleteGroupRequest(in)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, err.Error())
+	}
 
-	err := srv.repo.Delete(ctx, &models.OneGroupFilter{ID: in.Id})
+	token, err := srv.authenticate(ctx)
+	if err != nil {
+		return nil, err
+	}
+	id := token.UserID.String()
+
+	err = srv.repo.Delete(ctx, &models.OneGroupFilter{ID: in.Id, OwnerID: &id})
 	if err != nil {
 		return nil, status.Error(codes.Internal, "unable to delete group")
 	}
@@ -56,42 +69,49 @@ func (srv *groupsService) DeleteGroup(ctx context.Context, in *accountsv1.Delete
 }
 
 func (srv *groupsService) UpdateGroup(ctx context.Context, in *accountsv1.UpdateGroupRequest) (*accountsv1.UpdateGroupResponse, error) {
-	// 	id, err := uuid.Parse(in.Group.Id)
-	// 	if err != nil {
-	// 		srv.logger.Error("failed to convert uuid from string", zap.Error(err))
-	// 		return nil, status.Error(codes.Internal, "could not update account")
-	// 	}
 
-	// 	fieldMask := in.GetUpdateMask()
-	// 	fieldMask.Normalize()
-	// 	if !fieldMask.IsValid(in.Group) {
-	// 		return nil, status.Error(codes.InvalidArgument, "invalid field mask")
-	// 	}
-	// 	fmutils.Filter(in.GetGroup
-	// (), fieldMask.GetPaths())
+	err := validators.ValidateUpdatedGroupRequest(in)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "could not update Group")
+	}
 
-	// 	acc, err := srv.repo.Get(ctx, &models.OneGroupFilter{ID: id})
-	// 	if err != nil {
-	// 		srv.logger.Error("failed to get Group", zap.Error(err))
-	// 		return nil, status.Error(codes.Internal, "could not update Group")
-	// 	}
+	fieldMask := in.GetUpdateMask()
+	fieldMask.Normalize()
+	if !fieldMask.IsValid(in.Group) {
+		return nil, status.Error(codes.InvalidArgument, "invalid field mask")
+	}
+	fmutils.Filter(in.GetGroup(), fieldMask.GetPaths())
 
-	// 	var protoGroup accountsv1.Account
-	// 	err = copier.Copy(&protoGroup, &acc)
-	// 	if err != nil {
-	// 		srv.logger.Error("invalid account conversion", zap.Error(err))
-	// 		return nil, status.Error(codes.Internal, "could not update account")
-	// 	}
-	// 	proto.Merge(&protoGroup, in.Group)
+	acc, err := srv.repo.Get(ctx, &models.OneGroupFilter{ID: in.Group.Id})
+	if err != nil {
+		srv.logger.Error("failed to get Group", zap.Error(err))
+		return nil, status.Error(codes.Internal, "could not update Group")
+	}
 
-	// 	err = srv.repo.Update(ctx, &models.OneGroupFilter{ID: id}, &models.GroupPayload{Name: &protoAccount.Email, Name: &protoAccount.Name})
-	// 	if err != nil {
-	// 		srv.logger.Error("failed to update account", zap.Error(err))
-	// 		return nil, status.Error(codes.Internal, "could not update account")
-	// 	}
-	// 	protoAccount.Id = id.String()
+	var protoGroup accountsv1.Group
+	err = copier.Copy(&protoGroup, &acc)
+	if err != nil {
+		srv.logger.Error("invalid account conversion", zap.Error(err))
+		return nil, status.Error(codes.Internal, "could not update account")
+	}
+	proto.Merge(&protoGroup, in.Group)
 
-	return nil, status.Error(codes.Unimplemented, "not implemented")
+	updatedGroup, err := srv.repo.Update(ctx, &models.OneGroupFilter{ID: in.Group.Id}, &models.GroupPayload{OwnerID: &protoGroup.OwnerId, Name: &protoGroup.Name, Description: &protoGroup.Description})
+	if err != nil {
+		srv.logger.Error("failed to update account", zap.Error(err))
+		return nil, status.Error(codes.Internal, "could not update account")
+	}
+
+	var groupMembers []*accountsv1.GroupMember
+	for _, members := range *updatedGroup.Members {
+		elem := &accountsv1.GroupMember{AccountId: members.ID}
+		if err != nil {
+			srv.logger.Error("failed to decode account", zap.Error(err))
+		}
+		groupMembers = append(groupMembers, elem)
+	}
+	returnedGroup := accountsv1.Group{Id: updatedGroup.ID, OwnerId: *updatedGroup.OwnerID, Name: *updatedGroup.Name, Description: *updatedGroup.Description, Members: groupMembers}
+	return &accountsv1.UpdateGroupResponse{Group: &returnedGroup}, nil
 }
 
 func (srv *groupsService) JoinGroup(ctx context.Context, in *accountsv1.JoinGroupRequest) (*accountsv1.JoinGroupResponse, error) {
