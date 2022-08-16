@@ -100,12 +100,6 @@ func (srv *accountsAPI) UpdateAccount(ctx context.Context, in *accountsv1.Update
 		return nil, status.Error(codes.NotFound, "account not found")
 	}
 
-	id, err := uuid.Parse(in.Account.Id)
-	if err != nil {
-		srv.logger.Error("failed to convert uuid from string", zap.Error(err))
-		return nil, status.Error(codes.Internal, "failed to update account")
-	}
-
 	fieldMask := in.GetUpdateMask()
 	fieldMask.Normalize()
 	if !fieldMask.IsValid(in.Account) {
@@ -113,7 +107,7 @@ func (srv *accountsAPI) UpdateAccount(ctx context.Context, in *accountsv1.Update
 	}
 	fmutils.Filter(in.GetAccount(), fieldMask.GetPaths())
 
-	acc, err := srv.repo.Get(ctx, &models.OneAccountFilter{ID: id.String()})
+	acc, err := srv.repo.Get(ctx, &models.OneAccountFilter{ID: in.Account.Id})
 	if err != nil {
 		srv.logger.Error("failed to get account", zap.Error(err))
 		return nil, status.Error(codes.Internal, "failed to update account")
@@ -127,7 +121,7 @@ func (srv *accountsAPI) UpdateAccount(ctx context.Context, in *accountsv1.Update
 	}
 	proto.Merge(&protoAccount, in.Account)
 
-	updatedAccount, err := srv.repo.Update(ctx, &models.OneAccountFilter{ID: id.String()}, &models.AccountPayload{Email: &protoAccount.Email, Name: &protoAccount.Name})
+	updatedAccount, err := srv.repo.Update(ctx, &models.OneAccountFilter{ID: in.Account.Id}, &models.AccountPayload{Email: &protoAccount.Email, Name: &protoAccount.Name})
 	if err != nil {
 		return nil, status.Error(codes.Internal, "failed to update account")
 	}
