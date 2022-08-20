@@ -25,16 +25,16 @@ type Account struct {
 	Hash  *[]byte `json:"hash" bson:"hash,omitempty"`
 }
 
-type MainSuite struct {
+type MainSuiteAccount struct {
 	suite.Suite
 	srv *accountsAPI
 }
 
 func TestAccountsService(t *testing.T) {
-	suite.Run(t, new(MainSuite))
+	suite.Run(t, new(MainSuiteAccount))
 }
 
-func (s *MainSuite) TestAccountServiceSetup() {
+func (s *MainSuiteAccount) TestAccountServiceSetup() {
 	logger := newLoggerOrFail(s.T())
 	db := newAccountsDatabaseOrFail(s.T(), logger)
 
@@ -45,7 +45,7 @@ func (s *MainSuite) TestAccountServiceSetup() {
 	}
 }
 
-func (s *MainSuite) TestAccountsServiceCreateAccount() {
+func (s *MainSuiteAccount) TestAccountsServiceCreateAccount() {
 	fmt.Println("From CreateAccount")
 	res, err := s.srv.CreateAccount(context.TODO(), &accountsv1.CreateAccountRequest{Email: "create.test@gmail.com", Password: "password", Name: "Create"})
 	s.Nil(err)
@@ -53,19 +53,19 @@ func (s *MainSuite) TestAccountsServiceCreateAccount() {
 	s.EqualValues("create.test@gmail.com", res.Account.Email)
 }
 
-func (s *MainSuite) TestAccountsServiceCreateAccountErrorMail() {
+func (s *MainSuiteAccount) TestAccountsServiceCreateAccountErrorMail() {
 	fmt.Println("From CreateAccount Error Mail")
 	_, err := s.srv.CreateAccount(context.TODO(), &accountsv1.CreateAccountRequest{Email: "je_ne_suis_pas_un_email", Password: "password", Name: "Create"})
 	s.NotNil(err)
 }
 
-func (s *MainSuite) TestAccountsServiceCreateAccountErrorShortPassword() {
+func (s *MainSuiteAccount) TestAccountsServiceCreateAccountErrorShortPassword() {
 	fmt.Println("From CreateAccount Error Password")
 	_, err := s.srv.CreateAccount(context.TODO(), &accountsv1.CreateAccountRequest{Email: "create@gmail.com", Password: "p", Name: "Create"})
 	s.NotNil(err)
 }
 
-func (s *MainSuite) TestAccountsServiceGetAccount() {
+func (s *MainSuiteAccount) TestAccountsServiceGetAccount() {
 	fmt.Println("From GetAccount")
 	res, err := s.srv.CreateAccount(context.TODO(), &accountsv1.CreateAccountRequest{Email: "get.test@gmail.com", Password: "password", Name: "Create"})
 	s.Nil(err)
@@ -84,7 +84,7 @@ func (s *MainSuite) TestAccountsServiceGetAccount() {
 	s.EqualValues("get.test@gmail.com", acc.Account.Email)
 }
 
-func (s *MainSuite) TestAccountsServiceGetAccountErrorNotFound() {
+func (s *MainSuiteAccount) TestAccountsServiceGetAccountErrorNotFound() {
 	fmt.Println("From GetAccount")
 	res, err := s.srv.CreateAccount(context.TODO(), &accountsv1.CreateAccountRequest{Email: "get.test@gmail.com", Password: "password", Name: "Create"})
 	s.Nil(err)
@@ -105,7 +105,7 @@ func (s *MainSuite) TestAccountsServiceGetAccountErrorNotFound() {
 	s.NotNil(err)
 }
 
-func (s *MainSuite) TestAccountsServiceDeleteAccount() {
+func (s *MainSuiteAccount) TestAccountsServiceDeleteAccount() {
 	acc, err := s.srv.CreateAccount(context.TODO(), &accountsv1.CreateAccountRequest{Email: "delete.test@gmail.com", Password: "password", Name: "Maxime"})
 	s.Nil(err)
 
@@ -122,7 +122,7 @@ func (s *MainSuite) TestAccountsServiceDeleteAccount() {
 	s.Nil(err)
 }
 
-func (s *MainSuite) TestAccountsServiceDeleteAccountErrorNotFound() {
+func (s *MainSuiteAccount) TestAccountsServiceDeleteAccountErrorNotFound() {
 	acc, err := s.srv.CreateAccount(context.TODO(), &accountsv1.CreateAccountRequest{Email: "delete.test@gmail.com", Password: "password", Name: "Maxime"})
 	s.Nil(err)
 

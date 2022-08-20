@@ -15,7 +15,7 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
-type groupsService struct {
+type groupsAPI struct {
 	accountsv1.UnimplementedGroupsAPIServer
 
 	auth   auth.Service
@@ -23,9 +23,9 @@ type groupsService struct {
 	repo   models.GroupsRepository
 }
 
-var _ accountsv1.GroupsAPIServer = &groupsService{}
+var _ accountsv1.GroupsAPIServer = &groupsAPI{}
 
-func (srv *groupsService) CreateGroup(ctx context.Context, in *accountsv1.CreateGroupRequest) (*accountsv1.CreateGroupResponse, error) {
+func (srv *groupsAPI) CreateGroup(ctx context.Context, in *accountsv1.CreateGroupRequest) (*accountsv1.CreateGroupResponse, error) {
 	token, err := srv.authenticate(ctx)
 	if err != nil {
 		return nil, err
@@ -48,7 +48,7 @@ func (srv *groupsService) CreateGroup(ctx context.Context, in *accountsv1.Create
 	}, nil
 }
 
-func (srv *groupsService) DeleteGroup(ctx context.Context, in *accountsv1.DeleteGroupRequest) (*accountsv1.DeleteGroupResponse, error) {
+func (srv *groupsAPI) DeleteGroup(ctx context.Context, in *accountsv1.DeleteGroupRequest) (*accountsv1.DeleteGroupResponse, error) {
 	err := validators.ValidateDeleteGroupRequest(in)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, err.Error())
@@ -68,7 +68,7 @@ func (srv *groupsService) DeleteGroup(ctx context.Context, in *accountsv1.Delete
 	return &accountsv1.DeleteGroupResponse{}, nil
 }
 
-func (srv *groupsService) UpdateGroup(ctx context.Context, in *accountsv1.UpdateGroupRequest) (*accountsv1.UpdateGroupResponse, error) {
+func (srv *groupsAPI) UpdateGroup(ctx context.Context, in *accountsv1.UpdateGroupRequest) (*accountsv1.UpdateGroupResponse, error) {
 
 	err := validators.ValidateUpdatedGroupRequest(in)
 	if err != nil {
@@ -114,7 +114,7 @@ func (srv *groupsService) UpdateGroup(ctx context.Context, in *accountsv1.Update
 	return &accountsv1.UpdateGroupResponse{Group: &returnedGroup}, nil
 }
 
-func (srv *groupsService) JoinGroup(ctx context.Context, in *accountsv1.JoinGroupRequest) (*accountsv1.JoinGroupResponse, error) {
+func (srv *groupsAPI) JoinGroup(ctx context.Context, in *accountsv1.JoinGroupRequest) (*accountsv1.JoinGroupResponse, error) {
 	token, err := srv.authenticate(ctx)
 	if err != nil {
 		return nil, err
@@ -137,7 +137,7 @@ func (srv *groupsService) JoinGroup(ctx context.Context, in *accountsv1.JoinGrou
 	return &accountsv1.JoinGroupResponse{}, nil
 }
 
-func (srv *groupsService) AddNoteToGroup(ctx context.Context, in *accountsv1.AddNoteToGroupRequest) (*accountsv1.AddNoteToGroupResponse, error) {
+func (srv *groupsAPI) AddNoteToGroup(ctx context.Context, in *accountsv1.AddNoteToGroupRequest) (*accountsv1.AddNoteToGroupResponse, error) {
 	// id, err := uuid.Parse(in.Id)
 	// if err != nil {
 	// 	srv.logger.Error("failed to convert uuid from string", zap.Error(err))
@@ -171,7 +171,7 @@ func (srv *groupsService) AddNoteToGroup(ctx context.Context, in *accountsv1.Add
 // TODO: This function is duplicated from accountsService.authenticate().
 // Find a way to extract this into a separate function or use a base class
 // to share common behaviour.
-func (srv *groupsService) authenticate(ctx context.Context) (*auth.Token, error) {
+func (srv *groupsAPI) authenticate(ctx context.Context) (*auth.Token, error) {
 	token, err := srv.auth.TokenFromContext(ctx)
 	if err != nil {
 		srv.logger.Debug("could not authenticate request", zap.Error(err))

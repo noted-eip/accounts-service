@@ -47,7 +47,6 @@ func (srv *accountsRepository) Get(ctx context.Context, filter *models.OneAccoun
 	defer txn.Abort()
 
 	raw, err := txn.First("account", "id", filter.ID)
-	// Check for memdb.ErrNotFound and return a models.ErrNotFound.
 	if err != nil {
 		srv.logger.Error("unable to query account", zap.Error(err))
 		return nil, err
@@ -56,7 +55,7 @@ func (srv *accountsRepository) Get(ctx context.Context, filter *models.OneAccoun
 	if raw != nil {
 		return raw.(*models.Account), nil
 	}
-	return nil, nil
+	return nil, models.ErrNotFound
 }
 
 func (srv *accountsRepository) Delete(ctx context.Context, filter *models.OneAccountFilter) error {
