@@ -39,7 +39,7 @@ type Service interface {
 	TokenFromContext(ctx context.Context) (*Token, error)
 
 	// ContextWithToken returns a copy of parent in which a new value for the
-	// key 'noted-token' is set to a string encoded JWT.
+	// key 'authorization' is set to a string encoded JWT.
 	ContextWithToken(parent context.Context, info *Token) (context.Context, error)
 
 	// SignToken returns a signed JWT string containing the payload
@@ -78,7 +78,6 @@ func (srv *service) TokenFromContext(ctx context.Context) (*Token, error) {
 	if tokenString == "" {
 		return nil, ErrNoTokenInCtx
 	}
-
 	tok, err := jwt.ParseWithClaims(tokenString, &Token{}, func(t *jwt.Token) (interface{}, error) {
 		pub, ok := srv.key.Public().(ed25519.PublicKey)
 		if !ok {
@@ -117,6 +116,7 @@ func TokenFromAuthorizationHeader(ah string) (string, bool) {
 	if !strings.HasPrefix(ah, AuthorizationHeaderPrefix) {
 		return "", false
 	}
+
 	words := strings.Split(ah, " ")
 	if len(words) != 2 {
 		return "", false

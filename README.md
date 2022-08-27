@@ -7,13 +7,9 @@ Service responsible for managing accounts and authentication.
 To run the service you only need to have [golang](https://go.dev) and [docker](https://docs.docker.com/get-docker/) installed.
 
 Upon cloning the repository run:
-```
-make init
-```
 
-To generate the protobuf server and stubs:
 ```
-make codegen
+make update-submodules
 ```
 
 You can then build the project using the go toolchain.
@@ -30,8 +26,8 @@ You can then build the project using the go toolchain.
 
 ## Authentication
 
-The accounts service expects the `authorization` header to be set to a Bearer JWT on requests that require authentication.
+The accounts service expects the `Authorization` header to be set to a Bearer JWT on requests that require authentication.
 
 ```
-authorization: Bearer <token>
+Authorization: Bearer <token>
 ```

@@ -2,10 +2,9 @@ package main
 
 import (
 	"accounts-service/auth"
-	"accounts-service/grpc/accountspb"
-	"accounts-service/grpc/groupspb"
 	"accounts-service/models"
 	"accounts-service/models/mongo"
+	accountsv1 "accounts-service/protorepo/noted/accounts/v1"
 	"context"
 	"crypto/ed25519"
 	"encoding/base64"
@@ -23,8 +22,7 @@ import (
 )
 
 type server struct {
-	logger  *zap.Logger
-	slogger *zap.SugaredLogger
+	logger *zap.Logger
 
 	authService auth.Service
 
@@ -33,8 +31,8 @@ type server struct {
 	accountsRepository models.AccountsRepository
 	groupsRepository   models.GroupsRepository
 
-	accountsService accountspb.AccountsServiceServer
-	groupsService   groupspb.GroupServiceServer
+	accountsService accountsv1.AccountsAPIServer
+	groupsService   accountsv1.GroupsAPIServer
 
 	grpcServer *grpc.Server
 }
@@ -53,7 +51,7 @@ func (s *server) Run() {
 	lis, err := net.Listen("tcp", fmt.Sprint(":", *port))
 	must(err, "failed to create tcp listener")
 	reflection.Register(s.grpcServer)
-	s.slogger.Infof("service running on :%d", *port)
+	s.logger.Info(fmt.Sprint("service running on :", *port))
 	err = s.grpcServer.Serve(lis)
 	must(err, "failed to run grpc server")
 }
@@ -103,7 +101,6 @@ func (s *server) initLogger() {
 		s.logger, err = zap.NewDevelopment(zap.AddStacktrace(zapcore.FatalLevel), zap.WithCaller(false))
 	}
 	must(err, "unable to instantiate zap.Logger")
-	s.slogger = s.logger.Sugar()
 }
 
 func (s *server) initAuthService() {
@@ -121,24 +118,25 @@ func (s *server) initRepositories() {
 }
 
 func (s *server) initAccountsService() {
-	s.accountsService = &accountsService{
+	s.accountsService = &accountsAPI{
 		auth:   s.authService,
-		logger: s.slogger,
+		logger: s.logger,
 		repo:   s.accountsRepository,
 	}
 }
 
 func (s *server) initGroupsService() {
-	s.groupsService = &groupsService{
-		logger: s.slogger,
+	s.groupsService = &groupsAPI{
+		auth:   s.authService,
+		logger: s.logger,
 		repo:   s.groupsRepository,
 	}
 }
 
 func (s *server) initGrpcServer(opt ...grpc.ServerOption) {
 	s.grpcServer = grpc.NewServer(opt...)
-	accountspb.RegisterAccountsServiceServer(s.grpcServer, s.accountsService)
-	groupspb.RegisterGroupServiceServer(s.grpcServer, s.groupsService)
+	accountsv1.RegisterAccountsAPIServer(s.grpcServer, s.accountsService)
+	accountsv1.RegisterGroupsAPIServer(s.grpcServer, s.groupsService)
 }
 
 func must(err error, msg string) {

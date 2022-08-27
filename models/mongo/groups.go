@@ -5,93 +5,91 @@ package mongo
 import (
 	"accounts-service/models"
 	"context"
+	"errors"
 
 	"github.com/google/uuid"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
+	"go.mongodb.org/mongo-driver/mongo/options"
 	"go.uber.org/zap"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
 )
-
-type group struct {
-	ID      string    `json:"id" bson:"_id,omitempty"`
-	Name    *string   `json:"name" bson:"name,omitempty"`
-	Members *[]string `json:"members" bson:"members,omitempty"`
-}
 
 type groupsRepository struct {
 	logger *zap.Logger
 	db     *mongo.Database
+	coll   *mongo.Collection
 }
 
 func NewGroupsRepository(db *mongo.Database, logger *zap.Logger) models.GroupsRepository {
 	return &groupsRepository{
-		logger: logger,
+		logger: logger.Named("mongo").Named("groups"),
 		db:     db,
+		coll:   db.Collection("groups"),
 	}
 }
 
-func (srv *groupsRepository) Create(ctx context.Context, payload *models.GroupPayload) error {
+func (srv *groupsRepository) Create(ctx context.Context, payload *models.GroupPayload) (*models.Group, error) {
 	id, err := uuid.NewRandom()
 	if err != nil {
 		srv.logger.Error("failed to generate new random uuid", zap.Error(err))
-		return status.Errorf(codes.Internal, "could not create group")
+		return nil, err
 	}
 
-	group := group{ID: id.String(), Name: payload.Name, Members: &[]string{(*payload.Members)[0].ID.String()}}
+	group := models.Group{ID: id.String(), Name: payload.Name, Members: payload.Members, Description: payload.Description, OwnerID: payload.OwnerID}
 
-	_, err = srv.db.Collection("groups").InsertOne(ctx, group)
+	_, err = srv.coll.InsertOne(ctx, group)
 	if err != nil {
-		srv.logger.Error("mongo insert account failed", zap.Error(err), zap.String("name", *group.Name))
-		return status.Errorf(codes.Internal, "could not create group")
+		srv.logger.Error("insert failed", zap.Error(err), zap.String("name", *group.Name))
+		return nil, err
 	}
-	return nil
+
+	return &group, nil
 }
 
 func (srv *groupsRepository) Get(ctx context.Context, filter *models.OneGroupFilter) (*models.Group, error) {
-	return &models.Group{}, nil
+	var group models.Group
+	err := srv.coll.FindOne(ctx, filter).Decode(&group)
+	if err != nil {
+		if errors.Is(err, mongo.ErrNoDocuments) {
+			return nil, err
+		}
+		srv.logger.Error("query failed", zap.Error(err))
+		return nil, err
+	}
+
+	return &group, nil
 }
 
 func (srv *groupsRepository) Delete(ctx context.Context, filter *models.OneGroupFilter) error {
-	delete, err := srv.db.Collection("groups").DeleteOne(ctx, buildGroupQuery(filter))
-
+	delete, err := srv.coll.DeleteOne(ctx, filter)
 	if err != nil {
-		srv.logger.Error("delete group db query failed", zap.Error(err))
-		return status.Errorf(codes.Internal, "could not delete group")
+		srv.logger.Error("delete failed", zap.Error(err))
+		return err
 	}
-
 	if delete.DeletedCount == 0 {
-		srv.logger.Info("mongo delete group matched none", zap.String("_id", filter.ID.String()))
-		return status.Errorf(codes.Internal, "could not delete group")
+		return models.ErrNotFound
 	}
+
 	return nil
 }
 
-func (srv *groupsRepository) Update(ctx context.Context, filter *models.OneGroupFilter, group *models.GroupPayload) error {
-	update, err := srv.db.Collection("groups").UpdateOne(ctx, buildGroupQuery(filter), bson.D{{Key: "$set", Value: &group}})
+func (srv *groupsRepository) Update(ctx context.Context, filter *models.OneGroupFilter, group *models.GroupPayload) (*models.Group, error) {
+	var updatedGroup models.Group
+
+	after := options.After
+	opt := options.FindOneAndUpdateOptions{
+		ReturnDocument: &after,
+	}
+
+	err := srv.coll.FindOneAndUpdate(ctx, filter, bson.D{{Key: "$set", Value: &group}}, &opt).Decode(&updatedGroup)
 	if err != nil {
-		srv.logger.Error("failed to convert object id from hex", zap.Error(err))
-		return status.Errorf(codes.InvalidArgument, err.Error())
+		srv.logger.Error("update failed", zap.Error(err))
+		return nil, err
 	}
-	if update.MatchedCount == 0 {
-		srv.logger.Error("mongo update account query matched none", zap.String("group_id", filter.ID.String()))
-		return status.Errorf(codes.Internal, "could not update group")
-	}
-	return nil
+
+	return &updatedGroup, nil
 }
 
-func (srv *groupsRepository) List(ctx context.Context) ([]models.Group, error) {
-	return []models.Group{}, nil
-}
-
-func buildGroupQuery(filter *models.OneGroupFilter) bson.M {
-	query := bson.M{}
-	if filter.ID != uuid.Nil {
-		query["_id"] = filter.ID.String()
-	}
-	if filter.Name != "" {
-		query["name"] = filter.Name
-	}
-	return query
+func (srv *groupsRepository) List(ctx context.Context, filter *models.ManyGroupsFilter, pagination *models.Pagination) ([]models.Group, error) {
+	return nil, errors.New("not implemented")
 }

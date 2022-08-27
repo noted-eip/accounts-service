@@ -10,121 +10,135 @@ import (
 	"github.com/google/uuid"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
+	"go.mongodb.org/mongo-driver/mongo/options"
 	"go.uber.org/zap"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
 )
-
-type account struct {
-	ID    string  `json:"id" bson:"_id,omitempty"`
-	Email string  `json:"email" bson:"email,omitempty"`
-	Name  string  `json:"name" bson:"name,omitempty"`
-	Hash  *[]byte `json:"hash" bson:"hash,omitempty"`
-}
 
 type accountsRepository struct {
 	logger *zap.Logger
 	db     *mongo.Database
+	coll   *mongo.Collection
 }
 
 func NewAccountsRepository(db *mongo.Database, logger *zap.Logger) models.AccountsRepository {
-	return &accountsRepository{
-		logger: logger,
+	rep := &accountsRepository{
+		logger: logger.Named("mongo").Named("accounts"),
 		db:     db,
+		coll:   db.Collection("accounts"),
 	}
+
+	_, err := rep.coll.Indexes().CreateOne(
+		context.Background(),
+		mongo.IndexModel{
+			Keys:    bson.D{{Key: "email", Value: 1}},
+			Options: options.Index().SetUnique(true),
+		},
+	)
+	if err != nil {
+		rep.logger.Error("index creation failed", zap.Error(err))
+	}
+
+	return rep
 }
 
-func (srv *accountsRepository) Create(ctx context.Context, payload *models.AccountPayload) error {
+func (srv *accountsRepository) Create(ctx context.Context, payload *models.AccountPayload) (*models.Account, error) {
 	id, err := uuid.NewRandom()
 	if err != nil {
 		srv.logger.Error("failed to generate new random uuid", zap.Error(err))
-		return status.Errorf(codes.Internal, "could not create account")
+		return nil, err
 	}
-	account := account{ID: id.String(), Email: *payload.Email, Name: *payload.Name, Hash: payload.Hash}
 
-	_, err = srv.db.Collection("accounts").InsertOne(ctx, account)
+	account := models.Account{ID: id.String(), Email: payload.Email, Name: payload.Name, Hash: payload.Hash}
+
+	_, err = srv.coll.InsertOne(ctx, account)
 	if err != nil {
-		srv.logger.Error("mongo insert account failed", zap.Error(err), zap.String("email", account.Email))
-		return status.Errorf(codes.Internal, "could not create account")
+		if mongo.IsDuplicateKeyError(err) {
+			return nil, models.ErrDuplicateKeyFound
+		}
+		srv.logger.Error("insert failed", zap.Error(err), zap.String("email", *account.Email))
+		return nil, err
 	}
-	return nil
+
+	return &account, nil
 }
 
 func (srv *accountsRepository) Get(ctx context.Context, filter *models.OneAccountFilter) (*models.Account, error) {
-	var account account
-	err := srv.db.Collection("accounts").FindOne(ctx, buildQuery(filter)).Decode(&account)
+	var account models.Account
+
+	accFilter := buildAccountFilter(filter)
+	err := srv.coll.FindOne(ctx, accFilter).Decode(&account)
 	if err != nil {
 		if errors.Is(err, mongo.ErrNoDocuments) {
-			return nil, status.Errorf(codes.NotFound, "account not found")
+			return nil, models.ErrNotFound
 		}
-		srv.logger.Error("unable to query accounts", zap.Error(err))
-		return nil, status.Errorf(codes.InvalidArgument, err.Error())
+		srv.logger.Error("query failed", zap.Error(err))
+		return nil, err
 	}
 
-	uuid, err := uuid.Parse(account.ID)
-	if err != nil {
-		srv.logger.Error("failed to convert uuid from string", zap.Error(err))
-		return nil, status.Errorf(codes.Internal, "could not get account")
-	}
-
-	return &models.Account{ID: uuid, Name: account.Name, Email: account.Email, Hash: account.Hash}, nil
+	return &account, nil
 }
 
 func (srv *accountsRepository) Delete(ctx context.Context, filter *models.OneAccountFilter) error {
-	delete, err := srv.db.Collection("accounts").DeleteOne(ctx, buildQuery(filter))
-
+	delete, err := srv.coll.DeleteOne(ctx, filter)
 	if err != nil {
-		srv.logger.Error("delete account db query failed", zap.Error(err))
-		return status.Errorf(codes.Internal, "could not delete account")
+		srv.logger.Error("delete failed", zap.Error(err))
+		return err
 	}
 	if delete.DeletedCount == 0 {
-		srv.logger.Info("mongo delete account matched none", zap.String("user_id", filter.ID.String()))
-		return status.Errorf(codes.Internal, "could not delete account")
+		return models.ErrNotFound
 	}
+
 	return nil
 }
 
-func (srv *accountsRepository) Update(ctx context.Context, filter *models.OneAccountFilter, account *models.AccountPayload) error {
-	update, err := srv.db.Collection("accounts").UpdateOne(ctx, buildQuery(filter), bson.D{{Key: "$set", Value: &account}})
+func (srv *accountsRepository) Update(ctx context.Context, filter *models.OneAccountFilter, account *models.AccountPayload) (*models.Account, error) {
+	var accountUpdated models.Account
+
+	after := options.After
+	opt := options.FindOneAndUpdateOptions{
+		ReturnDocument: &after,
+	}
+
+	err := srv.coll.FindOneAndUpdate(ctx, filter, bson.D{{Key: "$set", Value: &account}}, &opt).Decode(&accountUpdated)
 	if err != nil {
-		srv.logger.Error("failed to convert object id from hex", zap.Error(err))
-		return status.Errorf(codes.InvalidArgument, err.Error())
+		srv.logger.Error("update one failed", zap.Error(err))
+		return nil, err
 	}
-	if update.MatchedCount == 0 {
-		srv.logger.Error("mongo update account query matched none", zap.String("user_id", filter.ID.String()))
-		return status.Errorf(codes.Internal, "could not update account")
-	}
-	return nil
+
+	return &accountUpdated, nil
 }
 
-func (srv *accountsRepository) List(ctx context.Context) (*[]models.Account, error) {
-	// var accounts []account
-	// cursor, err := srv.db.Collection("accounts").Find(ctx, bson.D{})
-	// if err != nil {
-	// 	srv.logger.Error("mongo find accounts query failed", zap.Error(err))
-	// 	return nil, status.Errorf(codes.Internal, err.Error())
-	// }
-	// defer cursor.Close(ctx)
+func (srv *accountsRepository) List(ctx context.Context, filter *models.ManyAccountsFilter, pagination *models.Pagination) ([]models.Account, error) {
+	var accounts []models.Account
 
-	// for cursor.Next(ctx) {
-	// 	var elem account
-	// 	err := cursor.Decode(&elem)
-	// 	if err != nil {
-	// 		srv.logger.Error("failed to decode mongo cursor result", zap.Error(err))
-	// 	}
-	// 	accounts = append(accounts, elem)
-	// }
+	opt := options.FindOptions{
+		Limit: &pagination.Limit,
+		Skip:  &pagination.Offset,
+	}
+	cursor, err := srv.coll.Find(ctx, bson.D{}, &opt)
+	if err != nil {
+		srv.logger.Error("mongo find accounts query failed", zap.Error(err))
+		return nil, err
+	}
+	defer cursor.Close(ctx)
 
-	return &[]models.Account{}, status.Errorf(codes.Unimplemented, "could not list account")
+	for cursor.Next(ctx) {
+		var elem models.Account
+		err := cursor.Decode(&elem)
+		if err != nil {
+			srv.logger.Error("failed to decode mongo cursor result", zap.Error(err))
+		}
+		accounts = append(accounts, elem)
+	}
+
+	return accounts, nil
 }
 
-func buildQuery(filter *models.OneAccountFilter) bson.M {
-	query := bson.M{}
-	if filter.ID != uuid.Nil {
-		query["_id"] = filter.ID.String()
+func buildAccountFilter(filter *models.OneAccountFilter) *models.OneAccountFilter {
+	if *filter.Email == "" {
+		return &models.OneAccountFilter{ID: filter.ID}
+	} else if filter.ID == "" {
+		return &models.OneAccountFilter{Email: filter.Email}
 	}
-	if filter.Email != "" {
-		query["email"] = filter.Email
-	}
-	return query
+	return &models.OneAccountFilter{Email: filter.Email, ID: filter.ID}
 }

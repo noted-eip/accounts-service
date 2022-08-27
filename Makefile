@@ -1,11 +1,7 @@
-# After cloning the repo, run init.
-init:
-	git submodule init
-	docker build -t noted-go-protoc -f misc/Dockerfile .
-
-# Run the protoc compiler to generate the Golang server code.
-codegen: update-submodules
-	docker run --rm -v `pwd`/grpc:/app/grpc -v `pwd`/misc:/app/misc -w /app noted-go-protoc /bin/sh -c misc/gen_proto.sh
+# Run this command upon cloning the repository or when wanting to
+# fetch the latest version of the protorepo.
+update-submodules:
+	git submodule update --init --remote
 
 # Run the golangci-lint linter.
 lint:
@@ -18,7 +14,4 @@ run-db:
 # Stop MongoDB database.
 stop-db:
 	docker kill accounts-mongo
-
-# Fetch the latest version of the protos submodule.
-update-submodules:
-	git submodule update --remote
+	docker rm accounts-mongo
