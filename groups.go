@@ -35,7 +35,7 @@ func (srv *groupsAPI) CreateGroup(ctx context.Context, in *accountsv1.CreateGrou
 
 	group, err := srv.repo.Create(ctx, &models.GroupPayload{Name: &in.Name, OwnerID: &id, Description: &in.Description, Members: &[]models.GroupMember{{ID: token.UserID.String()}}})
 	if err != nil {
-		return nil, status.Error(codes.Internal, "could not create group")
+		return nil, statusFromModelError(err)
 	}
 
 	return &accountsv1.CreateGroupResponse{
@@ -62,7 +62,7 @@ func (srv *groupsAPI) DeleteGroup(ctx context.Context, in *accountsv1.DeleteGrou
 
 	err = srv.repo.Delete(ctx, &models.OneGroupFilter{ID: in.Id, OwnerID: &id})
 	if err != nil {
-		return nil, status.Error(codes.Internal, "unable to delete group")
+		return nil, statusFromModelError(err)
 	}
 
 	return &accountsv1.DeleteGroupResponse{}, nil
@@ -84,8 +84,7 @@ func (srv *groupsAPI) UpdateGroup(ctx context.Context, in *accountsv1.UpdateGrou
 
 	acc, err := srv.repo.Get(ctx, &models.OneGroupFilter{ID: in.Group.Id})
 	if err != nil {
-		srv.logger.Error("failed to get Group", zap.Error(err))
-		return nil, status.Error(codes.Internal, "could not update Group")
+		return nil, statusFromModelError(err)
 	}
 
 	var protoGroup accountsv1.Group
@@ -98,8 +97,7 @@ func (srv *groupsAPI) UpdateGroup(ctx context.Context, in *accountsv1.UpdateGrou
 
 	updatedGroup, err := srv.repo.Update(ctx, &models.OneGroupFilter{ID: in.Group.Id}, &models.GroupPayload{OwnerID: &protoGroup.OwnerId, Name: &protoGroup.Name, Description: &protoGroup.Description})
 	if err != nil {
-		srv.logger.Error("failed to update account", zap.Error(err))
-		return nil, status.Error(codes.Internal, "could not update account")
+		return nil, statusFromModelError(err)
 	}
 
 	var groupMembers []*accountsv1.GroupMember
@@ -122,8 +120,7 @@ func (srv *groupsAPI) JoinGroup(ctx context.Context, in *accountsv1.JoinGroupReq
 
 	acc, err := srv.repo.Get(ctx, &models.OneGroupFilter{ID: in.Id})
 	if err != nil {
-		srv.logger.Error("failed to get group", zap.Error(err))
-		return nil, status.Error(codes.Internal, "could not join group")
+		return nil, statusFromModelError(err)
 	}
 
 	newMember := *acc.Members
@@ -131,8 +128,7 @@ func (srv *groupsAPI) JoinGroup(ctx context.Context, in *accountsv1.JoinGroupReq
 
 	_, err = srv.repo.Update(ctx, &models.OneGroupFilter{ID: in.Id}, &models.GroupPayload{Members: &newMember})
 	if err != nil {
-		srv.logger.Error("failed to update group", zap.Error(err))
-		return nil, status.Error(codes.Internal, "could not join group")
+		return nil, statusFromModelError(err)
 	}
 	return &accountsv1.JoinGroupResponse{}, nil
 }

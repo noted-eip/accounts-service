@@ -44,11 +44,7 @@ func (srv *accountsAPI) CreateAccount(ctx context.Context, in *accountsv1.Create
 
 	acc, err := srv.repo.Create(ctx, &models.AccountPayload{Email: &in.Email, Name: &in.Name, Hash: &hashed})
 	if err != nil {
-		srv.logger.Error("failed to create account", zap.Error(err))
-		if errors.Is(err, models.ErrDuplicateKeyFound) {
-			return nil, status.Error(codes.InvalidArgument, "failed to create account, email already use")
-		}
-		return nil, status.Error(codes.Internal, "failed to create account")
+		return nil, statusFromModelError(err)
 	}
 
 	return &accountsv1.CreateAccountResponse{
@@ -73,8 +69,7 @@ func (srv *accountsAPI) GetAccount(ctx context.Context, in *accountsv1.GetAccoun
 
 	account, err := srv.repo.Get(ctx, &models.OneAccountFilter{ID: in.Id, Email: &in.Email})
 	if err != nil {
-		srv.logger.Error("failed to get account", zap.Error(err))
-		return nil, status.Error(codes.Internal, "failed to get account")
+		return nil, statusFromModelError(err)
 	}
 
 	if account == nil || token.UserID.String() != account.ID && token.Role != auth.RoleAdmin {
@@ -109,8 +104,7 @@ func (srv *accountsAPI) UpdateAccount(ctx context.Context, in *accountsv1.Update
 
 	acc, err := srv.repo.Get(ctx, &models.OneAccountFilter{ID: in.Account.Id})
 	if err != nil {
-		srv.logger.Error("failed to get account", zap.Error(err))
-		return nil, status.Error(codes.Internal, "failed to update account")
+		return nil, statusFromModelError(err)
 	}
 
 	var protoAccount accountsv1.Account
@@ -123,7 +117,7 @@ func (srv *accountsAPI) UpdateAccount(ctx context.Context, in *accountsv1.Update
 
 	updatedAccount, err := srv.repo.Update(ctx, &models.OneAccountFilter{ID: in.Account.Id}, &models.AccountPayload{Email: &protoAccount.Email, Name: &protoAccount.Name})
 	if err != nil {
-		return nil, status.Error(codes.Internal, "failed to update account")
+		return nil, statusFromModelError(err)
 	}
 
 	newAccount := accountsv1.Account{Email: *updatedAccount.Email, Name: *updatedAccount.Name, Id: updatedAccount.ID}
@@ -153,8 +147,7 @@ func (srv *accountsAPI) DeleteAccount(ctx context.Context, in *accountsv1.Delete
 
 	err = srv.repo.Delete(ctx, &models.OneAccountFilter{ID: id.String()})
 	if err != nil {
-		srv.logger.Error("failed to delete account", zap.Error(err))
-		return nil, status.Error(codes.Internal, "failed to delete account")
+		return nil, statusFromModelError(err)
 	}
 
 	return &accountsv1.DeleteAccountResponse{}, nil
@@ -168,8 +161,7 @@ func (srv *accountsAPI) ListAccount(ctx context.Context, in *accountsv1.ListAcco
 
 	accounts, err := srv.repo.List(ctx, &models.ManyAccountsFilter{}, &models.Pagination{Offset: in.Paginate.Offset, Limit: in.Paginate.Limit})
 	if err != nil {
-		srv.logger.Error("failed to list accounts", zap.Error(err))
-		return nil, status.Error(codes.Internal, "failed to list accounts")
+		return nil, statusFromModelError(err)
 	}
 
 	var accountsResp []*accountsv1.Account
@@ -186,8 +178,7 @@ func (srv *accountsAPI) ListAccount(ctx context.Context, in *accountsv1.ListAcco
 func (srv *accountsAPI) Authenticate(ctx context.Context, in *accountsv1.AuthenticateRequest) (*accountsv1.AuthenticateResponse, error) {
 	acc, err := srv.repo.Get(ctx, &models.OneAccountFilter{Email: &in.Email})
 	if err != nil {
-		srv.logger.Error("failed to get account", zap.Error(err))
-		return nil, status.Error(codes.Internal, "failed to get account")
+		return nil, statusFromModelError(err)
 	}
 
 	err = bcrypt.CompareHashAndPassword(*acc.Hash, []byte(in.Password))
@@ -217,4 +208,17 @@ func (srv *accountsAPI) authenticate(ctx context.Context) (*auth.Token, error) {
 		return nil, status.Error(codes.Unauthenticated, "invalid token")
 	}
 	return token, nil
+}
+
+func statusFromModelError(err error) error {
+	if err == nil {
+		return nil
+	}
+	if errors.Is(err, models.ErrNotFound) {
+		return status.Error(codes.NotFound, "not found")
+	}
+	if errors.Is(err, models.ErrDuplicateKeyFound) {
+		return status.Error(codes.AlreadyExists, "already exists")
+	}
+	return status.Error(codes.Internal, "internal error")
 }

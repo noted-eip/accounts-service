@@ -6,35 +6,29 @@ import (
 	accountsv1 "accounts-service/protorepo/noted/accounts/v1"
 	"context"
 	"crypto/ed25519"
-	"fmt"
 	"testing"
 
 	"github.com/google/uuid"
 	"github.com/hashicorp/go-memdb"
 	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 )
 
-type Account struct {
-	ID    string  `json:"id" bson:"_id,omitempty"`
-	Email *string `json:"email" bson:"email,omitempty"`
-	Name  *string `json:"name" bson:"name,omitempty"`
-	Hash  *[]byte `json:"hash" bson:"hash,omitempty"`
-}
-
-type MainSuiteAccount struct {
+type AccountsAPISuite struct {
 	suite.Suite
 	srv *accountsAPI
 }
 
 func TestAccountsService(t *testing.T) {
-	suite.Run(t, new(MainSuiteAccount))
+	suite.Run(t, &AccountsAPISuite{})
 }
 
-func (s *MainSuiteAccount) TestAccountServiceSetup() {
+func (s *AccountsAPISuite) SetupSuite() {
 	logger := newLoggerOrFail(s.T())
 	db := newAccountsDatabaseOrFail(s.T(), logger)
 
@@ -45,99 +39,104 @@ func (s *MainSuiteAccount) TestAccountServiceSetup() {
 	}
 }
 
-func (s *MainSuiteAccount) TestAccountsServiceCreateAccount() {
-	fmt.Println("From CreateAccount")
+func (s *AccountsAPISuite) TestCreateAccount() {
 	res, err := s.srv.CreateAccount(context.TODO(), &accountsv1.CreateAccountRequest{Email: "create.test@gmail.com", Password: "password", Name: "Create"})
-	s.Nil(err)
+	s.Require().NoError(err)
 	s.NotNil(res)
-	s.EqualValues("create.test@gmail.com", res.Account.Email)
+	s.Equal("create.test@gmail.com", res.Account.Email)
 }
 
-func (s *MainSuiteAccount) TestAccountsServiceCreateAccountErrorMail() {
-	fmt.Println("From CreateAccount Error Mail")
+func (s *AccountsAPISuite) TestCreateAccountErrorMail() {
 	_, err := s.srv.CreateAccount(context.TODO(), &accountsv1.CreateAccountRequest{Email: "je_ne_suis_pas_un_email", Password: "password", Name: "Create"})
 	s.NotNil(err)
 }
 
-func (s *MainSuiteAccount) TestAccountsServiceCreateAccountErrorShortPassword() {
-	fmt.Println("From CreateAccount Error Password")
+func (s *AccountsAPISuite) TestCreateAccountErrorShortPassword() {
 	_, err := s.srv.CreateAccount(context.TODO(), &accountsv1.CreateAccountRequest{Email: "create@gmail.com", Password: "p", Name: "Create"})
 	s.NotNil(err)
 }
 
-func (s *MainSuiteAccount) TestAccountsServiceGetAccount() {
-	fmt.Println("From GetAccount")
+func (s *AccountsAPISuite) TestGetAccount() {
 	res, err := s.srv.CreateAccount(context.TODO(), &accountsv1.CreateAccountRequest{Email: "get.test@gmail.com", Password: "password", Name: "Create"})
-	s.Nil(err)
+	s.Require().NoError(err)
 
-	uuid, err := uuid.Parse(res.Account.Id)
-	s.Nil(err)
+	uid := uuid.MustParse(res.Account.Id)
 
-	ctx, err := s.srv.auth.ContextWithToken(context.TODO(), &auth.Token{
-		UserID: uuid,
-		Role:   auth.RoleAdmin,
-	})
-	s.Nil(err)
+	ctx, err := s.srv.auth.ContextWithToken(context.TODO(), &auth.Token{UserID: uid})
+	s.Require().NoError(err)
 
-	acc, err := s.srv.GetAccount(ctx, &accountsv1.GetAccountRequest{Id: uuid.String()})
-	s.Nil(err)
-	s.EqualValues("get.test@gmail.com", acc.Account.Email)
+	acc, err := s.srv.GetAccount(ctx, &accountsv1.GetAccountRequest{Id: uid.String()})
+	s.Require().NoError(err)
+	s.Equal("get.test@gmail.com", acc.Account.Email)
 }
 
-func (s *MainSuiteAccount) TestAccountsServiceGetAccountErrorNotFound() {
-	fmt.Println("From GetAccount")
-	res, err := s.srv.CreateAccount(context.TODO(), &accountsv1.CreateAccountRequest{Email: "get.test@gmail.com", Password: "password", Name: "Create"})
-	s.Nil(err)
+func (s *AccountsAPISuite) TestGetAccountErrorUnauthorized() {
+	_, err := s.srv.CreateAccount(context.TODO(), &accountsv1.CreateAccountRequest{Email: "unauthorized@gmail.com", Password: "password", Name: "Unauthorized"})
+	s.Require().NoError(err)
 
-	id, err := uuid.Parse(res.Account.Id)
-	s.Nil(err)
+	uid := uuid.Must(uuid.NewRandom())
+
+	ctx, err := s.srv.auth.ContextWithToken(context.TODO(), &auth.Token{UserID: uid})
+	s.Require().NoError(err)
+
+	acc, err := s.srv.GetAccount(ctx, &accountsv1.GetAccountRequest{Id: uid.String()})
+	s.Nil(acc)
+	s.Require().Error(err)
+	st, ok := status.FromError(err)
+	s.Require().True(ok)
+	s.T().Log(st.Code())
+	s.Equal(st.Code(), codes.NotFound)
+}
+
+func (s *AccountsAPISuite) TestGetAccountErrorNotFound() {
+	createRes, err := s.srv.CreateAccount(context.TODO(), &accountsv1.CreateAccountRequest{Email: "get.test@gmail.com", Password: "password", Name: "Create"})
+	s.Require().NoError(err)
+
+	id, err := uuid.Parse(createRes.Account.Id)
+	s.Require().NoError(err)
 
 	ctx, err := s.srv.auth.ContextWithToken(context.TODO(), &auth.Token{
 		UserID: id,
-		Role:   auth.RoleAdmin,
 	})
-	s.Nil(err)
+	s.Require().NoError(err)
 
-	uid, _ := uuid.NewRandom()
+	uid := uuid.Must(uuid.NewRandom())
 
-	accNotFound, err := s.srv.GetAccount(ctx, &accountsv1.GetAccountRequest{Email: "error.test@gmail.com", Id: uid.String()})
-	s.Nil(accNotFound)
+	getRes, err := s.srv.GetAccount(ctx, &accountsv1.GetAccountRequest{Email: "error.test@gmail.com", Id: uid.String()})
+	s.Nil(getRes)
 	s.NotNil(err)
 }
 
-func (s *MainSuiteAccount) TestAccountsServiceDeleteAccount() {
+func (s *AccountsAPISuite) TestDeleteAccount() {
 	acc, err := s.srv.CreateAccount(context.TODO(), &accountsv1.CreateAccountRequest{Email: "delete.test@gmail.com", Password: "password", Name: "Maxime"})
-	s.Nil(err)
+	s.Require().NoError(err)
 
-	uuid, err := uuid.Parse(acc.Account.Id)
-	s.Nil(err)
+	uid, err := uuid.Parse(acc.Account.Id)
+	s.Require().NoError(err)
 
-	ctx, err := s.srv.auth.ContextWithToken(context.TODO(), &auth.Token{
-		UserID: uuid,
-		Role:   auth.RoleAdmin,
-	})
-	s.Nil(err)
+	ctx, err := s.srv.auth.ContextWithToken(context.TODO(), &auth.Token{UserID: uid})
+	s.Require().NoError(err)
 
-	_, err = s.srv.DeleteAccount(ctx, &accountsv1.DeleteAccountRequest{Id: uuid.String()})
-	s.Nil(err)
+	_, err = s.srv.DeleteAccount(ctx, &accountsv1.DeleteAccountRequest{Id: uid.String()})
+	s.Require().NoError(err)
 }
 
-func (s *MainSuiteAccount) TestAccountsServiceDeleteAccountErrorNotFound() {
+func (s *AccountsAPISuite) TestDeleteAccountErrorNotFound() {
 	acc, err := s.srv.CreateAccount(context.TODO(), &accountsv1.CreateAccountRequest{Email: "delete.test@gmail.com", Password: "password", Name: "Maxime"})
-	s.Nil(err)
+	s.Require().NoError(err)
 
 	id, err := uuid.Parse(acc.Account.Id)
-	s.Nil(err)
+	s.Require().NoError(err)
 
 	ctx, err := s.srv.auth.ContextWithToken(context.TODO(), &auth.Token{
 		UserID: id,
-		Role:   auth.RoleAdmin,
 	})
-	s.Nil(err)
+	s.Require().NoError(err)
 
-	uid, _ := uuid.NewRandom()
+	uid := uuid.Must(uuid.NewRandom())
 
 	accNotFoud, err := s.srv.DeleteAccount(ctx, &accountsv1.DeleteAccountRequest{Id: uid.String()})
+	s.Error(err)
 	s.Nil(accNotFoud)
 }
 
@@ -190,41 +189,3 @@ func newLoggerOrFail(t *testing.T) *zap.Logger {
 	require.NoError(t, err, "could not instantiate zap logger")
 	return logger
 }
-
-// func TestAccountsService_CreateAccount_tmp(t *testing.T) {
-// 	logger := newLoggerOrFail(t)
-// 	db := newAccountsDatabaseOrFail(t, logger)
-// 	srv := &accountsAPI{
-// 		auth:   auth.NewService(genKeyOrFail(t)),
-// 		logger: logger,
-// 		repo:   memory.NewAccountsRepository(db, logger),
-// 	}
-
-// 	res, err := srv.CreateAccount(context.TODO(), &accountsv1.CreateAccountRequest{Email: "mail.test@gmail.com", Password: "password", Name: "Maxime"})
-// 	require.NoError(t, err)
-// 	require.NotEmpty(t, res)
-// }
-
-// func TestAccountsService_GetAccount_tmp(t *testing.T) {
-// 	logger := newLoggerOrFail(t)
-// 	db := newAccountsDatabaseOrFail(t, logger)
-
-// 	srv := &accountsAPI{
-// 		auth:   auth.NewService(genKeyOrFail(t)),
-// 		logger: logger,
-// 		repo:   memory.NewAccountsRepository(db, logger),
-// 	}
-
-// 	createAccRes, err := srv.CreateAccount(context.TODO(), &accountsv1.CreateAccountRequest{Email: "mail.test@gmail.com", Password: "password", Name: "Maxime"})
-// 	require.NoError(t, err)
-
-// 	ctx, err := srv.auth.ContextWithToken(context.TODO(), &auth.Token{
-// 		UserID: uuid.MustParse(createAccRes.Account.Id),
-// 	})
-// 	require.NoError(t, err)
-
-// 	res, err := srv.GetAccount(ctx, &accountsv1.GetAccountRequest{Id: createAccRes.Account.Id})
-// 	require.NoError(t, err)
-// 	require.Equal(t, "mail.test@gmail.com", res.Account.Email)
-// 	require.Equal(t, "Maxime", res.Account.Name)
-// }

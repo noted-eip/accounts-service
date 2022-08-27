@@ -12,31 +12,18 @@ import (
 	"go.uber.org/zap"
 )
 
-type Group struct {
-	ID          string         `json:"id" bson:"_id,omitempty"`
-	Name        *string        `json:"name" bson:"name,omitempty"`
-	OwnerID     *string        `json:"owner_id" bson:"owner_id,omitempty"`
-	Description *string        `json:"description" bson:"description,omitempty"`
-	Members     *[]GroupMember `json:"members" bson:"members,omitempty"`
-}
-
-type GroupMember struct {
-	ID string `json:"account_id" bson:"account_id,omitempty"`
-}
-
-type MainSuiteGroup struct {
+type GroupsAPISuite struct {
 	suite.Suite
 	srv *groupsAPI
 }
 
 func TestGroupsService(t *testing.T) {
-	suite.Run(t, new(MainSuiteGroup))
+	suite.Run(t, new(GroupsAPISuite))
 }
 
-func (s *MainSuiteGroup) TestGroupServiceSetup() {
+func (s *GroupsAPISuite) SetupSuite() {
 	logger := newLoggerOrFail(s.T())
 	db := newGroupsDatabaseOrFail(s.T(), logger)
-
 	s.srv = &groupsAPI{
 		auth:   auth.NewService(genKeyOrFail(s.T())),
 		logger: logger,
