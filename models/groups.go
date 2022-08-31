@@ -7,7 +7,7 @@ import (
 type Group struct {
 	ID          string         `json:"id" bson:"_id,omitempty"`
 	Name        *string        `json:"name" bson:"name,omitempty"`
-	OwnerID     *string        `json:"owner_id" bson:"owner_id,omitempty"`
+	OwnerID     string         `json:"owner_id" bson:"owner_id,omitempty"`
 	Description *string        `json:"description" bson:"description,omitempty"`
 	Members     *[]GroupMember `json:"members" bson:"members,omitempty"`
 }
@@ -15,7 +15,7 @@ type Group struct {
 type GroupPayload struct {
 	Name        *string        `json:"name" bson:"name,omitempty"`
 	Description *string        `json:"description" bson:"description,omitempty"`
-	OwnerID     *string        `json:"owner_id" bson:"owner_id,omitempty"`
+	OwnerID     string         `json:"owner_id" bson:"owner_id,omitempty"`
 	Members     *[]GroupMember `json:"members" bson:"members,omitempty"`
 }
 
@@ -24,8 +24,8 @@ type GroupMember struct {
 }
 
 type OneGroupFilter struct {
-	ID      string  `json:"id" bson:"_id,omitempty"`
-	OwnerID *string `json:"owner_id" bson:"owner_id,omitempty"`
+	ID      string `json:"id" bson:"_id,omitempty"`
+	OwnerID string `json:"owner_id" bson:"owner_id,omitempty"`
 }
 
 type ManyGroupsFilter struct {

@@ -135,7 +135,7 @@ func (srv *accountsRepository) List(ctx context.Context, filter *models.ManyAcco
 }
 
 func buildAccountFilter(filter *models.OneAccountFilter) *models.OneAccountFilter {
-	if *filter.Email == "" {
+	if filter.Email == nil || *filter.Email == "" {
 		return &models.OneAccountFilter{ID: filter.ID}
 	} else if filter.ID == "" {
 		return &models.OneAccountFilter{Email: filter.Email}
