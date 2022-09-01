@@ -6,7 +6,6 @@ import (
 	accountsv1 "accounts-service/protorepo/noted/accounts/v1"
 	"accounts-service/validators"
 	"context"
-
 	"github.com/jinzhu/copier"
 	"github.com/mennanov/fmutils"
 	"go.uber.org/zap"
@@ -33,7 +32,7 @@ func (srv *groupsAPI) CreateGroup(ctx context.Context, in *accountsv1.CreateGrou
 
 	id := token.UserID.String()
 
-	group, err := srv.repo.Create(ctx, &models.GroupPayload{Name: &in.Name, OwnerID: &id, Description: &in.Description, Members: &[]models.GroupMember{{ID: token.UserID.String()}}})
+	group, err := srv.repo.Create(ctx, &models.GroupPayload{Name: &in.Name, OwnerID: id, Description: &in.Description, Members: &[]models.GroupMember{{ID: token.UserID.String()}}})
 	if err != nil {
 		return nil, statusFromModelError(err)
 	}
@@ -43,7 +42,7 @@ func (srv *groupsAPI) CreateGroup(ctx context.Context, in *accountsv1.CreateGrou
 			Id:          group.ID,
 			Name:        *group.Name,
 			Description: *group.Description,
-			OwnerId:     *group.OwnerID,
+			OwnerId:     group.OwnerID,
 		},
 	}, nil
 }
@@ -60,7 +59,7 @@ func (srv *groupsAPI) DeleteGroup(ctx context.Context, in *accountsv1.DeleteGrou
 	}
 	id := token.UserID.String()
 
-	err = srv.repo.Delete(ctx, &models.OneGroupFilter{ID: in.Id, OwnerID: &id})
+	err = srv.repo.Delete(ctx, &models.OneGroupFilter{ID: in.Id, OwnerID: id})
 	if err != nil {
 		return nil, statusFromModelError(err)
 	}
@@ -80,22 +79,23 @@ func (srv *groupsAPI) UpdateGroup(ctx context.Context, in *accountsv1.UpdateGrou
 	if !fieldMask.IsValid(in.Group) {
 		return nil, status.Error(codes.InvalidArgument, "invalid field mask")
 	}
-	fmutils.Filter(in.GetGroup(), fieldMask.GetPaths())
 
 	acc, err := srv.repo.Get(ctx, &models.OneGroupFilter{ID: in.Group.Id})
 	if err != nil {
 		return nil, statusFromModelError(err)
 	}
 
+	fmutils.Filter(in.GetGroup(), fieldMask.GetPaths())
+
 	var protoGroup accountsv1.Group
 	err = copier.Copy(&protoGroup, &acc)
 	if err != nil {
-		srv.logger.Error("invalid account conversion", zap.Error(err))
-		return nil, status.Error(codes.Internal, "could not update account")
+		srv.logger.Error("invalid group conversion", zap.Error(err))
+		return nil, status.Error(codes.Internal, "could not update group")
 	}
 	proto.Merge(&protoGroup, in.Group)
 
-	updatedGroup, err := srv.repo.Update(ctx, &models.OneGroupFilter{ID: in.Group.Id}, &models.GroupPayload{OwnerID: &protoGroup.OwnerId, Name: &protoGroup.Name, Description: &protoGroup.Description})
+	updatedGroup, err := srv.repo.Update(ctx, &models.OneGroupFilter{ID: acc.ID}, &models.GroupPayload{OwnerID: protoGroup.OwnerId, Name: &protoGroup.Name, Description: &protoGroup.Description})
 	if err != nil {
 		return nil, statusFromModelError(err)
 	}
@@ -108,7 +108,7 @@ func (srv *groupsAPI) UpdateGroup(ctx context.Context, in *accountsv1.UpdateGrou
 		}
 		groupMembers = append(groupMembers, elem)
 	}
-	returnedGroup := accountsv1.Group{Id: updatedGroup.ID, OwnerId: *updatedGroup.OwnerID, Name: *updatedGroup.Name, Description: *updatedGroup.Description, Members: groupMembers}
+	returnedGroup := accountsv1.Group{Id: updatedGroup.ID, OwnerId: updatedGroup.OwnerID, Name: *updatedGroup.Name, Description: *updatedGroup.Description, Members: groupMembers}
 	return &accountsv1.UpdateGroupResponse{Group: &returnedGroup}, nil
 }
 
