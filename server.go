@@ -16,6 +16,8 @@ import (
 
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
+	"golang.org/x/oauth2"
+	"golang.org/x/oauth2/google"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/reflection"
 	"google.golang.org/grpc/status"
@@ -34,7 +36,8 @@ type server struct {
 	accountsService accountsv1.AccountsAPIServer
 	groupsService   accountsv1.GroupsAPIServer
 
-	grpcServer *grpc.Server
+	grpcServer        *grpc.Server
+	googleOauthConfig *oauth2.Config
 }
 
 // Init initializes the dependencies of the server and panics on error.
@@ -104,6 +107,15 @@ func (s *server) initLogger() {
 }
 
 func (s *server) initAuthService() {
+
+	s.googleOauthConfig = &oauth2.Config{
+		RedirectURL:  "http://localhost:3000/authenticate/google/callback",
+		ClientID:     "871625340195-vht41gp0596qmoflvsm3pd5umefpcgk7.apps.googleusercontent.com", //os.Getenv(""),
+		ClientSecret: "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",                                      //os.Getenv("bbb"),
+		Scopes:       []string{"https://www.googleapis.com/auth/userinfo.email"},
+		Endpoint:     google.Endpoint,
+	}
+
 	rawKey, err := base64.StdEncoding.DecodeString(*jwtPrivateKey)
 	must(err, "could not decode jwt private key")
 	s.authService = auth.NewService(ed25519.PrivateKey(rawKey))
@@ -122,6 +134,7 @@ func (s *server) initAccountsService() {
 		auth:   s.authService,
 		logger: s.logger,
 		repo:   s.accountsRepository,
+		oauth:  s.googleOauthConfig,
 	}
 }
 

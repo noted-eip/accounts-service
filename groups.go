@@ -6,6 +6,7 @@ import (
 	accountsv1 "accounts-service/protorepo/noted/accounts/v1"
 	"accounts-service/validators"
 	"context"
+
 	"github.com/jinzhu/copier"
 	"github.com/mennanov/fmutils"
 	"go.uber.org/zap"
