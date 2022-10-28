@@ -17,7 +17,6 @@ import (
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 	"golang.org/x/oauth2"
-	"golang.org/x/oauth2/google"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/reflection"
 	"google.golang.org/grpc/status"
@@ -108,13 +107,7 @@ func (s *server) initLogger() {
 
 func (s *server) initAuthService() {
 
-	s.googleOauthConfig = &oauth2.Config{
-		RedirectURL:  "http://localhost:3000/authenticate/google/callback",
-		ClientID:     "871625340195-vht41gp0596qmoflvsm3pd5umefpcgk7.apps.googleusercontent.com", //os.Getenv(""),
-		ClientSecret: "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",                                      //os.Getenv("bbb"),
-		Scopes:       []string{"https://www.googleapis.com/auth/userinfo.email"},
-		Endpoint:     google.Endpoint,
-	}
+	s.googleOauthConfig = &oauth2.Config{}
 
 	rawKey, err := base64.StdEncoding.DecodeString(*jwtPrivateKey)
 	must(err, "could not decode jwt private key")
