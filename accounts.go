@@ -7,11 +7,15 @@ import (
 	"accounts-service/validators"
 	"context"
 	"errors"
+	"fmt"
+	"io"
+	"net/http"
 
 	"github.com/jinzhu/copier"
 	"github.com/mennanov/fmutils"
 	"go.uber.org/zap"
 	"golang.org/x/crypto/bcrypt"
+	"golang.org/x/oauth2"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/proto"
@@ -25,6 +29,7 @@ type accountsAPI struct {
 	auth   auth.Service
 	logger *zap.Logger
 	repo   models.AccountsRepository
+	oauth  *oauth2.Config
 }
 
 var _ accountsv1.AccountsAPIServer = &accountsAPI{}
@@ -221,3 +226,64 @@ func statusFromModelError(err error) error {
 	}
 	return status.Error(codes.Internal, "internal error")
 }
+
+func (srv *accountsAPI) AuthenticateGoogle(ctx context.Context, in *accountsv1.AuthenticateGoogleRequest) (*accountsv1.AuthenticateGoogleResponse, error) {
+	oauthStateString := uuid.New().String()
+	url := srv.oauth.AuthCodeURL(oauthStateString)
+
+	return &accountsv1.AuthenticateGoogleResponse{
+		Url:           url,
+		OriginalState: oauthStateString,
+	}, nil
+}
+
+func (srv *accountsAPI) AuthenticateGoogleCallback(ctx context.Context, in *accountsv1.AuthenticateGoogleRequest) (*accountsv1.AuthenticateGoogleResponse, error) {
+	content, err := getUserInfo(in.State, in.Code, in.OriginalState, srv.oauth)
+	if err != nil {
+		fmt.Println(err.Error())
+		return &accountsv1.AuthenticateGoogleResponse{}, err
+	}
+	fmt.Printf("Content: %s\n", content)
+
+	return &accountsv1.AuthenticateGoogleResponse{}, nil
+}
+
+func getUserInfo(state string, code string, old_state string, conf *oauth2.Config) ([]byte, error) {
+	if state != old_state {
+		return nil, fmt.Errorf("invalid oauth state")
+	}
+	token, err := conf.Exchange(context.TODO(), code)
+	if err != nil {
+		return nil, fmt.Errorf("code exchange failed: %s", err.Error())
+	}
+	fmt.Print(token)
+	fmt.Print("\n")
+	response, err := http.Get("https://www.googleapis.com/oauth2/v2/userinfo?access_token=" + token.AccessToken)
+	if err != nil {
+		return nil, fmt.Errorf("failed getting user info: %s", err.Error())
+	}
+	defer response.Body.Close()
+	contents, err := io.ReadAll(response.Body)
+	if err != nil {
+		return nil, fmt.Errorf("failed reading response body: %s", err.Error())
+	}
+	return contents, nil
+}
+
+/*
+func verifyToken(token *oauth2.Token, conf *oauth2.Config) {
+	tokenSource := conf.TokenSource(context.TODO(), token)
+	newToken, err := tokenSource.Token()
+	if err != nil {
+		log.Fatalln(err)
+	}
+
+	if newToken.AccessToken != token.AccessToken {
+		SaveToken(newToken)
+		log.Println("Saved new token:", newToken.AccessToken)
+	}
+
+	client := oauth2.NewClient(oauth2.NoContext, tokenSource)
+	resp, err := client.Get(url)
+}
+*/
