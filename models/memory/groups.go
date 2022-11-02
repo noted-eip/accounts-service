@@ -34,8 +34,6 @@ func (srv *groupsRepository) Create(ctx context.Context, payload *models.GroupPa
 		ID:          id.String(),
 		Name:        payload.Name,
 		Description: payload.Description,
-		OwnerID:     payload.OwnerID,
-		Members:     payload.Members,
 	}
 
 	err = txn.Insert("group", &group)
