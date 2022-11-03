@@ -27,16 +27,22 @@ type groupsAPI struct {
 var _ accountsv1.GroupsAPIServer = &groupsAPI{}
 
 func (srv *groupsAPI) CreateGroup(ctx context.Context, in *accountsv1.CreateGroupRequest) (*accountsv1.CreateGroupResponse, error) {
-	// token, err := srv.authenticate(ctx)
-	// if err != nil {
-	// 	return nil, err
-	// }
+	token, err := srv.authenticate(ctx)
+	if err != nil {
+		return nil, status.Error(codes.Unauthenticated, err.Error())
+	}
 
-	// id := token.UserID.String()
+	account_id := token.UserID.String()
 
 	group, err := srv.groupRepo.Create(ctx, &models.GroupPayload{Name: &in.Name, Description: &in.Description})
 	if err != nil {
 		return nil, statusFromModelError(err)
+	}
+
+	member := models.MemberPayload{Account: &account_id, Group: &group.ID, Role: auth.RoleAdmin}
+	_, err = srv.memberRepo.Create(ctx, &member)
+	if err != nil {
+		return nil, status.Error(codes.Internal, err.Error())
 	}
 
 	return &accountsv1.CreateGroupResponse{
@@ -54,15 +60,19 @@ func (srv *groupsAPI) DeleteGroup(ctx context.Context, in *accountsv1.DeleteGrou
 		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}
 
-	// token, err := srv.authenticate(ctx)
-	// if err != nil {
-	// 	return nil, err
-	// }
-	// id := token.UserID.String()
+	_, err = srv.authenticate(ctx)
+	if err != nil {
+		return nil, status.Error(codes.Unauthenticated, err.Error())
+	}
 
 	err = srv.groupRepo.Delete(ctx, &models.OneGroupFilter{ID: in.GroupId})
 	if err != nil {
 		return nil, statusFromModelError(err)
+	}
+	memberFilter := models.MemberFilter{Group: &in.GroupId}
+	err = srv.memberRepo.DeleteMany(ctx, &memberFilter)
+	if err != nil {
+		return nil, status.Error(codes.Internal, err.Error())
 	}
 
 	return &accountsv1.DeleteGroupResponse{}, nil
