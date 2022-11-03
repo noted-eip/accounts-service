@@ -6,6 +6,7 @@ import (
 	accountsv1 "accounts-service/protorepo/noted/accounts/v1"
 	"accounts-service/validators"
 	"context"
+	"time"
 
 	"github.com/jinzhu/copier"
 	"github.com/mennanov/fmutils"
@@ -13,6 +14,7 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 type groupsAPI struct {
@@ -34,12 +36,12 @@ func (srv *groupsAPI) CreateGroup(ctx context.Context, in *accountsv1.CreateGrou
 
 	account_id := token.UserID.String()
 
-	group, err := srv.groupRepo.Create(ctx, &models.GroupPayload{Name: &in.Name, Description: &in.Description})
+	group, err := srv.groupRepo.Create(ctx, &models.GroupPayload{Name: &in.Name, Description: &in.Description, CreatedAt: time.Now().UTC()})
 	if err != nil {
 		return nil, statusFromModelError(err)
 	}
 
-	member := models.MemberPayload{Account: &account_id, Group: &group.ID, Role: auth.RoleAdmin}
+	member := models.MemberPayload{Account: &account_id, Group: &group.ID, Role: auth.RoleAdmin, CreatedAt: time.Now().UTC()}
 	_, err = srv.memberRepo.Create(ctx, &member)
 	if err != nil {
 		return nil, status.Error(codes.Internal, err.Error())
@@ -50,6 +52,7 @@ func (srv *groupsAPI) CreateGroup(ctx context.Context, in *accountsv1.CreateGrou
 			Id:          group.ID,
 			Name:        *group.Name,
 			Description: *group.Description,
+			CreatedAt:   timestamppb.New(group.CreatedAt),
 		},
 	}, nil
 }
@@ -111,7 +114,7 @@ func (srv *groupsAPI) UpdateGroup(ctx context.Context, in *accountsv1.UpdateGrou
 		return nil, statusFromModelError(err)
 	}
 
-	returnedGroup := accountsv1.Group{Id: updatedGroup.ID, Name: *updatedGroup.Name, Description: *updatedGroup.Description}
+	returnedGroup := accountsv1.Group{Id: updatedGroup.ID, Name: *updatedGroup.Name, Description: *updatedGroup.Description, CreatedAt: timestamppb.New(updatedGroup.CreatedAt)}
 	return &accountsv1.UpdateGroupResponse{Group: &returnedGroup}, nil
 }
 

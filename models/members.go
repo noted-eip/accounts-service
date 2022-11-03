@@ -2,19 +2,22 @@ package models
 
 import (
 	"context"
+	"time"
 )
 
 type Member struct {
-	ID      string  `json:"_id" bson:"_id,omitempty"`
-	Account *string `json:"account_id" bson:"account_id,omitempty"`
-	Group   *string `json:"group_id" bson:"group_id,omitempty"`
-	Role    string  `json:"role" bson:"role,omitempty"`
+	ID        string    `json:"_id" bson:"_id,omitempty"`
+	Account   *string   `json:"account_id" bson:"account_id,omitempty"`
+	Group     *string   `json:"group_id" bson:"group_id,omitempty"`
+	Role      string    `json:"role" bson:"role,omitempty"`
+	CreatedAt time.Time `json:"created_at" bson:"created_at,omitempty"`
 }
 
 type MemberPayload struct {
-	Account *string `json:"account_id" bson:"account_id,omitempty"`
-	Group   *string `json:"group_id" bson:"group_id,omitempty"`
-	Role    string  `json:"role" bson:"role,omitempty"`
+	Account   *string   `json:"account_id" bson:"account_id,omitempty"`
+	Group     *string   `json:"group_id" bson:"group_id,omitempty"`
+	Role      string    `json:"role" bson:"role,omitempty"`
+	CreatedAt time.Time `json:"created_at" bson:"created_at,omitempty"`
 }
 
 type MemberFilter struct {

@@ -7,14 +7,15 @@ import (
 	"accounts-service/validators"
 	"context"
 	"errors"
+	"time"
 
 	"go.uber.org/zap"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
-// TODO: Add time-stamp from arrival in member models
-// TODO: internal token clarification with edouard/diego
+// TODO: internal token clarification with invitation API
 
 func (srv *groupsAPI) AddGroupMember(ctx context.Context, in *accountsv1.AddGroupMemberRequest) (*accountsv1.AddGroupMemberResponse, error) {
 	err := validators.ValidateAddGroupMember(in)
@@ -27,7 +28,7 @@ func (srv *groupsAPI) AddGroupMember(ctx context.Context, in *accountsv1.AddGrou
 		return nil, status.Error(codes.InvalidArgument, "failed to get group from group_id")
 	}
 
-	payload := models.MemberPayload{Account: &in.AccountId, Group: &in.GroupId, Role: auth.RoleUser}
+	payload := models.MemberPayload{Account: &in.AccountId, Group: &in.GroupId, Role: auth.RoleUser, CreatedAt: time.Now().UTC()}
 	_, err = srv.memberRepo.Create(ctx, &payload)
 	if err != nil {
 		return nil, status.Error(codes.Internal, "failed to add member to group")
@@ -36,7 +37,6 @@ func (srv *groupsAPI) AddGroupMember(ctx context.Context, in *accountsv1.AddGrou
 	return &accountsv1.AddGroupMemberResponse{}, nil
 }
 
-// TODO: If admin user is remove set a random new member as Admin
 func (srv *groupsAPI) RemoveGroupMember(ctx context.Context, in *accountsv1.RemoveGroupMemberRequest) (*accountsv1.RemoveGroupMemberResponse, error) {
 	err := validators.ValidateRemoveGroupMember(in)
 	if err != nil {
@@ -92,7 +92,7 @@ func (srv *groupsAPI) GetGroupMember(ctx context.Context, in *accountsv1.GetGrou
 		return nil, status.Error(codes.NotFound, "member not found")
 	}
 
-	groupMember := accountsv1.GroupMember{AccountId: *member.Account, Role: member.Role}
+	groupMember := accountsv1.GroupMember{AccountId: *member.Account, Role: member.Role, CreatedAt: timestamppb.New(member.CreatedAt)}
 	return &accountsv1.GetGroupMemberResponse{Member: &groupMember}, nil
 }
 
@@ -115,7 +115,7 @@ func (srv *groupsAPI) ListGroupMembers(ctx context.Context, in *accountsv1.ListG
 
 	var groupMembers []*accountsv1.GroupMember
 	for _, member := range members {
-		groupMember := &accountsv1.GroupMember{AccountId: *member.Account, Role: member.Role}
+		groupMember := &accountsv1.GroupMember{AccountId: *member.Account, Role: member.Role, CreatedAt: timestamppb.New(member.CreatedAt)}
 		if err != nil {
 			srv.logger.Error("failed to decode member", zap.Error(err))
 		}

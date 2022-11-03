@@ -35,7 +35,7 @@ func (srv *groupsRepository) Create(ctx context.Context, payload *models.GroupPa
 		return nil, err
 	}
 
-	group := models.Group{ID: id.String(), Name: payload.Name, Description: payload.Description}
+	group := models.Group{ID: id.String(), Name: payload.Name, Description: payload.Description, CreatedAt: payload.CreatedAt}
 
 	_, err = srv.coll.InsertOne(ctx, group)
 	if err != nil {

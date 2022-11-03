@@ -1,6 +1,7 @@
 package mongo
 
 import (
+	"accounts-service/auth"
 	"accounts-service/models"
 	"errors"
 
@@ -45,7 +46,7 @@ func (srv *membersRepository) Create(ctx context.Context, payload *models.Member
 		return nil, err
 	}
 
-	member := models.Member{ID: id.String(), Account: payload.Account, Group: payload.Group, Role: payload.Role}
+	member := models.Member{ID: id.String(), Account: payload.Account, Group: payload.Group, Role: payload.Role, CreatedAt: payload.CreatedAt}
 
 	_, err = srv.coll.InsertOne(ctx, member)
 	if err != nil {
@@ -57,15 +58,23 @@ func (srv *membersRepository) Create(ctx context.Context, payload *models.Member
 }
 
 func (srv *membersRepository) DeleteOne(ctx context.Context, filter *models.MemberFilter) error {
-	delete, err := srv.coll.DeleteOne(ctx, filter)
+	member := models.Member{}
+	err := srv.coll.FindOneAndDelete(ctx, filter).Decode(&member)
 	if err != nil {
 		srv.logger.Error("delete one failed", zap.Error(err))
 		return err
 	}
-	if delete.DeletedCount == 0 {
-		return models.ErrNotFound
+
+	if member.ID == "" {
+		srv.logger.Error("delete one no document found", zap.Error(err))
 	}
 
+	if member.Role == auth.RoleAdmin {
+		_, err := srv.coll.UpdateOne(ctx, &models.MemberFilter{Group: filter.Group}, bson.D{{Key: "$set", Value: &models.Member{Role: auth.RoleAdmin}}})
+		if err != nil {
+			srv.logger.Error("delete one could not update user role", zap.Error(err))
+		}
+	}
 	return nil
 }
 

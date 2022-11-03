@@ -2,17 +2,20 @@ package models
 
 import (
 	"context"
+	"time"
 )
 
 type Group struct {
-	ID          string  `json:"id" bson:"_id,omitempty"`
-	Name        *string `json:"name" bson:"name,omitempty"`
-	Description *string `json:"description" bson:"description,omitempty"`
+	ID          string    `json:"id" bson:"_id,omitempty"`
+	Name        *string   `json:"name" bson:"name,omitempty"`
+	Description *string   `json:"description" bson:"description,omitempty"`
+	CreatedAt   time.Time `json:"created_at" bson:"created_at,omitempty"`
 }
 
 type GroupPayload struct {
-	Name        *string `json:"name" bson:"name,omitempty"`
-	Description *string `json:"description" bson:"description,omitempty"`
+	Name        *string   `json:"name" bson:"name,omitempty"`
+	Description *string   `json:"description" bson:"description,omitempty"`
+	CreatedAt   time.Time `json:"created_at" bson:"created_at,omitempty"`
 }
 
 type OneGroupFilter struct {
