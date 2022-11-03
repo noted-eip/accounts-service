@@ -118,6 +118,35 @@ func (srv *groupsAPI) UpdateGroup(ctx context.Context, in *accountsv1.UpdateGrou
 	return &accountsv1.UpdateGroupResponse{Group: &returnedGroup}, nil
 }
 
+func (srv *groupsAPI) ListGroups(ctx context.Context, in *accountsv1.ListGroupsRequest) (*accountsv1.ListGroupsResponse, error) {
+	err := validators.ValidateListGroups(in)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "could not validate list groups request")
+	}
+
+	_, err = srv.authenticate(ctx)
+	if err != nil {
+		return nil, status.Error(codes.Unauthenticated, err.Error())
+	}
+
+	memberFromGroups, err := srv.memberRepo.List(ctx, &models.MemberFilter{Account: &in.AccountId})
+	if err != nil {
+		return nil, status.Error(codes.Unauthenticated, "could not list groups member from groups Id")
+	}
+
+	var groups []*accountsv1.Group
+	for _, member := range memberFromGroups {
+		group, err := srv.groupRepo.Get(ctx, &models.OneGroupFilter{ID: *member.Group})
+
+		if err != nil {
+			srv.logger.Error("failed get group from member id", zap.Error(err))
+		}
+		groups = append(groups, &accountsv1.Group{Id: group.ID, Description: *group.Description, Name: *group.Name, CreatedAt: timestamppb.New(group.CreatedAt)})
+	}
+
+	return &accountsv1.ListGroupsResponse{Groups: groups}, nil
+}
+
 // TODO: This function is duplicated from accountsService.authenticate().
 // Find a way to extract this into a separate function or use a base class
 // to share common behaviour.

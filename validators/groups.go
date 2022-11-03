@@ -18,3 +18,7 @@ func ValidateUpdatedGroupRequest(in *accountsv1.UpdateGroupRequest) error {
 		validation.Field(&in.Group.Id, validation.Required, is.UUID),
 	)
 }
+
+func ValidateListGroups(in *accountsv1.ListGroupsRequest) error {
+	return validation.Validate(&in.AccountId, validation.Required, is.UUID)
+}
