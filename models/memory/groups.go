@@ -3,25 +3,27 @@ package memory
 import (
 	"accounts-service/models"
 	"context"
+	"errors"
 
 	"github.com/google/uuid"
+	"github.com/hashicorp/go-memdb"
 	"go.uber.org/zap"
 )
 
 type groupsRepository struct {
-	logger *zap.Logger
-	db     *Database
+	logger  *zap.Logger
+	groupDB *Database
 }
 
-func NewGroupsRepository(db *Database, logger *zap.Logger) models.GroupsRepository {
+func NewGroupsRepository(groupDB *Database, logger *zap.Logger) models.GroupsRepository {
 	return &groupsRepository{
-		logger: logger.Named("memory").Named("groups"),
-		db:     db,
+		logger:  logger.Named("memory").Named("groups"),
+		groupDB: groupDB,
 	}
 }
 
 func (srv *groupsRepository) Create(ctx context.Context, payload *models.GroupPayload) (*models.Group, error) {
-	txn := srv.db.DB.Txn(true)
+	txn := srv.groupDB.DB.Txn(true)
 	defer txn.Abort()
 
 	id, err := uuid.NewRandom()
@@ -34,6 +36,7 @@ func (srv *groupsRepository) Create(ctx context.Context, payload *models.GroupPa
 		ID:          id.String(),
 		Name:        payload.Name,
 		Description: payload.Description,
+		CreatedAt:   payload.CreatedAt,
 	}
 
 	err = txn.Insert("group", &group)
@@ -47,12 +50,14 @@ func (srv *groupsRepository) Create(ctx context.Context, payload *models.GroupPa
 }
 
 func (srv *groupsRepository) Get(ctx context.Context, filter *models.OneGroupFilter) (*models.Group, error) {
-	txn := srv.db.DB.Txn(false)
+	txn := srv.groupDB.DB.Txn(false)
 	defer txn.Abort()
 
 	raw, err := txn.First("group", "id", filter.ID)
-	// Check for memdb.ErrNotFound and return a models.ErrNotFound.
 	if err != nil {
+		if errors.Is(err, memdb.ErrNotFound) {
+			return nil, err
+		}
 		srv.logger.Error("unable to query group", zap.Error(err))
 		return nil, err
 	}
@@ -64,12 +69,14 @@ func (srv *groupsRepository) Get(ctx context.Context, filter *models.OneGroupFil
 }
 
 func (srv *groupsRepository) Delete(ctx context.Context, filter *models.OneGroupFilter) error {
-	txn := srv.db.DB.Txn(true)
+	txn := srv.groupDB.DB.Txn(true)
 	defer txn.Abort()
 
 	err := txn.Delete("group", models.Group{ID: filter.ID})
-	// Check for memdb.ErrNotFound and return a models.ErrNotFound.
 	if err != nil {
+		if errors.Is(err, memdb.ErrNotFound) {
+			return models.ErrNotFound
+		}
 		srv.logger.Error("unable to delete group", zap.Error(err))
 		return err
 	}
@@ -77,32 +84,23 @@ func (srv *groupsRepository) Delete(ctx context.Context, filter *models.OneGroup
 	return nil
 }
 
-func (srv *groupsRepository) Update(ctx context.Context, filter *models.OneGroupFilter, account *models.GroupPayload) (*models.Group, error) {
-	// update, err := srv.db.Collection("accounts").UpdateOne(ctx, filter, bson.D{{Key: "$set", Value: &account}})
-	// if err != nil {
-	// 	srv.logger.Error("failed to convert object id from hex", zap.Error(err))
-	// 	return err
-	// }
-	// if update.MatchedCount == 0 {
-	// 	srv.logger.Error("mongo update account query matched none", zap.String("user_id", filter.ID))
-	// 	return err
-	// }
-	return nil, nil
-}
+func (srv *groupsRepository) Update(ctx context.Context, filter *models.OneGroupFilter, group *models.GroupPayload) (*models.Group, error) {
+	txn := srv.groupDB.DB.Txn(true)
+	defer txn.Abort()
 
-func (srv *groupsRepository) List(ctx context.Context, filter *models.ManyGroupsFilter, pagination *models.Pagination) ([]models.Group, error) {
-	var groups []models.Group
-
-	txn := srv.db.DB.Txn(false)
-
-	it, err := txn.Get("account", "id")
+	newGroup := models.Group{ID: filter.ID, Description: group.Description, Name: group.Name, CreatedAt: group.CreatedAt}
+	err := txn.Insert("group", &newGroup)
 	if err != nil {
+		if errors.Is(err, memdb.ErrNotFound) {
+			return nil, models.ErrNotFound
+		}
+		srv.logger.Error("update failed", zap.Error(err))
 		return nil, err
 	}
 
-	for obj := it.Next(); obj != nil; obj = it.Next() {
-		groups = append(groups, obj.(models.Group))
-	}
+	return &newGroup, nil
+}
 
-	return groups, nil
+func (srv *groupsRepository) List(ctx context.Context, filter *models.ManyGroupsFilter, pagination *models.Pagination) ([]models.Group, error) {
+	return nil, errors.New("not implemented")
 }
