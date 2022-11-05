@@ -57,25 +57,19 @@ func (srv *membersRepository) Create(ctx context.Context, payload *models.Member
 	return &member, nil
 }
 
-func (srv *membersRepository) DeleteOne(ctx context.Context, filter *models.MemberFilter) error {
+func (srv *membersRepository) DeleteOne(ctx context.Context, filter *models.MemberFilter) (*models.Member, error) {
 	member := models.Member{}
 	err := srv.coll.FindOneAndDelete(ctx, filter).Decode(&member)
 	if err != nil {
 		srv.logger.Error("delete one failed", zap.Error(err))
-		return err
+		return nil, err
 	}
 
 	if member.ID == "" {
 		srv.logger.Error("delete one no document found", zap.Error(err))
 	}
 
-	if member.Role == auth.RoleAdmin {
-		_, err := srv.coll.UpdateOne(ctx, &models.MemberFilter{Group: filter.Group}, bson.D{{Key: "$set", Value: &models.Member{Role: auth.RoleAdmin}}})
-		if err != nil {
-			srv.logger.Error("delete one could not update user role", zap.Error(err))
-		}
-	}
-	return nil
+	return &member, nil
 }
 
 func (srv *membersRepository) DeleteMany(ctx context.Context, filter *models.MemberFilter) error {
@@ -106,7 +100,7 @@ func (srv *membersRepository) Get(ctx context.Context, filter *models.MemberFilt
 }
 
 func (srv *membersRepository) Update(ctx context.Context, filter *models.MemberFilter, member *models.MemberPayload) (*models.Member, error) {
-	return &models.Member{}, nil
+	return nil, errors.New("not implemented")
 }
 
 func (srv *membersRepository) List(ctx context.Context, filter *models.MemberFilter) ([]models.Member, error) {
@@ -134,4 +128,16 @@ func (srv *membersRepository) List(ctx context.Context, filter *models.MemberFil
 	}
 
 	return members, nil
+}
+
+func (srv *membersRepository) SetAdmin(ctx context.Context, filter *models.MemberFilter) error {
+	_, err := srv.coll.UpdateOne(ctx, &filter, bson.D{{Key: "$set", Value: &models.Member{Role: auth.RoleAdmin}}})
+	if err != nil {
+		srv.logger.Error("delete one could not update user role", zap.Error(err))
+		if errors.Is(err, mongo.ErrNoDocuments) {
+			return models.ErrNotFound
+		}
+		return errors.New("could not update member role as admin ")
+	}
+	return nil
 }

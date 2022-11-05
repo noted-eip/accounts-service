@@ -28,7 +28,7 @@ type MemberFilter struct {
 type MembersRepository interface {
 	Create(ctx context.Context, filter *MemberPayload) (*Member, error)
 
-	DeleteOne(ctx context.Context, filter *MemberFilter) error
+	DeleteOne(ctx context.Context, filter *MemberFilter) (*Member, error)
 
 	DeleteMany(ctx context.Context, filter *MemberFilter) error
 
@@ -37,4 +37,6 @@ type MembersRepository interface {
 	Update(ctx context.Context, filter *MemberFilter, account *MemberPayload) (*Member, error)
 
 	List(ctx context.Context, filter *MemberFilter) ([]Member, error)
+
+	SetAdmin(ctx context.Context, filter *MemberFilter) error
 }
