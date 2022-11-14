@@ -7,7 +7,6 @@ import (
 	"accounts-service/validators"
 	"context"
 	"errors"
-	"time"
 
 	"go.uber.org/zap"
 	"google.golang.org/grpc/codes"
@@ -28,7 +27,7 @@ func (srv *groupsAPI) AddGroupMember(ctx context.Context, in *accountsv1.AddGrou
 		return nil, status.Error(codes.InvalidArgument, "failed to get group from group_id")
 	}
 
-	payload := models.MemberPayload{AccountID: &in.AccountId, GroupID: &in.GroupId, Role: auth.RoleUser, CreatedAt: time.Now().UTC()}
+	payload := models.MemberPayload{AccountID: &in.AccountId, GroupID: &in.GroupId, Role: auth.RoleUser}
 	_, err = srv.memberRepo.Create(ctx, &payload)
 	if err != nil {
 		return nil, status.Error(codes.Internal, "failed to add member to group")
@@ -72,7 +71,7 @@ func (srv *groupsAPI) RemoveGroupMember(ctx context.Context, in *accountsv1.Remo
 	}
 
 	if memberDel.Role == auth.RoleAdmin {
-		err = srv.memberRepo.SetAdmin(ctx, &models.MemberFilter{GroupID: memberDel.GroupID})
+		_, err = srv.memberRepo.Update(ctx, &models.MemberFilter{GroupID: memberDel.GroupID}, &models.MemberPayload{GroupID: member.GroupID, AccountID: member.AccountID, Role: auth.RoleAdmin})
 		if err != nil {
 			return nil, statusFromModelError(err)
 		}

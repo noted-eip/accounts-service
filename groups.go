@@ -6,7 +6,6 @@ import (
 	accountsv1 "accounts-service/protorepo/noted/accounts/v1"
 	"accounts-service/validators"
 	"context"
-	"time"
 
 	"github.com/jinzhu/copier"
 	"github.com/mennanov/fmutils"
@@ -36,12 +35,12 @@ func (srv *groupsAPI) CreateGroup(ctx context.Context, in *accountsv1.CreateGrou
 
 	accountId := token.UserID.String()
 
-	group, err := srv.groupRepo.Create(ctx, &models.GroupPayload{Name: &in.Name, Description: &in.Description, CreatedAt: time.Now().UTC()})
+	group, err := srv.groupRepo.Create(ctx, &models.GroupPayload{Name: &in.Name, Description: &in.Description})
 	if err != nil {
 		return nil, statusFromModelError(err)
 	}
 
-	member := models.MemberPayload{AccountID: &accountId, GroupID: &group.ID, Role: auth.RoleAdmin, CreatedAt: time.Now().UTC()}
+	member := models.MemberPayload{AccountID: &accountId, GroupID: &group.ID, Role: auth.RoleAdmin}
 	_, err = srv.memberRepo.Create(ctx, &member)
 	if err != nil {
 		return nil, status.Error(codes.Internal, err.Error())
