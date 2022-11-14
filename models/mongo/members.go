@@ -46,11 +46,11 @@ func (srv *membersRepository) Create(ctx context.Context, payload *models.Member
 		return nil, err
 	}
 
-	member := models.Member{ID: id.String(), Account: payload.Account, Group: payload.Group, Role: payload.Role, CreatedAt: payload.CreatedAt}
+	member := models.Member{ID: id.String(), AccountID: payload.AccountID, GroupID: payload.GroupID, Role: payload.Role, CreatedAt: payload.CreatedAt}
 
 	_, err = srv.coll.InsertOne(ctx, member)
 	if err != nil {
-		srv.logger.Error("insert failed", zap.Error(err), zap.String("group_id", *member.Group))
+		srv.logger.Error("insert failed", zap.Error(err), zap.String("group_id", *member.GroupID))
 		return nil, err
 	}
 

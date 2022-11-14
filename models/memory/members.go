@@ -34,15 +34,15 @@ func (srv *membersRepository) Create(ctx context.Context, payload *models.Member
 	}
 
 	member := models.Member{
-		ID:      id.String(),
-		Group:   payload.Group,
-		Account: payload.Account,
-		Role:    payload.Role,
+		ID:        id.String(),
+		GroupID:   payload.GroupID,
+		AccountID: payload.AccountID,
+		Role:      payload.Role,
 	}
 
 	err = txn.Insert("member", &member)
 	if err != nil {
-		srv.logger.Error("insert member failed", zap.Error(err), zap.String("account_id", *member.Account))
+		srv.logger.Error("insert member failed", zap.Error(err), zap.String("account_id", *member.AccountID))
 		return nil, err
 	}
 
@@ -54,7 +54,7 @@ func (srv *membersRepository) DeleteOne(ctx context.Context, filter *models.Memb
 	txn := srv.membersDB.DB.Txn(true)
 	defer txn.Abort()
 
-	it, err := txn.Get("member", "group_id", *filter.Group)
+	it, err := txn.Get("member", "group_id", *filter.GroupID)
 
 	if err != nil {
 		if errors.Is(err, memdb.ErrNotFound) {
@@ -67,7 +67,7 @@ func (srv *membersRepository) DeleteOne(ctx context.Context, filter *models.Memb
 	memberDel := &models.Member{}
 	for obj := it.Next(); obj != nil; obj = it.Next() {
 		memberDel = obj.(*models.Member)
-		if *memberDel.Account == *filter.Account {
+		if *memberDel.AccountID == *filter.AccountID {
 			err = txn.Delete("member", models.Member{ID: memberDel.ID})
 			if err != nil {
 				srv.logger.Error("unable to delete member from object", zap.Error(err))
@@ -85,7 +85,7 @@ func (srv *membersRepository) DeleteMany(ctx context.Context, filter *models.Mem
 	txn := srv.membersDB.DB.Txn(true)
 	defer txn.Abort()
 
-	it, err := txn.Get("member", "group_id", *filter.Group)
+	it, err := txn.Get("member", "group_id", *filter.GroupID)
 
 	if err != nil {
 		if errors.Is(err, memdb.ErrNotFound) {
@@ -110,7 +110,7 @@ func (srv *membersRepository) Get(ctx context.Context, filter *models.MemberFilt
 	txn := srv.membersDB.DB.Txn(false)
 	defer txn.Abort()
 
-	it, err := txn.Get("member", "account_id", *filter.Account)
+	it, err := txn.Get("member", "account_id", *filter.AccountID)
 	if err != nil {
 		if errors.Is(err, memdb.ErrNotFound) {
 			return nil, err
@@ -121,7 +121,7 @@ func (srv *membersRepository) Get(ctx context.Context, filter *models.MemberFilt
 
 	for obj := it.Next(); obj != nil; obj = it.Next() {
 		member := obj.(*models.Member)
-		if *member.Group == *filter.Group {
+		if *member.GroupID == *filter.GroupID {
 			return member, nil
 		}
 	}
@@ -139,17 +139,17 @@ func (srv *membersRepository) List(ctx context.Context, filter *models.MemberFil
 
 	txn := srv.membersDB.DB.Txn(false)
 
-	if filter.Group == nil || *filter.Group == "" {
-		it, err = txn.Get("member", "account_id", *filter.Account)
+	if filter.GroupID == nil || *filter.GroupID == "" {
+		it, err = txn.Get("member", "account_id", *filter.AccountID)
 	} else {
-		it, err = txn.Get("member", "group_id", *filter.Group)
+		it, err = txn.Get("member", "group_id", *filter.GroupID)
 	}
 	if err != nil {
 		return nil, err
 	}
 
 	for obj := it.Next(); obj != nil; obj = it.Next() {
-		newMember := models.Member{ID: obj.(*models.Member).ID, Group: obj.(*models.Member).Group, Account: obj.(*models.Member).Account, Role: obj.(*models.Member).Role}
+		newMember := models.Member{ID: obj.(*models.Member).ID, GroupID: obj.(*models.Member).GroupID, AccountID: obj.(*models.Member).AccountID, Role: obj.(*models.Member).Role}
 		members = append(members, newMember)
 	}
 
@@ -160,7 +160,7 @@ func (srv *membersRepository) SetAdmin(ctx context.Context, filter *models.Membe
 	txn := srv.membersDB.DB.Txn(true)
 	defer txn.Abort()
 
-	it, err := txn.Get("member", "group_id", *filter.Group)
+	it, err := txn.Get("member", "group_id", *filter.GroupID)
 
 	if err != nil {
 		if errors.Is(err, memdb.ErrNotFound) {
@@ -172,7 +172,7 @@ func (srv *membersRepository) SetAdmin(ctx context.Context, filter *models.Membe
 
 	for obj := it.Next(); obj != nil; obj = it.Next() {
 		newAdmin := obj.(*models.Member)
-		err = txn.Insert("member", &models.Member{ID: newAdmin.ID, Account: newAdmin.Account, Group: newAdmin.Group, Role: auth.RoleAdmin})
+		err = txn.Insert("member", &models.Member{ID: newAdmin.ID, AccountID: newAdmin.AccountID, GroupID: newAdmin.GroupID, Role: auth.RoleAdmin})
 		if err != nil {
 			srv.logger.Error("unable to update member from object", zap.Error(err))
 			return err

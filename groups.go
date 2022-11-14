@@ -34,14 +34,14 @@ func (srv *groupsAPI) CreateGroup(ctx context.Context, in *accountsv1.CreateGrou
 		return nil, status.Error(codes.Unauthenticated, err.Error())
 	}
 
-	account_id := token.UserID.String()
+	accountId := token.UserID.String()
 
 	group, err := srv.groupRepo.Create(ctx, &models.GroupPayload{Name: &in.Name, Description: &in.Description, CreatedAt: time.Now().UTC()})
 	if err != nil {
 		return nil, statusFromModelError(err)
 	}
 
-	member := models.MemberPayload{Account: &account_id, Group: &group.ID, Role: auth.RoleAdmin, CreatedAt: time.Now().UTC()}
+	member := models.MemberPayload{AccountID: &accountId, GroupID: &group.ID, Role: auth.RoleAdmin, CreatedAt: time.Now().UTC()}
 	_, err = srv.memberRepo.Create(ctx, &member)
 	if err != nil {
 		return nil, status.Error(codes.Internal, err.Error())
@@ -72,7 +72,7 @@ func (srv *groupsAPI) DeleteGroup(ctx context.Context, in *accountsv1.DeleteGrou
 	if err != nil {
 		return nil, statusFromModelError(err)
 	}
-	memberFilter := models.MemberFilter{Group: &in.GroupId}
+	memberFilter := models.MemberFilter{GroupID: &in.GroupId}
 	err = srv.memberRepo.DeleteMany(ctx, &memberFilter)
 	if err != nil {
 		return nil, status.Error(codes.Internal, err.Error())
@@ -129,14 +129,14 @@ func (srv *groupsAPI) ListGroups(ctx context.Context, in *accountsv1.ListGroupsR
 		return nil, status.Error(codes.Unauthenticated, err.Error())
 	}
 
-	memberFromGroups, err := srv.memberRepo.List(ctx, &models.MemberFilter{Account: &in.AccountId})
+	memberFromGroups, err := srv.memberRepo.List(ctx, &models.MemberFilter{AccountID: &in.AccountId})
 	if err != nil {
 		return nil, status.Error(codes.Unauthenticated, "could not list groups member from groups Id")
 	}
 
 	var groups []*accountsv1.Group
 	for _, member := range memberFromGroups {
-		group, err := srv.groupRepo.Get(ctx, &models.OneGroupFilter{ID: *member.Group})
+		group, err := srv.groupRepo.Get(ctx, &models.OneGroupFilter{ID: *member.GroupID})
 
 		if err != nil {
 			srv.logger.Error("failed get group from member id", zap.Error(err))

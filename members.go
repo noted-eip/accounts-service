@@ -28,7 +28,7 @@ func (srv *groupsAPI) AddGroupMember(ctx context.Context, in *accountsv1.AddGrou
 		return nil, status.Error(codes.InvalidArgument, "failed to get group from group_id")
 	}
 
-	payload := models.MemberPayload{Account: &in.AccountId, Group: &in.GroupId, Role: auth.RoleUser, CreatedAt: time.Now().UTC()}
+	payload := models.MemberPayload{AccountID: &in.AccountId, GroupID: &in.GroupId, Role: auth.RoleUser, CreatedAt: time.Now().UTC()}
 	_, err = srv.memberRepo.Create(ctx, &payload)
 	if err != nil {
 		return nil, status.Error(codes.Internal, "failed to add member to group")
@@ -48,21 +48,21 @@ func (srv *groupsAPI) RemoveGroupMember(ctx context.Context, in *accountsv1.Remo
 		return nil, status.Error(codes.Unauthenticated, err.Error())
 	}
 
-	filter := models.MemberFilter{Account: &in.AccountId, Group: &in.GroupId}
+	filter := models.MemberFilter{AccountID: &in.AccountId, GroupID: &in.GroupId}
 	member, err := srv.memberRepo.Get(ctx, &filter)
 	if err != nil {
 		return nil, status.Error(codes.Internal, "failed to get user from requested group")
 	}
 
 	id := token.UserID.String()
-	memberRequestDeletionFilter := models.MemberFilter{Account: &id, Group: &in.GroupId}
+	memberRequestDeletionFilter := models.MemberFilter{AccountID: &id, GroupID: &in.GroupId}
 	memberRequestDeletion, err := srv.memberRepo.Get(ctx, &memberRequestDeletionFilter)
 
 	if err != nil {
 		return nil, status.Error(codes.Internal, "failed to get user from requested group")
 	}
 
-	if memberRequestDeletion.Role == auth.RoleUser && *member.Account != token.UserID.String() {
+	if memberRequestDeletion.Role == auth.RoleUser && *member.AccountID != token.UserID.String() {
 		return nil, status.Error(codes.PermissionDenied, "user must be admin or delete himself")
 	}
 
@@ -72,7 +72,7 @@ func (srv *groupsAPI) RemoveGroupMember(ctx context.Context, in *accountsv1.Remo
 	}
 
 	if memberDel.Role == auth.RoleAdmin {
-		err = srv.memberRepo.SetAdmin(ctx, &models.MemberFilter{Group: memberDel.Group})
+		err = srv.memberRepo.SetAdmin(ctx, &models.MemberFilter{GroupID: memberDel.GroupID})
 		if err != nil {
 			return nil, statusFromModelError(err)
 		}
@@ -97,7 +97,7 @@ func (srv *groupsAPI) GetGroupMember(ctx context.Context, in *accountsv1.GetGrou
 		return nil, status.Error(codes.Unauthenticated, err.Error())
 	}
 
-	filter := models.MemberFilter{Account: &in.AccountId, Group: &in.GroupId}
+	filter := models.MemberFilter{AccountID: &in.AccountId, GroupID: &in.GroupId}
 	member, err := srv.memberRepo.Get(ctx, &filter)
 	if err != nil {
 		return nil, statusFromModelError(err)
@@ -107,7 +107,7 @@ func (srv *groupsAPI) GetGroupMember(ctx context.Context, in *accountsv1.GetGrou
 		return nil, status.Error(codes.NotFound, "from rpc member not found")
 	}
 
-	groupMember := accountsv1.GroupMember{AccountId: *member.Account, Role: member.Role, CreatedAt: timestamppb.New(member.CreatedAt)}
+	groupMember := accountsv1.GroupMember{AccountId: *member.AccountID, Role: member.Role, CreatedAt: timestamppb.New(member.CreatedAt)}
 	return &accountsv1.GetGroupMemberResponse{Member: &groupMember}, nil
 }
 
@@ -122,7 +122,7 @@ func (srv *groupsAPI) ListGroupMembers(ctx context.Context, in *accountsv1.ListG
 		return nil, status.Error(codes.Unauthenticated, err.Error())
 	}
 
-	filter := models.MemberFilter{Group: &in.GroupId}
+	filter := models.MemberFilter{GroupID: &in.GroupId}
 	members, err := srv.memberRepo.List(ctx, &filter)
 	if err != nil {
 		return nil, status.Error(codes.Internal, "failed to list members")
@@ -130,7 +130,7 @@ func (srv *groupsAPI) ListGroupMembers(ctx context.Context, in *accountsv1.ListG
 
 	var groupMembers []*accountsv1.GroupMember
 	for _, member := range members {
-		groupMember := &accountsv1.GroupMember{AccountId: *member.Account, Role: member.Role, CreatedAt: timestamppb.New(member.CreatedAt)}
+		groupMember := &accountsv1.GroupMember{AccountId: *member.AccountID, Role: member.Role, CreatedAt: timestamppb.New(member.CreatedAt)}
 		if err != nil {
 			srv.logger.Error("failed to decode member", zap.Error(err))
 		}

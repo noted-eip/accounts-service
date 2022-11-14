@@ -90,12 +90,12 @@ func newMembersDatabaseSchema() *memdb.DBSchema {
 					"account_id": {
 						Name:    "account_id",
 						Unique:  false,
-						Indexer: &memdb.StringFieldIndex{Field: "Account"},
+						Indexer: &memdb.StringFieldIndex{Field: "AccountID"},
 					},
 					"group_id": {
 						Name:    "group_id",
 						Unique:  false,
-						Indexer: &memdb.StringFieldIndex{Field: "Group"},
+						Indexer: &memdb.StringFieldIndex{Field: "GroupID"},
 					},
 					"created_at": {
 						Name:    "created_at",
