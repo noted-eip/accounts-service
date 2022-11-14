@@ -117,6 +117,33 @@ func (srv *groupsAPI) UpdateGroup(ctx context.Context, in *accountsv1.UpdateGrou
 	return &accountsv1.UpdateGroupResponse{Group: &returnedGroup}, nil
 }
 
+func (srv *groupsAPI) GetGroup(ctx context.Context, in *accountsv1.GetGroupRequest) (*accountsv1.GetGroupResponse, error) {
+	_, err := srv.authenticate(ctx)
+	if err != nil {
+		return nil, status.Error(codes.Unauthenticated, err.Error())
+	}
+
+	err = validators.ValidateGetGroup(in)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "could not get Group")
+	}
+
+	group, err := srv.groupRepo.Get(ctx, &models.OneGroupFilter{ID: in.GroupId})
+
+	if err != nil {
+		srv.logger.Error("failed get group from group id", zap.Error(err))
+	}
+
+	return &accountsv1.GetGroupResponse{
+		Group: &accountsv1.Group{
+			Id:          group.ID,
+			Description: *group.Description,
+			Name:        *group.Name,
+			CreatedAt:   timestamppb.New(group.CreatedAt),
+		},
+	}, nil
+}
+
 func (srv *groupsAPI) ListGroups(ctx context.Context, in *accountsv1.ListGroupsRequest) (*accountsv1.ListGroupsResponse, error) {
 	err := validators.ValidateListGroups(in)
 	if err != nil {
