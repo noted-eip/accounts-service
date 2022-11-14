@@ -1,9 +1,9 @@
 package mongo
 
 import (
-	"accounts-service/auth"
 	"accounts-service/models"
 	"errors"
+	"time"
 
 	"github.com/google/uuid"
 	"go.mongodb.org/mongo-driver/bson"
@@ -46,7 +46,7 @@ func (srv *membersRepository) Create(ctx context.Context, payload *models.Member
 		return nil, err
 	}
 
-	member := models.Member{ID: id.String(), AccountID: payload.AccountID, GroupID: payload.GroupID, Role: payload.Role, CreatedAt: payload.CreatedAt}
+	member := models.Member{ID: id.String(), AccountID: payload.AccountID, GroupID: payload.GroupID, Role: payload.Role, CreatedAt: time.Now().UTC()}
 
 	_, err = srv.coll.InsertOne(ctx, member)
 	if err != nil {
@@ -100,7 +100,22 @@ func (srv *membersRepository) Get(ctx context.Context, filter *models.MemberFilt
 }
 
 func (srv *membersRepository) Update(ctx context.Context, filter *models.MemberFilter, member *models.MemberPayload) (*models.Member, error) {
-	return nil, errors.New("not implemented")
+	var updatedMember models.Member
+
+	after := options.After
+	opt := options.FindOneAndUpdateOptions{
+		ReturnDocument: &after,
+	}
+
+	err := srv.coll.FindOneAndUpdate(ctx, &filter, bson.D{{Key: "$set", Value: &models.Member{AccountID: member.AccountID, GroupID: member.GroupID, Role: member.Role}}}, &opt).Decode(&updatedMember)
+	if err != nil {
+		srv.logger.Error("delete one could not update user role", zap.Error(err))
+		if errors.Is(err, mongo.ErrNoDocuments) {
+			return nil, models.ErrNotFound
+		}
+		return nil, errors.New("could not update member role as admin ")
+	}
+	return &updatedMember, nil
 }
 
 func (srv *membersRepository) List(ctx context.Context, filter *models.MemberFilter) ([]models.Member, error) {
@@ -130,6 +145,7 @@ func (srv *membersRepository) List(ctx context.Context, filter *models.MemberFil
 	return members, nil
 }
 
+/*
 func (srv *membersRepository) SetAdmin(ctx context.Context, filter *models.MemberFilter) error {
 	_, err := srv.coll.UpdateOne(ctx, &filter, bson.D{{Key: "$set", Value: &models.Member{Role: auth.RoleAdmin}}})
 	if err != nil {
@@ -141,3 +157,4 @@ func (srv *membersRepository) SetAdmin(ctx context.Context, filter *models.Membe
 	}
 	return nil
 }
+*/

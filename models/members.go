@@ -14,10 +14,9 @@ type Member struct {
 }
 
 type MemberPayload struct {
-	AccountID *string   `json:"account_id" bson:"account_id,omitempty"`
-	GroupID   *string   `json:"group_id" bson:"group_id,omitempty"`
-	Role      string    `json:"role" bson:"role,omitempty"`
-	CreatedAt time.Time `json:"created_at" bson:"created_at,omitempty"`
+	AccountID *string `json:"account_id" bson:"account_id,omitempty"`
+	GroupID   *string `json:"group_id" bson:"group_id,omitempty"`
+	Role      string  `json:"role" bson:"role,omitempty"`
 }
 
 type MemberFilter struct {
@@ -38,5 +37,5 @@ type MembersRepository interface {
 
 	List(ctx context.Context, filter *MemberFilter) ([]Member, error)
 
-	SetAdmin(ctx context.Context, filter *MemberFilter) error
+	// SetAdmin(ctx context.Context, filter *MemberFilter) error
 }

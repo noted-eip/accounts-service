@@ -36,7 +36,6 @@ func (srv *groupsRepository) Create(ctx context.Context, payload *models.GroupPa
 		ID:          id.String(),
 		Name:        payload.Name,
 		Description: payload.Description,
-		CreatedAt:   payload.CreatedAt,
 	}
 
 	err = txn.Insert("group", &group)
@@ -88,7 +87,7 @@ func (srv *groupsRepository) Update(ctx context.Context, filter *models.OneGroup
 	txn := srv.groupDB.DB.Txn(true)
 	defer txn.Abort()
 
-	newGroup := models.Group{ID: filter.ID, Description: group.Description, Name: group.Name, CreatedAt: group.CreatedAt}
+	newGroup := models.Group{ID: filter.ID, Description: group.Description, Name: group.Name}
 	err := txn.Insert("group", &newGroup)
 	if err != nil {
 		if errors.Is(err, memdb.ErrNotFound) {

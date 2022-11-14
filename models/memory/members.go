@@ -1,7 +1,6 @@
 package memory
 
 import (
-	"accounts-service/auth"
 	"accounts-service/models"
 	"errors"
 
@@ -129,7 +128,31 @@ func (srv *membersRepository) Get(ctx context.Context, filter *models.MemberFilt
 }
 
 func (srv *membersRepository) Update(ctx context.Context, filter *models.MemberFilter, member *models.MemberPayload) (*models.Member, error) {
-	return nil, errors.New("not implemented")
+	txn := srv.membersDB.DB.Txn(true)
+	defer txn.Abort()
+
+	it, err := txn.Get("member", "group_id", *filter.GroupID)
+
+	if err != nil {
+		if errors.Is(err, memdb.ErrNotFound) {
+			return nil, models.ErrNotFound
+		}
+		srv.logger.Error("unable to get members", zap.Error(err))
+		return nil, err
+	}
+	var newAdmin models.Member
+	for obj := it.Next(); obj != nil; obj = it.Next() {
+		newAdmin := obj.(*models.Member)
+		err = txn.Insert("member", &models.Member{ID: newAdmin.ID, AccountID: member.AccountID, GroupID: member.GroupID, Role: member.Role})
+		if err != nil {
+			srv.logger.Error("unable to update member from object", zap.Error(err))
+			return nil, err
+		} else {
+			break
+		}
+	}
+	txn.Commit()
+	return &newAdmin, nil
 }
 
 func (srv *membersRepository) List(ctx context.Context, filter *models.MemberFilter) ([]models.Member, error) {
@@ -156,6 +179,7 @@ func (srv *membersRepository) List(ctx context.Context, filter *models.MemberFil
 	return members, nil
 }
 
+/*
 func (srv *membersRepository) SetAdmin(ctx context.Context, filter *models.MemberFilter) error {
 	txn := srv.membersDB.DB.Txn(true)
 	defer txn.Abort()
@@ -183,3 +207,4 @@ func (srv *membersRepository) SetAdmin(ctx context.Context, filter *models.Membe
 	txn.Commit()
 	return nil
 }
+*/

@@ -13,9 +13,8 @@ type Group struct {
 }
 
 type GroupPayload struct {
-	Name        *string   `json:"name" bson:"name,omitempty"`
-	Description *string   `json:"description" bson:"description,omitempty"`
-	CreatedAt   time.Time `json:"created_at" bson:"created_at,omitempty"`
+	Name        *string `json:"name" bson:"name,omitempty"`
+	Description *string `json:"description" bson:"description,omitempty"`
 }
 
 type OneGroupFilter struct {

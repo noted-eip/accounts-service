@@ -6,6 +6,7 @@ import (
 	"accounts-service/models"
 	"context"
 	"errors"
+	"time"
 
 	"github.com/google/uuid"
 	"go.mongodb.org/mongo-driver/bson"
@@ -35,7 +36,7 @@ func (srv *groupsRepository) Create(ctx context.Context, payload *models.GroupPa
 		return nil, err
 	}
 
-	group := models.Group{ID: id.String(), Name: payload.Name, Description: payload.Description, CreatedAt: payload.CreatedAt}
+	group := models.Group{ID: id.String(), Name: payload.Name, Description: payload.Description, CreatedAt: time.Now().UTC()}
 
 	_, err = srv.coll.InsertOne(ctx, group)
 	if err != nil {
