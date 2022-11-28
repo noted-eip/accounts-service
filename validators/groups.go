@@ -20,7 +20,11 @@ func ValidateUpdatedGroupRequest(in *accountsv1.UpdateGroupRequest) error {
 }
 
 func ValidateListGroups(in *accountsv1.ListGroupsRequest) error {
-	return validation.Validate(&in.AccountId, validation.Required, is.UUID)
+	return validation.ValidateStruct(in,
+		validation.Field(&in.AccountId, validation.Required, is.UUID),
+		validation.Field(&in.Limit, validation.When(in.Limit != 0, validation.Required), validation.Min(0)),
+		validation.Field(&in.Offset, validation.When(in.Offset != 0, validation.Required), validation.Min(0)),
+	)
 }
 
 func ValidateGetGroup(in *accountsv1.GetGroupRequest) error {
