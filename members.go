@@ -121,8 +121,13 @@ func (srv *groupsAPI) ListGroupMembers(ctx context.Context, in *accountsv1.ListG
 		return nil, status.Error(codes.Unauthenticated, err.Error())
 	}
 
+	if in.Limit == 0 {
+		in.Limit = 10
+	}
+
 	filter := models.MemberFilter{GroupID: &in.GroupId}
-	members, err := srv.memberRepo.List(ctx, &filter)
+	pagination := models.Pagination{Limit: int64(in.Limit), Offset: int64(in.Offset)}
+	members, err := srv.memberRepo.List(ctx, &filter, &pagination)
 	if err != nil {
 		return nil, status.Error(codes.Internal, "failed to list members")
 	}

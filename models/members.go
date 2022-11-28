@@ -35,7 +35,7 @@ type MembersRepository interface {
 
 	Update(ctx context.Context, filter *MemberFilter, account *MemberPayload) (*Member, error)
 
-	List(ctx context.Context, filter *MemberFilter) ([]Member, error)
+	List(ctx context.Context, filter *MemberFilter, pagination *Pagination) ([]Member, error)
 
 	// SetAdmin(ctx context.Context, filter *MemberFilter) error
 }

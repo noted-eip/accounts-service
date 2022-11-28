@@ -118,15 +118,15 @@ func (srv *membersRepository) Update(ctx context.Context, filter *models.MemberF
 	return &updatedMember, nil
 }
 
-func (srv *membersRepository) List(ctx context.Context, filter *models.MemberFilter) ([]models.Member, error) {
+func (srv *membersRepository) List(ctx context.Context, filter *models.MemberFilter, pagination *models.Pagination) ([]models.Member, error) {
 	var members []models.Member
 
-	// opt := options.FindOptions{
-	// 	Limit: &pagination.Limit,
-	// 	Skip:  &pagination.Offset,
-	// }
+	opt := options.FindOptions{
+		Limit: &pagination.Limit,
+		Skip:  &pagination.Offset,
+	}
 
-	cursor, err := srv.coll.Find(ctx, &filter)
+	cursor, err := srv.coll.Find(ctx, &filter, &opt)
 	if err != nil {
 		srv.logger.Error("mongo find members query failed", zap.Error(err))
 		return nil, err
