@@ -145,7 +145,7 @@ func (srv *groupsAPI) ListGroups(ctx context.Context, in *accountsv1.ListGroupsR
 		in.Limit = 10
 	}
 
-	memberFromGroups, err := srv.memberRepo.List(ctx, &models.MemberFilter{AccountID: &in.AccountId}, &models.Pagination{Limit: int64(in.Limit), Offset: int64(in.Offset)})
+	memberFromGroups, err := srv.memberRepo.List(ctx, &models.MemberFilter{AccountID: &in.AccountId})
 	if err != nil {
 		return nil, status.Error(codes.Unauthenticated, "could not list groups member from groups Id")
 	}

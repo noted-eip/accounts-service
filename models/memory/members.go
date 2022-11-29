@@ -155,7 +155,7 @@ func (srv *membersRepository) Update(ctx context.Context, filter *models.MemberF
 	return &newAdmin, nil
 }
 
-func (srv *membersRepository) List(ctx context.Context, filter *models.MemberFilter, pagination *models.Pagination) ([]models.Member, error) {
+func (srv *membersRepository) List(ctx context.Context, filter *models.MemberFilter) ([]models.Member, error) {
 	var members []models.Member
 	var err error
 	var it memdb.ResultIterator
