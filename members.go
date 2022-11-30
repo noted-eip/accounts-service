@@ -111,14 +111,18 @@ func (srv *groupsAPI) GetGroupMember(ctx context.Context, in *accountsv1.GetGrou
 }
 
 func (srv *groupsAPI) ListGroupMembers(ctx context.Context, in *accountsv1.ListGroupMembersRequest) (*accountsv1.ListGroupMembersResponse, error) {
+
 	err := validators.ValidateListGroupMember(in)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "failed to validate list members request")
 	}
-
 	_, err = srv.authenticate(ctx)
 	if err != nil {
 		return nil, status.Error(codes.Unauthenticated, err.Error())
+	}
+
+	if in.Limit == 0 {
+		in.Limit = 10
 	}
 
 	filter := models.MemberFilter{GroupID: &in.GroupId}
@@ -128,8 +132,11 @@ func (srv *groupsAPI) ListGroupMembers(ctx context.Context, in *accountsv1.ListG
 	}
 
 	var groupMembers []*accountsv1.GroupMember
-	for _, member := range members {
-		groupMember := &accountsv1.GroupMember{AccountId: *member.AccountID, Role: member.Role, CreatedAt: timestamppb.New(member.CreatedAt)}
+	for i := int(in.Offset); i < len(members); i++ {
+		if i == int(in.Limit) {
+			break
+		}
+		groupMember := &accountsv1.GroupMember{AccountId: *members[i].AccountID, Role: members[i].Role, CreatedAt: timestamppb.New(members[i].CreatedAt)}
 		if err != nil {
 			srv.logger.Error("failed to decode member", zap.Error(err))
 		}

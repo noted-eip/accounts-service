@@ -162,7 +162,7 @@ func (s *GroupsAPISuite) TestAddMembersToGroup() {
 	_, err = s.groupSrv.AddGroupMember(ctx, &accountsv1.AddGroupMemberRequest{GroupId: createGroupRes.Group.Id, AccountId: createAccountGabiRes.Account.Id})
 	s.Require().NoError(err)
 
-	listGroupMemberResp, err := s.groupSrv.ListGroupMembers(ctx, &accountsv1.ListGroupMembersRequest{GroupId: createGroupRes.Group.Id})
+	listGroupMemberResp, err := s.groupSrv.ListGroupMembers(ctx, &accountsv1.ListGroupMembersRequest{GroupId: createGroupRes.Group.Id, Limit: 10, Offset: 0})
 	s.Require().NoError(err)
 
 	s.Require().Equal(3, len(listGroupMemberResp.Members))
@@ -195,7 +195,7 @@ func (s *GroupsAPISuite) TestDeleteGroup() {
 	_, err = s.groupSrv.DeleteGroup(ctx, &accountsv1.DeleteGroupRequest{GroupId: createGroupRes.Group.Id})
 	s.Require().NoError(err)
 
-	listGroupMemberResp, err := s.groupSrv.ListGroupMembers(ctx, &accountsv1.ListGroupMembersRequest{GroupId: createGroupRes.Group.Id})
+	listGroupMemberResp, err := s.groupSrv.ListGroupMembers(ctx, &accountsv1.ListGroupMembersRequest{GroupId: createGroupRes.Group.Id, Limit: 10, Offset: 0})
 	s.Require().NoError(err)
 
 	s.Require().Equal(0, len(listGroupMemberResp.Members))
@@ -228,7 +228,7 @@ func (s *GroupsAPISuite) TestLeaveGroupAsAdmin() {
 	_, err = s.groupSrv.RemoveGroupMember(ctx, &accountsv1.RemoveGroupMemberRequest{GroupId: createGroupRes.Group.Id, AccountId: createAccountMaxRes.Account.Id})
 	s.Require().NoError(err)
 
-	listGroupMemberResp, err := s.groupSrv.ListGroupMembers(ctx, &accountsv1.ListGroupMembersRequest{GroupId: createGroupRes.Group.Id})
+	listGroupMemberResp, err := s.groupSrv.ListGroupMembers(ctx, &accountsv1.ListGroupMembersRequest{GroupId: createGroupRes.Group.Id, Limit: 10, Offset: 0})
 	s.Require().NoError(err)
 
 	isAdmin := false
@@ -273,7 +273,7 @@ func (s *GroupsAPISuite) TestRemoveAdminMemberAsUser() {
 	_, err = s.groupSrv.RemoveGroupMember(ctxBalthi, &accountsv1.RemoveGroupMemberRequest{GroupId: createGroupRes.Group.Id, AccountId: createAccountMaxRes.Account.Id})
 	s.Require().Error(err)
 
-	listGroupMemberResp, err := s.groupSrv.ListGroupMembers(ctx, &accountsv1.ListGroupMembersRequest{GroupId: createGroupRes.Group.Id})
+	listGroupMemberResp, err := s.groupSrv.ListGroupMembers(ctx, &accountsv1.ListGroupMembersRequest{GroupId: createGroupRes.Group.Id, Limit: 10, Offset: 0})
 	s.Require().NoError(err)
 
 	isAdmin := false
@@ -318,7 +318,7 @@ func (s *GroupsAPISuite) TestLeaveGroupAsUser() {
 	_, err = s.groupSrv.RemoveGroupMember(ctxBalthi, &accountsv1.RemoveGroupMemberRequest{GroupId: createGroupRes.Group.Id, AccountId: createAccountBalthiRes.Account.Id})
 	s.Require().NoError(err)
 
-	listGroupMemberResp, err := s.groupSrv.ListGroupMembers(ctx, &accountsv1.ListGroupMembersRequest{GroupId: createGroupRes.Group.Id})
+	listGroupMemberResp, err := s.groupSrv.ListGroupMembers(ctx, &accountsv1.ListGroupMembersRequest{GroupId: createGroupRes.Group.Id, Limit: 10, Offset: 0})
 	s.Require().NoError(err)
 
 	isAdmin := false
@@ -380,7 +380,7 @@ func (s *GroupsAPISuite) TestListGroupIBelongTo() {
 	_, err = s.groupSrv.CreateGroup(ctx, &accountsv1.CreateGroupRequest{Description: "description", Name: "Group5"})
 	s.Require().NoError(err)
 
-	listGroupRespGabi, err := s.groupSrv.ListGroups(ctx, &accountsv1.ListGroupsRequest{AccountId: createAccountGabiRes.Account.Id})
+	listGroupRespGabi, err := s.groupSrv.ListGroups(ctx, &accountsv1.ListGroupsRequest{AccountId: createAccountGabiRes.Account.Id, Limit: 10, Offset: 0})
 	s.Require().NoError(err)
 	s.Require().Equal(4, len(listGroupRespGabi.Groups))
 

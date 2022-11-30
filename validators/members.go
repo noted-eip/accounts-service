@@ -24,14 +24,26 @@ func ValidateRemoveGroupMember(in *accountsv1.RemoveGroupMemberRequest) error {
 func ValidateUpdateGroupMember(in *accountsv1.UpdateGroupMemberRequest) error {
 	return validation.ValidateStruct(in,
 		validation.Field(&in.GroupId, validation.Required, is.UUID),
-		validation.Field(&in.AccountId, validation.Required, is.UUID),
+		validation.Field(&in.Member, validation.Required, is.UUID),
 	)
 }
 
 func ValidateListGroupMember(in *accountsv1.ListGroupMembersRequest) error {
-	return validation.ValidateStruct(in,
+	err := validation.ValidateStruct(in,
 		validation.Field(&in.GroupId, validation.Required, is.UUID),
 	)
+	if err != nil {
+		return err
+	}
+	err = validation.Validate(in.Limit, validation.When(in.Limit != 0, validation.Required), validation.Min(0))
+	if err != nil {
+		return err
+	}
+	err = validation.Validate(in.Offset, validation.When(in.Offset != 0, validation.Required), validation.Min(0))
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 func ValidateGetGroupMember(in *accountsv1.GetGroupMemberRequest) error {

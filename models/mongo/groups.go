@@ -11,7 +11,6 @@ import (
 	"github.com/google/uuid"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
-	"go.mongodb.org/mongo-driver/mongo/options"
 	"go.uber.org/zap"
 )
 
@@ -77,15 +76,14 @@ func (srv *groupsRepository) Delete(ctx context.Context, filter *models.OneGroup
 func (srv *groupsRepository) Update(ctx context.Context, filter *models.OneGroupFilter, group *models.GroupPayload) (*models.Group, error) {
 	var updatedGroup models.Group
 
-	after := options.After
-	opt := options.FindOneAndUpdateOptions{
-		ReturnDocument: &after,
-	}
-
-	err := srv.coll.FindOneAndUpdate(ctx, filter, bson.D{{Key: "$set", Value: &group}}, &opt).Decode(&updatedGroup)
+	field := buildUpdateFilter(group)
+	update, err := srv.coll.UpdateOne(ctx, filter, field)
 	if err != nil {
 		srv.logger.Error("update failed", zap.Error(err))
 		return nil, err
+	}
+	if update.ModifiedCount == 0 {
+		return nil, models.ErrNotFound
 	}
 
 	return &updatedGroup, nil
@@ -93,4 +91,16 @@ func (srv *groupsRepository) Update(ctx context.Context, filter *models.OneGroup
 
 func (srv *groupsRepository) List(ctx context.Context, filter *models.ManyGroupsFilter, pagination *models.Pagination) ([]models.Group, error) {
 	return nil, errors.New("not implemented")
+}
+
+func buildUpdateFilter(group *models.GroupPayload) bson.D {
+	field := bson.D{}
+	if *group.Name != "" && *group.Description != "" {
+		field = bson.D{{"$set", bson.D{{"name", group.Name}, {"description", group.Description}}}}
+	} else if *group.Name != "" {
+		field = bson.D{{"$set", bson.D{{"name", group.Name}}}}
+	} else if *group.Description != "" {
+		field = bson.D{{"$set", bson.D{{"description", group.Description}}}}
+	}
+	return field
 }
