@@ -30,9 +30,11 @@ type server struct {
 
 	accountsRepository models.AccountsRepository
 	groupsRepository   models.GroupsRepository
+	tchatsRepository models.tchatsRepository
 
 	accountsService accountsv1.AccountsAPIServer
 	groupsService   accountsv1.GroupsAPIServer
+	tchatsService   accountsv1.ConversationsAPIServer
 
 	grpcServer *grpc.Server
 }
@@ -44,6 +46,7 @@ func (s *server) Init(opt ...grpc.ServerOption) {
 	s.initRepositories()
 	s.initAccountsService()
 	s.initGroupsService()
+	s.initTchatsService()
 	s.initGrpcServer(opt...)
 }
 
@@ -115,6 +118,15 @@ func (s *server) initRepositories() {
 	must(err, "could not instantiate mongo database")
 	s.accountsRepository = mongo.NewAccountsRepository(s.mongoDB.DB, s.logger)
 	s.groupsRepository = mongo.NewGroupsRepository(s.mongoDB.DB, s.logger)
+	s.tchatsRepository = mongo.NewTchatsRepository(s.mongoDB.DB, s.logger)
+}
+
+func (s *server) initTchatsService() {
+	s.tchatsService = &conversationsAPI{
+		auth:   s.authService,
+		logger: s.logger,
+		repo:   s.tchatsRepository,
+	}
 }
 
 func (s *server) initAccountsService() {
@@ -137,6 +149,7 @@ func (s *server) initGrpcServer(opt ...grpc.ServerOption) {
 	s.grpcServer = grpc.NewServer(opt...)
 	accountsv1.RegisterAccountsAPIServer(s.grpcServer, s.accountsService)
 	accountsv1.RegisterGroupsAPIServer(s.grpcServer, s.groupsService)
+	accountsv1.RegisterConversationsAPIServer(s.grpcServer, s.tchatsService)
 }
 
 func must(err error, msg string) {
