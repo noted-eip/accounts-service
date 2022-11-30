@@ -31,9 +31,11 @@ type server struct {
 	accountsRepository models.AccountsRepository
 	groupsRepository   models.GroupsRepository
 	membersRepository  models.MembersRepository
+	invitesRepository  models.InvitesRepository
 
 	accountsService accountsv1.AccountsAPIServer
 	groupsService   accountsv1.GroupsAPIServer
+	invitesService  accountsv1.InvitesAPIServer
 
 	grpcServer *grpc.Server
 }
@@ -45,6 +47,7 @@ func (s *server) Init(opt ...grpc.ServerOption) {
 	s.initRepositories()
 	s.initAccountsService()
 	s.initGroupsService()
+	s.initInviteService()
 	s.initGrpcServer(opt...)
 }
 
@@ -133,6 +136,15 @@ func (s *server) initGroupsService() {
 		logger:     s.logger,
 		groupRepo:  s.groupsRepository,
 		memberRepo: s.membersRepository,
+	}
+}
+
+func (s *server) initInviteService() {
+	s.invitesService = &invitesAPI{
+		auth:       s.authService,
+		logger:     s.logger,
+		groupRepo:  s.groupsRepository,
+		inviteRepo: s.invitesRepository,
 	}
 }
 
