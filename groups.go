@@ -6,20 +6,23 @@ import (
 	accountsv1 "accounts-service/protorepo/noted/accounts/v1"
 	"accounts-service/validators"
 	"context"
+
 	"github.com/jinzhu/copier"
 	"github.com/mennanov/fmutils"
 	"go.uber.org/zap"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 type groupsAPI struct {
 	accountsv1.UnimplementedGroupsAPIServer
 
-	auth   auth.Service
-	logger *zap.Logger
-	repo   models.GroupsRepository
+	auth       auth.Service
+	logger     *zap.Logger
+	groupRepo  models.GroupsRepository
+	memberRepo models.MembersRepository
 }
 
 var _ accountsv1.GroupsAPIServer = &groupsAPI{}
@@ -27,14 +30,20 @@ var _ accountsv1.GroupsAPIServer = &groupsAPI{}
 func (srv *groupsAPI) CreateGroup(ctx context.Context, in *accountsv1.CreateGroupRequest) (*accountsv1.CreateGroupResponse, error) {
 	token, err := srv.authenticate(ctx)
 	if err != nil {
-		return nil, err
+		return nil, status.Error(codes.Unauthenticated, err.Error())
 	}
 
-	id := token.UserID.String()
+	accountId := token.UserID.String()
 
-	group, err := srv.repo.Create(ctx, &models.GroupPayload{Name: &in.Name, OwnerID: id, Description: &in.Description, Members: &[]models.GroupMember{{ID: token.UserID.String()}}})
+	group, err := srv.groupRepo.Create(ctx, &models.GroupPayload{Name: &in.Name, Description: &in.Description})
 	if err != nil {
 		return nil, statusFromModelError(err)
+	}
+
+	member := models.MemberPayload{AccountID: &accountId, GroupID: &group.ID, Role: auth.RoleAdmin}
+	_, err = srv.memberRepo.Create(ctx, &member)
+	if err != nil {
+		return nil, status.Error(codes.Internal, err.Error())
 	}
 
 	return &accountsv1.CreateGroupResponse{
@@ -42,7 +51,7 @@ func (srv *groupsAPI) CreateGroup(ctx context.Context, in *accountsv1.CreateGrou
 			Id:          group.ID,
 			Name:        *group.Name,
 			Description: *group.Description,
-			OwnerId:     group.OwnerID,
+			CreatedAt:   timestamppb.New(group.CreatedAt),
 		},
 	}, nil
 }
@@ -53,15 +62,19 @@ func (srv *groupsAPI) DeleteGroup(ctx context.Context, in *accountsv1.DeleteGrou
 		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}
 
-	token, err := srv.authenticate(ctx)
+	_, err = srv.authenticate(ctx)
 	if err != nil {
-		return nil, err
+		return nil, status.Error(codes.Unauthenticated, err.Error())
 	}
-	id := token.UserID.String()
 
-	err = srv.repo.Delete(ctx, &models.OneGroupFilter{ID: in.Id, OwnerID: id})
+	err = srv.groupRepo.Delete(ctx, &models.OneGroupFilter{ID: in.GroupId})
 	if err != nil {
 		return nil, statusFromModelError(err)
+	}
+	memberFilter := models.MemberFilter{GroupID: &in.GroupId}
+	err = srv.memberRepo.DeleteMany(ctx, &memberFilter)
+	if err != nil {
+		return nil, status.Error(codes.Internal, err.Error())
 	}
 
 	return &accountsv1.DeleteGroupResponse{}, nil
@@ -80,7 +93,7 @@ func (srv *groupsAPI) UpdateGroup(ctx context.Context, in *accountsv1.UpdateGrou
 		return nil, status.Error(codes.InvalidArgument, "invalid field mask")
 	}
 
-	acc, err := srv.repo.Get(ctx, &models.OneGroupFilter{ID: in.Group.Id})
+	acc, err := srv.groupRepo.Get(ctx, &models.OneGroupFilter{ID: in.Group.Id})
 	if err != nil {
 		return nil, statusFromModelError(err)
 	}
@@ -95,73 +108,69 @@ func (srv *groupsAPI) UpdateGroup(ctx context.Context, in *accountsv1.UpdateGrou
 	}
 	proto.Merge(&protoGroup, in.Group)
 
-	updatedGroup, err := srv.repo.Update(ctx, &models.OneGroupFilter{ID: acc.ID}, &models.GroupPayload{OwnerID: protoGroup.OwnerId, Name: &protoGroup.Name, Description: &protoGroup.Description})
+	updatedGroup, err := srv.groupRepo.Update(ctx, &models.OneGroupFilter{ID: acc.ID}, &models.GroupPayload{Name: &protoGroup.Name, Description: &protoGroup.Description})
 	if err != nil {
 		return nil, statusFromModelError(err)
 	}
 
-	var groupMembers []*accountsv1.GroupMember
-	for _, members := range *updatedGroup.Members {
-		elem := &accountsv1.GroupMember{AccountId: members.ID}
-		if err != nil {
-			srv.logger.Error("failed to decode account", zap.Error(err))
-		}
-		groupMembers = append(groupMembers, elem)
-	}
-	returnedGroup := accountsv1.Group{Id: updatedGroup.ID, OwnerId: updatedGroup.OwnerID, Name: *updatedGroup.Name, Description: *updatedGroup.Description, Members: groupMembers}
+	returnedGroup := accountsv1.Group{Id: updatedGroup.ID, Name: *updatedGroup.Name, Description: *updatedGroup.Description, CreatedAt: timestamppb.New(updatedGroup.CreatedAt)}
 	return &accountsv1.UpdateGroupResponse{Group: &returnedGroup}, nil
 }
 
-func (srv *groupsAPI) JoinGroup(ctx context.Context, in *accountsv1.JoinGroupRequest) (*accountsv1.JoinGroupResponse, error) {
-	token, err := srv.authenticate(ctx)
+func (srv *groupsAPI) GetGroup(ctx context.Context, in *accountsv1.GetGroupRequest) (*accountsv1.GetGroupResponse, error) {
+	_, err := srv.authenticate(ctx)
 	if err != nil {
-		return nil, err
+		return nil, status.Error(codes.Unauthenticated, err.Error())
 	}
 
-	acc, err := srv.repo.Get(ctx, &models.OneGroupFilter{ID: in.Id})
+	err = validators.ValidateGetGroup(in)
 	if err != nil {
-		return nil, statusFromModelError(err)
+		return nil, status.Error(codes.InvalidArgument, "could not get Group")
 	}
 
-	newMember := *acc.Members
-	newMember = append(newMember, models.GroupMember{ID: token.UserID.String()})
+	group, err := srv.groupRepo.Get(ctx, &models.OneGroupFilter{ID: in.GroupId})
 
-	_, err = srv.repo.Update(ctx, &models.OneGroupFilter{ID: in.Id}, &models.GroupPayload{Members: &newMember})
 	if err != nil {
-		return nil, statusFromModelError(err)
+		srv.logger.Error("failed get group from group id", zap.Error(err))
 	}
-	return &accountsv1.JoinGroupResponse{}, nil
+
+	return &accountsv1.GetGroupResponse{
+		Group: &accountsv1.Group{
+			Id:          group.ID,
+			Description: *group.Description,
+			Name:        *group.Name,
+			CreatedAt:   timestamppb.New(group.CreatedAt),
+		},
+	}, nil
 }
 
-func (srv *groupsAPI) AddNoteToGroup(ctx context.Context, in *accountsv1.AddNoteToGroupRequest) (*accountsv1.AddNoteToGroupResponse, error) {
-	// id, err := uuid.Parse(in.Id)
-	// if err != nil {
-	// 	srv.logger.Error("failed to convert uuid from string", zap.Error(err))
-	// 	return nil, status.Error(codes.Internal, "could not join group")
-	// }
+func (srv *groupsAPI) ListGroups(ctx context.Context, in *accountsv1.ListGroupsRequest) (*accountsv1.ListGroupsResponse, error) {
+	err := validators.ValidateListGroups(in)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "could not validate list groups request")
+	}
 
-	// noteId, err := uuid.Parse(in.NoteId)
-	// if err != nil {
-	// 	srv.logger.Error("failed to convert uuid from string", zap.Error(err))
-	// 	return nil, status.Error(codes.Internal, "could not join group")
-	// }
+	_, err = srv.authenticate(ctx)
+	if err != nil {
+		return nil, status.Error(codes.Unauthenticated, err.Error())
+	}
 
-	// acc, err := srv.repo.Get(ctx, &models.OneGroupFilter{ID: id.String()})
-	// if err != nil {
-	// 	srv.logger.Error("failed to get group", zap.Error(err))
-	// 	return nil, status.Error(codes.Internal, "could not join group")
-	// }
+	memberFromGroups, err := srv.memberRepo.List(ctx, &models.MemberFilter{AccountID: &in.AccountId})
+	if err != nil {
+		return nil, status.Error(codes.Unauthenticated, "could not list groups member from groups Id")
+	}
 
-	// newNote := *acc.Notes
-	// newNote = append(newNote, models.Note{ID: noteId.String()})
+	var groups []*accountsv1.Group
+	for _, member := range memberFromGroups {
+		group, err := srv.groupRepo.Get(ctx, &models.OneGroupFilter{ID: *member.GroupID})
 
-	// err = srv.repo.Update(ctx, &models.OneGroupFilter{ID: id.String()}, &models.GroupPayload{Notes: &newNote})
-	// if err != nil {
-	// 	srv.logger.Error("failed to update group", zap.Error(err))
-	// 	return nil, status.Error(codes.Internal, "could not join group")
-	// }
+		if err != nil {
+			srv.logger.Error("failed get group from member id", zap.Error(err))
+		}
+		groups = append(groups, &accountsv1.Group{Id: group.ID, Description: *group.Description, Name: *group.Name, CreatedAt: timestamppb.New(group.CreatedAt)})
+	}
 
-	return nil, status.Error(codes.Unimplemented, "not implemented")
+	return &accountsv1.ListGroupsResponse{Groups: groups}, nil
 }
 
 // TODO: This function is duplicated from accountsService.authenticate().

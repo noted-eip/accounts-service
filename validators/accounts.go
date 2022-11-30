@@ -41,3 +41,15 @@ func ValidateAuthenticateRequest(in *accountsv1.AuthenticateRequest) error {
 		validation.Field(&in.Password, validation.Required, validation.Length(4, 20)),
 	)
 }
+
+func ValidateListRequest(in *accountsv1.ListAccountsRequest) error {
+	err := validation.Validate(in.Limit, validation.When(in.Limit != 0, validation.Required), validation.Min(0))
+	if err != nil {
+		return err
+	}
+	err = validation.Validate(in.Offset, validation.When(in.Offset != 0, validation.Required), validation.Min(0))
+	if err != nil {
+		return err
+	}
+	return nil
+}

@@ -30,7 +30,8 @@ type server struct {
 
 	accountsRepository models.AccountsRepository
 	groupsRepository   models.GroupsRepository
-	tchatsRepository models.tchatsRepository
+	tchatsRepository   models.tchatsRepository
+	membersRepository  models.MembersRepository
 
 	accountsService accountsv1.AccountsAPIServer
 	groupsService   accountsv1.GroupsAPIServer
@@ -119,6 +120,7 @@ func (s *server) initRepositories() {
 	s.accountsRepository = mongo.NewAccountsRepository(s.mongoDB.DB, s.logger)
 	s.groupsRepository = mongo.NewGroupsRepository(s.mongoDB.DB, s.logger)
 	s.tchatsRepository = mongo.NewTchatsRepository(s.mongoDB.DB, s.logger)
+	s.membersRepository = mongo.NewMembersRepository(s.mongoDB.DB, s.logger)
 }
 
 func (s *server) initTchatsService() {
@@ -139,9 +141,10 @@ func (s *server) initAccountsService() {
 
 func (s *server) initGroupsService() {
 	s.groupsService = &groupsAPI{
-		auth:   s.authService,
-		logger: s.logger,
-		repo:   s.groupsRepository,
+		auth:       s.authService,
+		logger:     s.logger,
+		groupRepo:  s.groupsRepository,
+		memberRepo: s.membersRepository,
 	}
 }
 

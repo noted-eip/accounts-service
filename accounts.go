@@ -152,13 +152,22 @@ func (srv *accountsAPI) DeleteAccount(ctx context.Context, in *accountsv1.Delete
 	return &accountsv1.DeleteAccountResponse{}, nil
 }
 
-func (srv *accountsAPI) ListAccount(ctx context.Context, in *accountsv1.ListAccountRequest) (*accountsv1.ListAccountResponse, error) {
+func (srv *accountsAPI) ListAccounts(ctx context.Context, in *accountsv1.ListAccountsRequest) (*accountsv1.ListAccountsResponse, error) {
 	_, err := srv.authenticate(ctx)
 	if err != nil {
 		return nil, status.Error(codes.Unauthenticated, err.Error())
 	}
 
-	accounts, err := srv.repo.List(ctx, &models.ManyAccountsFilter{}, &models.Pagination{Offset: in.Paginate.Offset, Limit: in.Paginate.Limit})
+	err = validators.ValidateListRequest(in)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "could not validate list accounts request")
+	}
+
+	if in.Limit == 0 {
+		in.Limit = 20
+	}
+
+	accounts, err := srv.repo.List(ctx, &models.ManyAccountsFilter{}, &models.Pagination{Offset: int64(in.Offset), Limit: int64(in.Limit)})
 	if err != nil {
 		return nil, statusFromModelError(err)
 	}
@@ -171,7 +180,7 @@ func (srv *accountsAPI) ListAccount(ctx context.Context, in *accountsv1.ListAcco
 		}
 		accountsResp = append(accountsResp, elem)
 	}
-	return &accountsv1.ListAccountResponse{Accounts: accountsResp}, nil
+	return &accountsv1.ListAccountsResponse{Accounts: accountsResp}, nil
 }
 
 func (srv *accountsAPI) Authenticate(ctx context.Context, in *accountsv1.AuthenticateRequest) (*accountsv1.AuthenticateResponse, error) {
