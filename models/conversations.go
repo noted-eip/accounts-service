@@ -24,14 +24,15 @@ import (
 
 // type ManyAccountsFilter struct{}
 
-type TchatsRepository interface {
-	Create(ctx context.Context) (error)
+type ConversationsRepository interface {
+	Create(ctx context.Context) error
 
-	Get(ctx context.Context) (error)
+	Get(ctx context.Context) error
 
-	Delete(ctx context.Context) (error)
+	Delete(ctx context.Context) error
 
-	Update(ctx context.Context) (error)
+	Update(ctx context.Context) error
 
+	List(ctx context.Context) error
 	// List(ctx context.Context, filter *ManyAccountsFilter, pagination *Pagination) ([]Account, error)
 }

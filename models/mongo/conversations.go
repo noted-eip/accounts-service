@@ -21,11 +21,11 @@ type tchatsRepository struct {
 	coll   *mongo.Collection
 }
 
-func NewTchatsRepository(db *mongo.Database, logger *zap.Logger) models.TchatsRepository {
+func NewConversationsRepository(db *mongo.Database, logger *zap.Logger) models.ConversationsRepository {
 	rep := &tchatsRepository{
-		logger: logger.Named("mongo").Named("tchats"),
+		logger: logger.Named("mongo").Named("conversations"),
 		db:     db,
-		coll:   db.Collection("tchats"),
+		coll:   db.Collection("conversations"),
 	}
 
 	// _, err := rep.coll.Indexes().CreateOne(
@@ -55,5 +55,9 @@ func (srv *tchatsRepository) Delete(ctx context.Context) error {
 }
 
 func (srv *tchatsRepository) Update(ctx context.Context) error {
+	return nil
+}
+
+func (srv *tchatsRepository) List(ctx context.Context) error {
 	return nil
 }

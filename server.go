@@ -30,7 +30,7 @@ type server struct {
 
 	accountsRepository models.AccountsRepository
 	groupsRepository   models.GroupsRepository
-	tchatsRepository   models.TchatsRepository
+	tchatsRepository   models.ConversationsRepository
 	membersRepository  models.MembersRepository
 
 	accountsService accountsv1.AccountsAPIServer
@@ -47,7 +47,7 @@ func (s *server) Init(opt ...grpc.ServerOption) {
 	s.initRepositories()
 	s.initAccountsService()
 	s.initGroupsService()
-	s.initTchatsService()
+	s.initConversationsService()
 	s.initGrpcServer(opt...)
 }
 
@@ -119,12 +119,12 @@ func (s *server) initRepositories() {
 	must(err, "could not instantiate mongo database")
 	s.accountsRepository = mongo.NewAccountsRepository(s.mongoDB.DB, s.logger)
 	s.groupsRepository = mongo.NewGroupsRepository(s.mongoDB.DB, s.logger)
-	s.tchatsRepository = mongo.NewTchatsRepository(s.mongoDB.DB, s.logger)
+	s.tchatsRepository = mongo.NewConversationsRepository(s.mongoDB.DB, s.logger)
 	s.membersRepository = mongo.NewMembersRepository(s.mongoDB.DB, s.logger)
 }
 
-func (s *server) initTchatsService() {
-	s.tchatsService = &tchatsAPI{
+func (s *server) initConversationsService() {
+	s.tchatsService = &conversationsAPI{
 		auth:   s.authService,
 		logger: s.logger,
 		repo:   s.tchatsRepository,
