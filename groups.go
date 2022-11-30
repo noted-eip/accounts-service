@@ -7,12 +7,10 @@ import (
 	"accounts-service/validators"
 	"context"
 
-	"github.com/jinzhu/copier"
 	"github.com/mennanov/fmutils"
 	"go.uber.org/zap"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
-	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
@@ -93,28 +91,16 @@ func (srv *groupsAPI) UpdateGroup(ctx context.Context, in *accountsv1.UpdateGrou
 		return nil, status.Error(codes.InvalidArgument, "invalid field mask")
 	}
 
-	acc, err := srv.groupRepo.Get(ctx, &models.OneGroupFilter{ID: in.Group.Id})
-	if err != nil {
-		return nil, statusFromModelError(err)
-	}
-
+	allowList := []string{"description", "name"}
 	fmutils.Filter(in.GetGroup(), fieldMask.GetPaths())
+	fmutils.Filter(in.GetGroup(), allowList)
 
-	var protoGroup accountsv1.Group
-	err = copier.Copy(&protoGroup, &acc)
-	if err != nil {
-		srv.logger.Error("invalid group conversion", zap.Error(err))
-		return nil, status.Error(codes.Internal, "could not update group")
-	}
-	proto.Merge(&protoGroup, in.Group)
-
-	updatedGroup, err := srv.groupRepo.Update(ctx, &models.OneGroupFilter{ID: acc.ID}, &models.GroupPayload{Name: &protoGroup.Name, Description: &protoGroup.Description})
+	_, err = srv.groupRepo.Update(ctx, &models.OneGroupFilter{ID: in.Group.Id}, &models.GroupPayload{Name: &in.GetGroup().Name, Description: &in.GetGroup().Description})
 	if err != nil {
 		return nil, statusFromModelError(err)
 	}
 
-	returnedGroup := accountsv1.Group{Id: updatedGroup.ID, Name: *updatedGroup.Name, Description: *updatedGroup.Description, CreatedAt: timestamppb.New(updatedGroup.CreatedAt)}
-	return &accountsv1.UpdateGroupResponse{Group: &returnedGroup}, nil
+	return &accountsv1.UpdateGroupResponse{Group: in.GetGroup()}, nil
 }
 
 func (srv *groupsAPI) GetGroup(ctx context.Context, in *accountsv1.GetGroupRequest) (*accountsv1.GetGroupResponse, error) {
@@ -153,6 +139,10 @@ func (srv *groupsAPI) ListGroups(ctx context.Context, in *accountsv1.ListGroupsR
 	_, err = srv.authenticate(ctx)
 	if err != nil {
 		return nil, status.Error(codes.Unauthenticated, err.Error())
+	}
+
+	if in.Limit == 0 {
+		in.Limit = 10
 	}
 
 	memberFromGroups, err := srv.memberRepo.List(ctx, &models.MemberFilter{AccountID: &in.AccountId})

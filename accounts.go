@@ -8,13 +8,11 @@ import (
 	"context"
 	"errors"
 
-	"github.com/jinzhu/copier"
 	"github.com/mennanov/fmutils"
 	"go.uber.org/zap"
 	"golang.org/x/crypto/bcrypt"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
-	"google.golang.org/protobuf/proto"
 
 	"github.com/google/uuid"
 )
@@ -99,28 +97,17 @@ func (srv *accountsAPI) UpdateAccount(ctx context.Context, in *accountsv1.Update
 	if !fieldMask.IsValid(in.Account) {
 		return nil, status.Error(codes.InvalidArgument, "invalid field mask")
 	}
+
+	allowList := []string{"name"}
+	fmutils.Filter(in.GetAccount(), allowList)
 	fmutils.Filter(in.GetAccount(), fieldMask.GetPaths())
 
-	acc, err := srv.repo.Get(ctx, &models.OneAccountFilter{ID: in.Account.Id})
+	_, err = srv.repo.Update(ctx, &models.OneAccountFilter{ID: in.Account.Id}, &models.AccountPayload{Name: &in.Account.Name})
 	if err != nil {
 		return nil, statusFromModelError(err)
 	}
 
-	var protoAccount accountsv1.Account
-	err = copier.Copy(&protoAccount, &acc)
-	if err != nil {
-		srv.logger.Error("invalid account conversion", zap.Error(err))
-		return nil, status.Error(codes.Internal, "failed to update account")
-	}
-	proto.Merge(&protoAccount, in.Account)
-
-	updatedAccount, err := srv.repo.Update(ctx, &models.OneAccountFilter{ID: in.Account.Id}, &models.AccountPayload{Email: &protoAccount.Email, Name: &protoAccount.Name})
-	if err != nil {
-		return nil, statusFromModelError(err)
-	}
-
-	newAccount := accountsv1.Account{Email: *updatedAccount.Email, Name: *updatedAccount.Name, Id: updatedAccount.ID}
-	return &accountsv1.UpdateAccountResponse{Account: &newAccount}, nil
+	return &accountsv1.UpdateAccountResponse{Account: in.GetAccount()}, nil
 }
 
 func (srv *accountsAPI) DeleteAccount(ctx context.Context, in *accountsv1.DeleteAccountRequest) (*accountsv1.DeleteAccountResponse, error) {

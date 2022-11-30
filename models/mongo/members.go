@@ -121,11 +121,6 @@ func (srv *membersRepository) Update(ctx context.Context, filter *models.MemberF
 func (srv *membersRepository) List(ctx context.Context, filter *models.MemberFilter) ([]models.Member, error) {
 	var members []models.Member
 
-	// opt := options.FindOptions{
-	// 	Limit: &pagination.Limit,
-	// 	Skip:  &pagination.Offset,
-	// }
-
 	cursor, err := srv.coll.Find(ctx, &filter)
 	if err != nil {
 		srv.logger.Error("mongo find members query failed", zap.Error(err))
