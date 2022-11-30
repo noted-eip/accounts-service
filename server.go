@@ -30,7 +30,7 @@ type server struct {
 
 	accountsRepository models.AccountsRepository
 	groupsRepository   models.GroupsRepository
-	tchatsRepository   models.tchatsRepository
+	tchatsRepository   models.TchatsRepository
 	membersRepository  models.MembersRepository
 
 	accountsService accountsv1.AccountsAPIServer
@@ -124,7 +124,7 @@ func (s *server) initRepositories() {
 }
 
 func (s *server) initTchatsService() {
-	s.tchatsService = &conversationsAPI{
+	s.tchatsService = &tchatsAPI{
 		auth:   s.authService,
 		logger: s.logger,
 		repo:   s.tchatsRepository,
