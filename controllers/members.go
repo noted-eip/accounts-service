@@ -1,4 +1,4 @@
-package main
+package controllers
 
 import (
 	"accounts-service/auth"
@@ -16,19 +16,19 @@ import (
 
 // TODO: internal token clarification with invitation API
 
-func (srv *groupsAPI) AddGroupMember(ctx context.Context, in *accountsv1.AddGroupMemberRequest) (*accountsv1.AddGroupMemberResponse, error) {
+func (srv *GroupsAPI) AddGroupMember(ctx context.Context, in *accountsv1.AddGroupMemberRequest) (*accountsv1.AddGroupMemberResponse, error) {
 	err := validators.ValidateAddGroupMember(in)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "failed to validate add member request")
 	}
 
-	_, err = srv.groupRepo.Get(ctx, &models.OneGroupFilter{ID: in.GroupId})
+	_, err = srv.GroupRepo.Get(ctx, &models.OneGroupFilter{ID: in.GroupId})
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "failed to get group from group_id")
 	}
 
 	payload := models.MemberPayload{AccountID: &in.AccountId, GroupID: &in.GroupId, Role: auth.RoleUser}
-	_, err = srv.memberRepo.Create(ctx, &payload)
+	_, err = srv.MemberRepo.Create(ctx, &payload)
 	if err != nil {
 		return nil, status.Error(codes.Internal, "failed to add member to group")
 	}
@@ -36,7 +36,7 @@ func (srv *groupsAPI) AddGroupMember(ctx context.Context, in *accountsv1.AddGrou
 	return &accountsv1.AddGroupMemberResponse{}, nil
 }
 
-func (srv *groupsAPI) RemoveGroupMember(ctx context.Context, in *accountsv1.RemoveGroupMemberRequest) (*accountsv1.RemoveGroupMemberResponse, error) {
+func (srv *GroupsAPI) RemoveGroupMember(ctx context.Context, in *accountsv1.RemoveGroupMemberRequest) (*accountsv1.RemoveGroupMemberResponse, error) {
 	err := validators.ValidateRemoveGroupMember(in)
 	if err != nil {
 		return nil, status.Error(codes.Internal, "failed to validate remove member request")
@@ -48,14 +48,14 @@ func (srv *groupsAPI) RemoveGroupMember(ctx context.Context, in *accountsv1.Remo
 	}
 
 	filter := models.MemberFilter{AccountID: &in.AccountId, GroupID: &in.GroupId}
-	member, err := srv.memberRepo.Get(ctx, &filter)
+	member, err := srv.MemberRepo.Get(ctx, &filter)
 	if err != nil {
 		return nil, status.Error(codes.Internal, "failed to get user from requested group")
 	}
 
 	id := token.UserID.String()
 	memberRequestDeletionFilter := models.MemberFilter{AccountID: &id, GroupID: &in.GroupId}
-	memberRequestDeletion, err := srv.memberRepo.Get(ctx, &memberRequestDeletionFilter)
+	memberRequestDeletion, err := srv.MemberRepo.Get(ctx, &memberRequestDeletionFilter)
 
 	if err != nil {
 		return nil, status.Error(codes.Internal, "failed to get user from requested group")
@@ -65,13 +65,13 @@ func (srv *groupsAPI) RemoveGroupMember(ctx context.Context, in *accountsv1.Remo
 		return nil, status.Error(codes.PermissionDenied, "user must be admin or delete himself")
 	}
 
-	memberDel, err := srv.memberRepo.DeleteOne(ctx, &filter)
+	memberDel, err := srv.MemberRepo.DeleteOne(ctx, &filter)
 	if err != nil {
 		return nil, status.Error(codes.Internal, "failed to remove member to group")
 	}
 
 	if memberDel.Role == auth.RoleAdmin {
-		_, err = srv.memberRepo.Update(ctx, &models.MemberFilter{GroupID: memberDel.GroupID}, &models.MemberPayload{GroupID: member.GroupID, AccountID: member.AccountID, Role: auth.RoleAdmin})
+		_, err = srv.MemberRepo.Update(ctx, &models.MemberFilter{GroupID: memberDel.GroupID}, &models.MemberPayload{GroupID: member.GroupID, AccountID: member.AccountID, Role: auth.RoleAdmin})
 		if err != nil {
 			return nil, statusFromModelError(err)
 		}
@@ -80,12 +80,12 @@ func (srv *groupsAPI) RemoveGroupMember(ctx context.Context, in *accountsv1.Remo
 	return &accountsv1.RemoveGroupMemberResponse{}, nil
 }
 
-func (srv *groupsAPI) UpdateGroupMember(ctx context.Context, in *accountsv1.UpdateGroupMemberRequest) (*accountsv1.UpdateGroupMemberResponse, error) {
+func (srv *GroupsAPI) UpdateGroupMember(ctx context.Context, in *accountsv1.UpdateGroupMemberRequest) (*accountsv1.UpdateGroupMemberResponse, error) {
 
 	return nil, errors.New("not implemented")
 }
 
-func (srv *groupsAPI) GetGroupMember(ctx context.Context, in *accountsv1.GetGroupMemberRequest) (*accountsv1.GetGroupMemberResponse, error) {
+func (srv *GroupsAPI) GetGroupMember(ctx context.Context, in *accountsv1.GetGroupMemberRequest) (*accountsv1.GetGroupMemberResponse, error) {
 	err := validators.ValidateGetGroupMember(in)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, err.Error())
@@ -97,7 +97,7 @@ func (srv *groupsAPI) GetGroupMember(ctx context.Context, in *accountsv1.GetGrou
 	}
 
 	filter := models.MemberFilter{AccountID: &in.AccountId, GroupID: &in.GroupId}
-	member, err := srv.memberRepo.Get(ctx, &filter)
+	member, err := srv.MemberRepo.Get(ctx, &filter)
 	if err != nil {
 		return nil, statusFromModelError(err)
 	}
@@ -110,7 +110,7 @@ func (srv *groupsAPI) GetGroupMember(ctx context.Context, in *accountsv1.GetGrou
 	return &accountsv1.GetGroupMemberResponse{Member: &groupMember}, nil
 }
 
-func (srv *groupsAPI) ListGroupMembers(ctx context.Context, in *accountsv1.ListGroupMembersRequest) (*accountsv1.ListGroupMembersResponse, error) {
+func (srv *GroupsAPI) ListGroupMembers(ctx context.Context, in *accountsv1.ListGroupMembersRequest) (*accountsv1.ListGroupMembersResponse, error) {
 
 	err := validators.ValidateListGroupMember(in)
 	if err != nil {
@@ -126,7 +126,7 @@ func (srv *groupsAPI) ListGroupMembers(ctx context.Context, in *accountsv1.ListG
 	}
 
 	filter := models.MemberFilter{GroupID: &in.GroupId}
-	members, err := srv.memberRepo.List(ctx, &filter)
+	members, err := srv.MemberRepo.List(ctx, &filter)
 	if err != nil {
 		return nil, status.Error(codes.Internal, "failed to list members")
 	}
@@ -138,7 +138,7 @@ func (srv *groupsAPI) ListGroupMembers(ctx context.Context, in *accountsv1.ListG
 		}
 		groupMember := &accountsv1.GroupMember{AccountId: *members[i].AccountID, Role: members[i].Role, CreatedAt: timestamppb.New(members[i].CreatedAt)}
 		if err != nil {
-			srv.logger.Error("failed to decode member", zap.Error(err))
+			srv.Logger.Error("failed to decode member", zap.Error(err))
 		}
 		groupMembers = append(groupMembers, groupMember)
 	}
