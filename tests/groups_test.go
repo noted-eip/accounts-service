@@ -1,7 +1,8 @@
-package main
+package tests
 
 import (
 	"accounts-service/auth"
+	"accounts-service/controllers"
 	"accounts-service/models/memory"
 	accountsv1 "accounts-service/protorepo/noted/accounts/v1"
 	"context"
@@ -16,8 +17,8 @@ import (
 
 type GroupsAPISuite struct {
 	suite.Suite
-	groupSrv   *groupsAPI
-	accountSrv *accountsAPI
+	groupSrv   *controllers.GroupsAPI
+	accountSrv *controllers.AccountsAPI
 }
 
 func TestGroupsService(t *testing.T) {
@@ -30,17 +31,17 @@ func (s *GroupsAPISuite) SetupSuite() {
 	memberDB := newMembersDatabaseOrFail(s.T(), logger)
 	accountDB := newAccountsDatabaseOrFail(s.T(), logger)
 
-	s.accountSrv = &accountsAPI{
-		auth:   auth.NewService(genKeyOrFail(s.T())),
-		logger: logger,
-		repo:   memory.NewAccountsRepository(accountDB, logger),
+	s.accountSrv = &controllers.AccountsAPI{
+		Auth:   auth.NewService(genKeyOrFail(s.T())),
+		Logger: logger,
+		Repo:   memory.NewAccountsRepository(accountDB, logger),
 	}
 
-	s.groupSrv = &groupsAPI{
-		auth:       auth.NewService(genKeyOrFail(s.T())),
-		logger:     logger,
-		groupRepo:  memory.NewGroupsRepository(groupDB, logger),
-		memberRepo: memory.NewMembersRepository(memberDB, logger),
+	s.groupSrv = &controllers.GroupsAPI{
+		Auth:       auth.NewService(genKeyOrFail(s.T())),
+		Logger:     logger,
+		GroupRepo:  memory.NewGroupsRepository(groupDB, logger),
+		MemberRepo: memory.NewMembersRepository(memberDB, logger),
 	}
 }
 
@@ -126,7 +127,7 @@ func (s *GroupsAPISuite) TestCreateGroup() {
 
 	uid := uuid.MustParse(createAccountRes.Account.Id)
 
-	ctx, err := s.groupSrv.auth.ContextWithToken(context.TODO(), &auth.Token{UserID: uid})
+	ctx, err := s.groupSrv.Auth.ContextWithToken(context.TODO(), &auth.Token{UserID: uid})
 	s.Require().NoError(err)
 
 	createGroupRes, err := s.groupSrv.CreateGroup(ctx, &accountsv1.CreateGroupRequest{Description: "description", Name: "EIP"})
@@ -150,7 +151,7 @@ func (s *GroupsAPISuite) TestAddMembersToGroup() {
 
 	uid := uuid.MustParse(createAccountMaxRes.Account.Id)
 
-	ctx, err := s.groupSrv.auth.ContextWithToken(context.TODO(), &auth.Token{UserID: uid})
+	ctx, err := s.groupSrv.Auth.ContextWithToken(context.TODO(), &auth.Token{UserID: uid})
 	s.Require().NoError(err)
 
 	createGroupRes, err := s.groupSrv.CreateGroup(ctx, &accountsv1.CreateGroupRequest{Description: "description", Name: "EIP"})
@@ -180,7 +181,7 @@ func (s *GroupsAPISuite) TestDeleteGroup() {
 
 	uid := uuid.MustParse(createAccountMaxRes.Account.Id)
 
-	ctx, err := s.groupSrv.auth.ContextWithToken(context.TODO(), &auth.Token{UserID: uid})
+	ctx, err := s.groupSrv.Auth.ContextWithToken(context.TODO(), &auth.Token{UserID: uid})
 	s.Require().NoError(err)
 
 	createGroupRes, err := s.groupSrv.CreateGroup(ctx, &accountsv1.CreateGroupRequest{Description: "description", Name: "EIP"})
@@ -213,7 +214,7 @@ func (s *GroupsAPISuite) TestLeaveGroupAsAdmin() {
 
 	uid := uuid.MustParse(createAccountMaxRes.Account.Id)
 
-	ctx, err := s.groupSrv.auth.ContextWithToken(context.TODO(), &auth.Token{UserID: uid})
+	ctx, err := s.groupSrv.Auth.ContextWithToken(context.TODO(), &auth.Token{UserID: uid})
 	s.Require().NoError(err)
 
 	createGroupRes, err := s.groupSrv.CreateGroup(ctx, &accountsv1.CreateGroupRequest{Description: "description", Name: "EIP"})
@@ -253,7 +254,7 @@ func (s *GroupsAPISuite) TestRemoveAdminMemberAsUser() {
 
 	uid := uuid.MustParse(createAccountMaxRes.Account.Id)
 
-	ctx, err := s.groupSrv.auth.ContextWithToken(context.TODO(), &auth.Token{UserID: uid})
+	ctx, err := s.groupSrv.Auth.ContextWithToken(context.TODO(), &auth.Token{UserID: uid})
 	s.Require().NoError(err)
 
 	createGroupRes, err := s.groupSrv.CreateGroup(ctx, &accountsv1.CreateGroupRequest{Description: "description", Name: "EIP"})
@@ -267,7 +268,7 @@ func (s *GroupsAPISuite) TestRemoveAdminMemberAsUser() {
 
 	uidBalthi := uuid.MustParse(createAccountBalthiRes.Account.Id)
 
-	ctxBalthi, err := s.groupSrv.auth.ContextWithToken(context.TODO(), &auth.Token{UserID: uidBalthi})
+	ctxBalthi, err := s.groupSrv.Auth.ContextWithToken(context.TODO(), &auth.Token{UserID: uidBalthi})
 	s.Require().NoError(err)
 
 	_, err = s.groupSrv.RemoveGroupMember(ctxBalthi, &accountsv1.RemoveGroupMemberRequest{GroupId: createGroupRes.Group.Id, AccountId: createAccountMaxRes.Account.Id})
@@ -298,7 +299,7 @@ func (s *GroupsAPISuite) TestLeaveGroupAsUser() {
 
 	uid := uuid.MustParse(createAccountMaxRes.Account.Id)
 
-	ctx, err := s.groupSrv.auth.ContextWithToken(context.TODO(), &auth.Token{UserID: uid})
+	ctx, err := s.groupSrv.Auth.ContextWithToken(context.TODO(), &auth.Token{UserID: uid})
 	s.Require().NoError(err)
 
 	createGroupRes, err := s.groupSrv.CreateGroup(ctx, &accountsv1.CreateGroupRequest{Description: "description", Name: "EIP"})
@@ -312,7 +313,7 @@ func (s *GroupsAPISuite) TestLeaveGroupAsUser() {
 
 	uidBalthi := uuid.MustParse(createAccountBalthiRes.Account.Id)
 
-	ctxBalthi, err := s.groupSrv.auth.ContextWithToken(context.TODO(), &auth.Token{UserID: uidBalthi})
+	ctxBalthi, err := s.groupSrv.Auth.ContextWithToken(context.TODO(), &auth.Token{UserID: uidBalthi})
 	s.Require().NoError(err)
 
 	_, err = s.groupSrv.RemoveGroupMember(ctxBalthi, &accountsv1.RemoveGroupMemberRequest{GroupId: createGroupRes.Group.Id, AccountId: createAccountBalthiRes.Account.Id})
@@ -345,10 +346,10 @@ func (s *GroupsAPISuite) TestListGroupIBelongTo() {
 
 	uidGabi := uuid.MustParse(createAccountGabiRes.Account.Id)
 
-	ctxGabi, err := s.groupSrv.auth.ContextWithToken(context.TODO(), &auth.Token{UserID: uidGabi})
+	ctxGabi, err := s.groupSrv.Auth.ContextWithToken(context.TODO(), &auth.Token{UserID: uidGabi})
 	s.Require().NoError(err)
 
-	ctx, err := s.groupSrv.auth.ContextWithToken(context.TODO(), &auth.Token{UserID: uid})
+	ctx, err := s.groupSrv.Auth.ContextWithToken(context.TODO(), &auth.Token{UserID: uid})
 	s.Require().NoError(err)
 
 	createGroupRes1, err := s.groupSrv.CreateGroup(ctx, &accountsv1.CreateGroupRequest{Description: "description", Name: "Group1"})

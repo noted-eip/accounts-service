@@ -1,7 +1,8 @@
-package main
+package controllers
 
 import (
 	"accounts-service/auth"
+	"accounts-service/config"
 	"accounts-service/models"
 	"accounts-service/models/mongo"
 	accountsv1 "accounts-service/protorepo/noted/accounts/v1"
@@ -21,7 +22,7 @@ import (
 	"google.golang.org/grpc/status"
 )
 
-type server struct {
+type Server struct {
 	logger *zap.Logger
 
 	authService auth.Service
@@ -39,7 +40,7 @@ type server struct {
 }
 
 // Init initializes the dependencies of the server and panics on error.
-func (s *server) Init(opt ...grpc.ServerOption) {
+func (s *Server) Init(opt ...grpc.ServerOption) {
 	s.initLogger()
 	s.initAuthService()
 	s.initRepositories()
@@ -48,7 +49,7 @@ func (s *server) Init(opt ...grpc.ServerOption) {
 	s.initGrpcServer(opt...)
 }
 
-func (s *server) Run() {
+func (s *Server) Run(port *int16) {
 	lis, err := net.Listen("tcp", fmt.Sprint(":", *port))
 	must(err, "failed to create tcp listener")
 	reflection.Register(s.grpcServer)
@@ -57,13 +58,13 @@ func (s *server) Run() {
 	must(err, "failed to run grpc server")
 }
 
-func (s *server) Close() {
+func (s *Server) Close() {
 	s.logger.Info("graceful shutdown")
 	s.mongoDB.Disconnect(context.Background())
 	s.logger.Sync()
 }
 
-func (s *server) LoggerUnaryInterceptor(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (interface{}, error) {
+func (s *Server) LoggerUnaryInterceptor(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (interface{}, error) {
 	start := time.Now()
 	res, err := handler(ctx, req)
 	end := time.Now()
@@ -94,9 +95,9 @@ func (s *server) LoggerUnaryInterceptor(ctx context.Context, req interface{}, in
 	return res, nil
 }
 
-func (s *server) initLogger() {
+func (s *Server) initLogger() {
 	var err error
-	if *environment == envIsProd {
+	if *config.Conf.Environment == config.EnvIsProd {
 		s.logger, err = zap.NewProduction(zap.AddStacktrace(zapcore.FatalLevel), zap.WithCaller(false))
 	} else {
 		s.logger, err = zap.NewDevelopment(zap.AddStacktrace(zapcore.FatalLevel), zap.WithCaller(false))
@@ -104,39 +105,39 @@ func (s *server) initLogger() {
 	must(err, "unable to instantiate zap.Logger")
 }
 
-func (s *server) initAuthService() {
-	rawKey, err := base64.StdEncoding.DecodeString(*jwtPrivateKey)
+func (s *Server) initAuthService() {
+	rawKey, err := base64.StdEncoding.DecodeString(*config.Conf.JwtPrivateKey)
 	must(err, "could not decode jwt private key")
 	s.authService = auth.NewService(ed25519.PrivateKey(rawKey))
 }
 
-func (s *server) initRepositories() {
+func (s *Server) initRepositories() {
 	var err error
-	s.mongoDB, err = mongo.NewDatabase(context.Background(), *mongoUri, *mongoDbName, s.logger)
+	s.mongoDB, err = mongo.NewDatabase(context.Background(), *config.Conf.MongoUri, *config.Conf.MongoDbName, s.logger)
 	must(err, "could not instantiate mongo database")
 	s.accountsRepository = mongo.NewAccountsRepository(s.mongoDB.DB, s.logger)
 	s.groupsRepository = mongo.NewGroupsRepository(s.mongoDB.DB, s.logger)
 	s.membersRepository = mongo.NewMembersRepository(s.mongoDB.DB, s.logger)
 }
 
-func (s *server) initAccountsService() {
-	s.accountsService = &accountsAPI{
-		auth:   s.authService,
-		logger: s.logger,
-		repo:   s.accountsRepository,
+func (s *Server) initAccountsService() {
+	s.accountsService = &AccountsAPI{
+		Auth:   s.authService,
+		Logger: s.logger,
+		Repo:   s.accountsRepository,
 	}
 }
 
-func (s *server) initGroupsService() {
-	s.groupsService = &groupsAPI{
-		auth:       s.authService,
-		logger:     s.logger,
-		groupRepo:  s.groupsRepository,
-		memberRepo: s.membersRepository,
+func (s *Server) initGroupsService() {
+	s.groupsService = &GroupsAPI{
+		Auth:       s.authService,
+		Logger:     s.logger,
+		GroupRepo:  s.groupsRepository,
+		MemberRepo: s.membersRepository,
 	}
 }
 
-func (s *server) initGrpcServer(opt ...grpc.ServerOption) {
+func (s *Server) initGrpcServer(opt ...grpc.ServerOption) {
 	s.grpcServer = grpc.NewServer(opt...)
 	accountsv1.RegisterAccountsAPIServer(s.grpcServer, s.accountsService)
 	accountsv1.RegisterGroupsAPIServer(s.grpcServer, s.groupsService)

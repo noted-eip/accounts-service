@@ -1,4 +1,4 @@
-package main
+package controllers
 
 import (
 	"accounts-service/auth"
@@ -17,17 +17,17 @@ import (
 	"github.com/google/uuid"
 )
 
-type accountsAPI struct {
+type AccountsAPI struct {
 	accountsv1.UnimplementedAccountsAPIServer
 
-	auth   auth.Service
-	logger *zap.Logger
-	repo   models.AccountsRepository
+	Auth   auth.Service
+	Logger *zap.Logger
+	Repo   models.AccountsRepository
 }
 
-var _ accountsv1.AccountsAPIServer = &accountsAPI{}
+var _ accountsv1.AccountsAPIServer = &AccountsAPI{}
 
-func (srv *accountsAPI) CreateAccount(ctx context.Context, in *accountsv1.CreateAccountRequest) (*accountsv1.CreateAccountResponse, error) {
+func (srv *AccountsAPI) CreateAccount(ctx context.Context, in *accountsv1.CreateAccountRequest) (*accountsv1.CreateAccountResponse, error) {
 	err := validators.ValidateCreateAccountRequest(in)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, err.Error())
@@ -35,11 +35,11 @@ func (srv *accountsAPI) CreateAccount(ctx context.Context, in *accountsv1.Create
 
 	hashed, err := bcrypt.GenerateFromPassword([]byte(in.Password), 8)
 	if err != nil {
-		srv.logger.Error("bcrypt failed to hash password", zap.Error(err))
+		srv.Logger.Error("bcrypt failed to hash password", zap.Error(err))
 		return nil, status.Error(codes.Internal, "failed to create account")
 	}
 
-	acc, err := srv.repo.Create(ctx, &models.AccountPayload{Email: &in.Email, Name: &in.Name, Hash: &hashed})
+	acc, err := srv.Repo.Create(ctx, &models.AccountPayload{Email: &in.Email, Name: &in.Name, Hash: &hashed})
 	if err != nil {
 		return nil, statusFromModelError(err)
 	}
@@ -53,7 +53,7 @@ func (srv *accountsAPI) CreateAccount(ctx context.Context, in *accountsv1.Create
 	}, nil
 }
 
-func (srv *accountsAPI) GetAccount(ctx context.Context, in *accountsv1.GetAccountRequest) (*accountsv1.GetAccountResponse, error) {
+func (srv *AccountsAPI) GetAccount(ctx context.Context, in *accountsv1.GetAccountRequest) (*accountsv1.GetAccountResponse, error) {
 	token, err := srv.authenticate(ctx)
 	if err != nil {
 		return nil, status.Error(codes.Unauthenticated, err.Error())
@@ -64,7 +64,7 @@ func (srv *accountsAPI) GetAccount(ctx context.Context, in *accountsv1.GetAccoun
 		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}
 
-	account, err := srv.repo.Get(ctx, &models.OneAccountFilter{ID: in.Id, Email: &in.Email})
+	account, err := srv.Repo.Get(ctx, &models.OneAccountFilter{ID: in.Id, Email: &in.Email})
 	if err != nil {
 		return nil, statusFromModelError(err)
 	}
@@ -77,7 +77,7 @@ func (srv *accountsAPI) GetAccount(ctx context.Context, in *accountsv1.GetAccoun
 	return &accountsv1.GetAccountResponse{Account: &acc}, nil
 }
 
-func (srv *accountsAPI) UpdateAccount(ctx context.Context, in *accountsv1.UpdateAccountRequest) (*accountsv1.UpdateAccountResponse, error) {
+func (srv *AccountsAPI) UpdateAccount(ctx context.Context, in *accountsv1.UpdateAccountRequest) (*accountsv1.UpdateAccountResponse, error) {
 	token, err := srv.authenticate(ctx)
 	if err != nil {
 		return nil, status.Error(codes.Unauthenticated, err.Error())
@@ -102,7 +102,7 @@ func (srv *accountsAPI) UpdateAccount(ctx context.Context, in *accountsv1.Update
 	fmutils.Filter(in.GetAccount(), allowList)
 	fmutils.Filter(in.GetAccount(), fieldMask.GetPaths())
 
-	_, err = srv.repo.Update(ctx, &models.OneAccountFilter{ID: in.Account.Id}, &models.AccountPayload{Name: &in.Account.Name})
+	_, err = srv.Repo.Update(ctx, &models.OneAccountFilter{ID: in.Account.Id}, &models.AccountPayload{Name: &in.Account.Name})
 	if err != nil {
 		return nil, statusFromModelError(err)
 	}
@@ -110,7 +110,7 @@ func (srv *accountsAPI) UpdateAccount(ctx context.Context, in *accountsv1.Update
 	return &accountsv1.UpdateAccountResponse{Account: in.GetAccount()}, nil
 }
 
-func (srv *accountsAPI) DeleteAccount(ctx context.Context, in *accountsv1.DeleteAccountRequest) (*accountsv1.DeleteAccountResponse, error) {
+func (srv *AccountsAPI) DeleteAccount(ctx context.Context, in *accountsv1.DeleteAccountRequest) (*accountsv1.DeleteAccountResponse, error) {
 	token, err := srv.authenticate(ctx)
 	if err != nil {
 		return nil, status.Error(codes.Unauthenticated, err.Error())
@@ -127,11 +127,11 @@ func (srv *accountsAPI) DeleteAccount(ctx context.Context, in *accountsv1.Delete
 
 	id, err := uuid.Parse(in.Id)
 	if err != nil {
-		srv.logger.Error("failed to convert uuid from string", zap.Error(err))
+		srv.Logger.Error("failed to convert uuid from string", zap.Error(err))
 		return nil, status.Error(codes.Internal, "failed to delete account")
 	}
 
-	err = srv.repo.Delete(ctx, &models.OneAccountFilter{ID: id.String()})
+	err = srv.Repo.Delete(ctx, &models.OneAccountFilter{ID: id.String()})
 	if err != nil {
 		return nil, statusFromModelError(err)
 	}
@@ -139,7 +139,7 @@ func (srv *accountsAPI) DeleteAccount(ctx context.Context, in *accountsv1.Delete
 	return &accountsv1.DeleteAccountResponse{}, nil
 }
 
-func (srv *accountsAPI) ListAccounts(ctx context.Context, in *accountsv1.ListAccountsRequest) (*accountsv1.ListAccountsResponse, error) {
+func (srv *AccountsAPI) ListAccounts(ctx context.Context, in *accountsv1.ListAccountsRequest) (*accountsv1.ListAccountsResponse, error) {
 	_, err := srv.authenticate(ctx)
 	if err != nil {
 		return nil, status.Error(codes.Unauthenticated, err.Error())
@@ -154,7 +154,7 @@ func (srv *accountsAPI) ListAccounts(ctx context.Context, in *accountsv1.ListAcc
 		in.Limit = 20
 	}
 
-	accounts, err := srv.repo.List(ctx, &models.ManyAccountsFilter{}, &models.Pagination{Offset: int64(in.Offset), Limit: int64(in.Limit)})
+	accounts, err := srv.Repo.List(ctx, &models.ManyAccountsFilter{}, &models.Pagination{Offset: int64(in.Offset), Limit: int64(in.Limit)})
 	if err != nil {
 		return nil, statusFromModelError(err)
 	}
@@ -163,15 +163,15 @@ func (srv *accountsAPI) ListAccounts(ctx context.Context, in *accountsv1.ListAcc
 	for _, account := range accounts {
 		elem := &accountsv1.Account{Id: account.ID, Name: *account.Name, Email: *account.Email}
 		if err != nil {
-			srv.logger.Error("failed to decode account", zap.Error(err))
+			srv.Logger.Error("failed to decode account", zap.Error(err))
 		}
 		accountsResp = append(accountsResp, elem)
 	}
 	return &accountsv1.ListAccountsResponse{Accounts: accountsResp}, nil
 }
 
-func (srv *accountsAPI) Authenticate(ctx context.Context, in *accountsv1.AuthenticateRequest) (*accountsv1.AuthenticateResponse, error) {
-	acc, err := srv.repo.Get(ctx, &models.OneAccountFilter{Email: &in.Email})
+func (srv *AccountsAPI) Authenticate(ctx context.Context, in *accountsv1.AuthenticateRequest) (*accountsv1.AuthenticateResponse, error) {
+	acc, err := srv.Repo.Get(ctx, &models.OneAccountFilter{Email: &in.Email})
 	if err != nil {
 		return nil, statusFromModelError(err)
 	}
@@ -183,23 +183,23 @@ func (srv *accountsAPI) Authenticate(ctx context.Context, in *accountsv1.Authent
 
 	id, err := uuid.Parse(acc.ID)
 	if err != nil {
-		srv.logger.Error("failed to convert uuid from string", zap.Error(err))
+		srv.Logger.Error("failed to convert uuid from string", zap.Error(err))
 		return nil, status.Error(codes.Internal, "failed to get account")
 	}
 
-	tokenString, err := srv.auth.SignToken(&auth.Token{UserID: id})
+	tokenString, err := srv.Auth.SignToken(&auth.Token{UserID: id})
 	if err != nil {
-		srv.logger.Error("failed to sign token", zap.Error(err))
+		srv.Logger.Error("failed to sign token", zap.Error(err))
 		return nil, status.Error(codes.Internal, "failed to authenticate user")
 	}
 
 	return &accountsv1.AuthenticateResponse{Token: tokenString}, nil
 }
 
-func (srv *accountsAPI) authenticate(ctx context.Context) (*auth.Token, error) {
-	token, err := srv.auth.TokenFromContext(ctx)
+func (srv *AccountsAPI) authenticate(ctx context.Context) (*auth.Token, error) {
+	token, err := srv.Auth.TokenFromContext(ctx)
 	if err != nil {
-		srv.logger.Debug("failed to authenticate request", zap.Error(err))
+		srv.Logger.Debug("failed to authenticate request", zap.Error(err))
 		return nil, status.Error(codes.Unauthenticated, "invalid token")
 	}
 	return token, nil

@@ -1,8 +1,10 @@
-package main
+package tests
 
 import (
 	"accounts-service/auth"
+	"accounts-service/controllers"
 	"accounts-service/models/memory"
+
 	accountsv1 "accounts-service/protorepo/noted/accounts/v1"
 	"context"
 	"crypto/ed25519"
@@ -21,7 +23,7 @@ import (
 
 type AccountsAPISuite struct {
 	suite.Suite
-	srv *accountsAPI
+	srv *controllers.AccountsAPI
 }
 
 func TestAccountsService(t *testing.T) {
@@ -32,10 +34,10 @@ func (s *AccountsAPISuite) SetupSuite() {
 	logger := newLoggerOrFail(s.T())
 	db := newAccountsDatabaseOrFail(s.T(), logger)
 
-	s.srv = &accountsAPI{
-		auth:   auth.NewService(genKeyOrFail(s.T())),
-		logger: logger,
-		repo:   memory.NewAccountsRepository(db, logger),
+	s.srv = &controllers.AccountsAPI{
+		Auth:   auth.NewService(genKeyOrFail(s.T())),
+		Logger: logger,
+		Repo:   memory.NewAccountsRepository(db, logger),
 	}
 }
 
@@ -62,7 +64,7 @@ func (s *AccountsAPISuite) TestGetAccount() {
 
 	uid := uuid.MustParse(res.Account.Id)
 
-	ctx, err := s.srv.auth.ContextWithToken(context.TODO(), &auth.Token{UserID: uid})
+	ctx, err := s.srv.Auth.ContextWithToken(context.TODO(), &auth.Token{UserID: uid})
 	s.Require().NoError(err)
 
 	acc, err := s.srv.GetAccount(ctx, &accountsv1.GetAccountRequest{Id: uid.String()})
@@ -76,7 +78,7 @@ func (s *AccountsAPISuite) TestGetAccountErrorUnauthorized() {
 
 	uid := uuid.Must(uuid.NewRandom())
 
-	ctx, err := s.srv.auth.ContextWithToken(context.TODO(), &auth.Token{UserID: uid})
+	ctx, err := s.srv.Auth.ContextWithToken(context.TODO(), &auth.Token{UserID: uid})
 	s.Require().NoError(err)
 
 	acc, err := s.srv.GetAccount(ctx, &accountsv1.GetAccountRequest{Id: uid.String()})
@@ -95,7 +97,7 @@ func (s *AccountsAPISuite) TestGetAccountErrorNotFound() {
 	id, err := uuid.Parse(createRes.Account.Id)
 	s.Require().NoError(err)
 
-	ctx, err := s.srv.auth.ContextWithToken(context.TODO(), &auth.Token{
+	ctx, err := s.srv.Auth.ContextWithToken(context.TODO(), &auth.Token{
 		UserID: id,
 	})
 	s.Require().NoError(err)
@@ -114,7 +116,7 @@ func (s *AccountsAPISuite) TestDeleteAccount() {
 	uid, err := uuid.Parse(acc.Account.Id)
 	s.Require().NoError(err)
 
-	ctx, err := s.srv.auth.ContextWithToken(context.TODO(), &auth.Token{UserID: uid})
+	ctx, err := s.srv.Auth.ContextWithToken(context.TODO(), &auth.Token{UserID: uid})
 	s.Require().NoError(err)
 
 	_, err = s.srv.DeleteAccount(ctx, &accountsv1.DeleteAccountRequest{Id: uid.String()})
@@ -128,7 +130,7 @@ func (s *AccountsAPISuite) TestDeleteAccountErrorNotFound() {
 	id, err := uuid.Parse(acc.Account.Id)
 	s.Require().NoError(err)
 
-	ctx, err := s.srv.auth.ContextWithToken(context.TODO(), &auth.Token{
+	ctx, err := s.srv.Auth.ContextWithToken(context.TODO(), &auth.Token{
 		UserID: id,
 	})
 	s.Require().NoError(err)
