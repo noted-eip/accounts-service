@@ -26,7 +26,7 @@ type ManyInvitesFilter struct {
 	GroupID         *string `json:"group_id" bson:"group_id,omitempty"`
 }
 
-// InviteRepository is safe for use in multiple goroutines.
+// InvitesRepository is safe for use in multiple goroutines.
 type InvitesRepository interface {
 	Create(ctx context.Context, filter *InvitePayload) (*Invite, error)
 
