@@ -32,14 +32,37 @@ func (srv *groupsAPI) AddGroupNote(ctx context.Context, in *accountsv1.AddGroupN
 	payload := models.NotePayload{AuthorID: accountId, GroupID: in.GroupId, NoteID: in.NoteId, Title: in.Title}
 	_, err = srv.noteRepo.Create(ctx, &payload)
 	if err != nil {
-		return nil, status.Error(codes.Internal, "failed to add member to group")
+		return nil, status.Error(codes.Internal, "failed to add note to group")
 	}
 
 	return &accountsv1.AddGroupNoteResponse{Note: &accountsv1.GroupNote{AuthorAccountId: accountId, NoteId: in.NoteId, Title: in.Title}}, nil
 }
 
 func (srv *groupsAPI) RemoveGroupNote(ctx context.Context, in *accountsv1.RemoveGroupNoteRequest) (*accountsv1.RemoveGroupNoteResponse, error) {
-	return nil, errors.New("not implemented")
+	err := validators.ValidateRemoveGroupNote(in)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "failed to validate add member request")
+	}
+
+	token, err := srv.authenticate(ctx)
+	if err != nil {
+		return nil, status.Error(codes.Unauthenticated, err.Error())
+	}
+
+	accountId := token.UserID.String()
+
+	_, err = srv.memberRepo.Get(ctx, &models.MemberFilter{AccountID: &accountId, GroupID: &in.GroupId})
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "failed to get member from group_id")
+	}
+
+	filter := models.NoteFilter{NoteID: in.NoteId, GroupID: in.GroupId}
+	_, err = srv.noteRepo.DeleteOne(ctx, &filter)
+	if err != nil {
+		return nil, status.Error(codes.Internal, "failed to delete note from group")
+	}
+
+	return &accountsv1.RemoveGroupNoteResponse{}, nil
 }
 
 func (srv *groupsAPI) UpdateGroupNote(ctx context.Context, in *accountsv1.UpdateGroupNoteRequest) (*accountsv1.UpdateGroupNoteResponse, error) {

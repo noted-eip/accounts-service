@@ -58,7 +58,18 @@ func (srv *notesRepository) Create(ctx context.Context, payload *models.NotePayl
 }
 
 func (srv *notesRepository) DeleteOne(ctx context.Context, filter *models.NoteFilter) (*models.Note, error) {
-	return nil, errors.New("not implemented")
+	note := models.Note{}
+	err := srv.coll.FindOneAndDelete(ctx, filter).Decode(&note)
+	if err != nil {
+		srv.logger.Error("delete one failed", zap.Error(err))
+		return nil, err
+	}
+
+	if note.ID == "" {
+		srv.logger.Error("delete one no document found", zap.Error(err))
+	}
+
+	return &note, nil
 }
 
 func (srv *notesRepository) DeleteMany(ctx context.Context, filter *models.NoteFilter) error {

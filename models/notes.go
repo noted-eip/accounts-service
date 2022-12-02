@@ -22,9 +22,9 @@ type NotePayload struct {
 }
 
 type NoteFilter struct {
-	NoteID   string `json:"note_id" bson:"note_id,omitempty"`
-	Title    string `json:"title" bson:"title,omitempty"`
+	GroupID  string `json:"group_id" bson:"group_id,omitempty"`
 	AuthorID string `json:"author_id" bson:"author_id,omitempty"`
+	NoteID   string `json:"note_id" bson:"note_id,omitempty"`
 }
 
 type NotesRepository interface {
