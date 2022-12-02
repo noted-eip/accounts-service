@@ -8,6 +8,7 @@ import (
 type Note struct {
 	ID        string    `json:"_id" bson:"_id,omitempty"`
 	NoteID    string    `json:"note_id" bson:"note_id,omitempty"`
+	GroupID   string    `json:"group_id" bson:"group_id,omitempty"`
 	Title     string    `json:"title" bson:"title,omitempty"`
 	AuthorID  string    `json:"author_id" bson:"author_id,omitempty"`
 	CreatedAt time.Time `json:"created_at" bson:"created_at,omitempty"`
@@ -15,6 +16,7 @@ type Note struct {
 
 type NotePayload struct {
 	NoteID   string `json:"note_id" bson:"note_id,omitempty"`
+	GroupID  string `json:"group_id" bson:"group_id,omitempty"`
 	Title    string `json:"title" bson:"title,omitempty"`
 	AuthorID string `json:"author_id" bson:"author_id,omitempty"`
 }

@@ -3,8 +3,12 @@ package mongo
 import (
 	"accounts-service/models"
 	"errors"
+	"time"
 
+	"github.com/google/uuid"
+	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
+	"go.mongodb.org/mongo-driver/mongo/options"
 	"go.uber.org/zap"
 	"golang.org/x/net/context"
 )
@@ -22,21 +26,35 @@ func NewNotesRepository(db *mongo.Database, logger *zap.Logger) models.NotesRepo
 		coll:   db.Collection("notes"),
 	}
 
-	// _, err := rep.coll.Indexes().CreateOne(
-	// 	context.Background(),
-	// 	mongo.IndexModel{
-	// 		Keys:    bson.D{{Key: "account_id", Value: 1}, {Key: "group_id", Value: 1}},
-	// 		Options: options.Index().SetUnique(true),
-	// 	},
-	// )
-	// if err != nil {
-	// 	rep.logger.Error("index creation failed", zap.Error(err))
-	// }
+	_, err := rep.coll.Indexes().CreateOne(
+		context.Background(),
+		mongo.IndexModel{
+			Keys:    bson.D{{Key: "note_id", Value: 1}, {Key: "group_id", Value: 1}},
+			Options: options.Index().SetUnique(true),
+		},
+	)
+	if err != nil {
+		rep.logger.Error("index creation failed", zap.Error(err))
+	}
 	return rep
 }
 
 func (srv *notesRepository) Create(ctx context.Context, payload *models.NotePayload) (*models.Note, error) {
-	return nil, errors.New("not implemented")
+	id, err := uuid.NewRandom()
+	if err != nil {
+		srv.logger.Error("failed to generate new random uuid", zap.Error(err))
+		return nil, err
+	}
+
+	note := models.Note{ID: id.String(), AuthorID: payload.AuthorID, GroupID: payload.GroupID, NoteID: payload.NoteID, Title: payload.Title, CreatedAt: time.Now().UTC()}
+
+	_, err = srv.coll.InsertOne(ctx, note)
+	if err != nil {
+		srv.logger.Error("insert failed", zap.Error(err), zap.String("_id", note.ID))
+		return nil, err
+	}
+
+	return &note, nil
 }
 
 func (srv *notesRepository) DeleteOne(ctx context.Context, filter *models.NoteFilter) (*models.Note, error) {
