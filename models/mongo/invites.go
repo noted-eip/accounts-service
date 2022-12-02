@@ -30,7 +30,10 @@ func NewInvitesRepository(db *mongo.Database, logger *zap.Logger) models.Invites
 	_, err := rep.coll.Indexes().CreateOne(
 		context.Background(),
 		mongo.IndexModel{
-			Keys:    bson.D{{Key: "sender_account_id", Value: 1}, {Key: "recipient_account_id", Value: 1}},
+			Keys: bson.D{
+				{Key: "sender_account_id", Value: 1},
+				{Key: "recipient_account_id", Value: 1},
+				{Key: "group_id", Value: 1}},
 			Options: options.Index().SetUnique(true),
 		},
 	)
