@@ -14,7 +14,7 @@ import (
 func (srv *groupsAPI) AddGroupNote(ctx context.Context, in *accountsv1.AddGroupNoteRequest) (*accountsv1.AddGroupNoteResponse, error) {
 	err := validators.ValidateAddGroupNote(in)
 	if err != nil {
-		return nil, status.Error(codes.InvalidArgument, "failed to validate add member request")
+		return nil, status.Error(codes.InvalidArgument, "failed to validate add groupNote request")
 	}
 
 	token, err := srv.authenticate(ctx)
@@ -26,10 +26,10 @@ func (srv *groupsAPI) AddGroupNote(ctx context.Context, in *accountsv1.AddGroupN
 
 	_, err = srv.memberRepo.Get(ctx, &models.MemberFilter{AccountID: &accountId, GroupID: &in.GroupId})
 	if err != nil {
-		return nil, status.Error(codes.InvalidArgument, "failed to get member from group_id")
+		return nil, status.Error(codes.InvalidArgument, "failed to get groupNote from group_id")
 	}
 
-	payload := models.NotePayload{AuthorID: accountId, GroupID: in.GroupId, NoteID: in.NoteId, Title: in.Title}
+	payload := models.GroupNotePayload{AuthorID: accountId, GroupID: in.GroupId, NoteID: in.NoteId, Title: in.Title}
 	_, err = srv.noteRepo.Create(ctx, &payload)
 	if err != nil {
 		return nil, status.Error(codes.Internal, "failed to add note to group")
@@ -56,7 +56,7 @@ func (srv *groupsAPI) RemoveGroupNote(ctx context.Context, in *accountsv1.Remove
 		return nil, status.Error(codes.InvalidArgument, "failed to get member from group_id")
 	}
 
-	filter := models.NoteFilter{NoteID: in.NoteId, GroupID: in.GroupId}
+	filter := models.GroupNoteFilter{NoteID: in.NoteId, GroupID: in.GroupId}
 	_, err = srv.noteRepo.DeleteOne(ctx, &filter)
 	if err != nil {
 		return nil, status.Error(codes.Internal, "failed to delete note from group")

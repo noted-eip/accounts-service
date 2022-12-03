@@ -13,14 +13,14 @@ import (
 	"golang.org/x/net/context"
 )
 
-type notesRepository struct {
+type groupNotesRepository struct {
 	logger *zap.Logger
 	db     *mongo.Database
 	coll   *mongo.Collection
 }
 
-func NewNotesRepository(db *mongo.Database, logger *zap.Logger) models.NotesRepository {
-	rep := &notesRepository{
+func NewNotesRepository(db *mongo.Database, logger *zap.Logger) models.GroupNotesRepository {
+	rep := &groupNotesRepository{
 		logger: logger.Named("mongo").Named("notes"),
 		db:     db,
 		coll:   db.Collection("notes"),
@@ -39,14 +39,14 @@ func NewNotesRepository(db *mongo.Database, logger *zap.Logger) models.NotesRepo
 	return rep
 }
 
-func (srv *notesRepository) Create(ctx context.Context, payload *models.NotePayload) (*models.Note, error) {
+func (srv *groupNotesRepository) Create(ctx context.Context, payload *models.GroupNotePayload) (*models.GroupNote, error) {
 	id, err := uuid.NewRandom()
 	if err != nil {
 		srv.logger.Error("failed to generate new random uuid", zap.Error(err))
 		return nil, err
 	}
 
-	note := models.Note{ID: id.String(), AuthorID: payload.AuthorID, GroupID: payload.GroupID, NoteID: payload.NoteID, Title: payload.Title, CreatedAt: time.Now().UTC()}
+	note := models.GroupNote{ID: id.String(), AuthorID: payload.AuthorID, GroupID: payload.GroupID, NoteID: payload.NoteID, Title: payload.Title, CreatedAt: time.Now().UTC()}
 
 	_, err = srv.coll.InsertOne(ctx, note)
 	if err != nil {
@@ -57,8 +57,8 @@ func (srv *notesRepository) Create(ctx context.Context, payload *models.NotePayl
 	return &note, nil
 }
 
-func (srv *notesRepository) DeleteOne(ctx context.Context, filter *models.NoteFilter) (*models.Note, error) {
-	note := models.Note{}
+func (srv *groupNotesRepository) DeleteOne(ctx context.Context, filter *models.GroupNoteFilter) (*models.GroupNote, error) {
+	note := models.GroupNote{}
 	err := srv.coll.FindOneAndDelete(ctx, filter).Decode(&note)
 	if err != nil {
 		srv.logger.Error("delete one failed", zap.Error(err))
@@ -72,18 +72,18 @@ func (srv *notesRepository) DeleteOne(ctx context.Context, filter *models.NoteFi
 	return &note, nil
 }
 
-func (srv *notesRepository) DeleteMany(ctx context.Context, filter *models.NoteFilter) error {
+func (srv *groupNotesRepository) DeleteMany(ctx context.Context, filter *models.GroupNoteFilter) error {
 	return errors.New("not implemented")
 }
 
-func (srv *notesRepository) Get(ctx context.Context, filter *models.NoteFilter) (*models.Note, error) {
+func (srv *groupNotesRepository) Get(ctx context.Context, filter *models.GroupNoteFilter) (*models.GroupNote, error) {
 	return nil, errors.New("not implemented")
 }
 
-func (srv *notesRepository) Update(ctx context.Context, filter *models.NoteFilter, Note *models.NotePayload) (*models.Note, error) {
+func (srv *groupNotesRepository) Update(ctx context.Context, filter *models.GroupNoteFilter, GroupNote *models.GroupNotePayload) (*models.GroupNote, error) {
 	return nil, errors.New("not implemented")
 }
 
-func (srv *notesRepository) List(ctx context.Context, filter *models.NoteFilter) ([]models.Note, error) {
+func (srv *groupNotesRepository) List(ctx context.Context, filter *models.GroupNoteFilter) ([]models.GroupNote, error) {
 	return nil, errors.New("not implemented")
 }

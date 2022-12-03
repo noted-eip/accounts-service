@@ -31,7 +31,7 @@ type server struct {
 	accountsRepository models.AccountsRepository
 	groupsRepository   models.GroupsRepository
 	membersRepository  models.MembersRepository
-	notesRepository    models.NotesRepository
+	notesRepository    models.GroupNotesRepository
 
 	accountsService accountsv1.AccountsAPIServer
 	groupsService   accountsv1.GroupsAPIServer
