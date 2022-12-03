@@ -29,7 +29,7 @@ func NewNotesRepository(db *mongo.Database, logger *zap.Logger) models.NotesRepo
 	_, err := rep.coll.Indexes().CreateOne(
 		context.Background(),
 		mongo.IndexModel{
-			Keys:    bson.D{{Key: "note_id", Value: 1}, {Key: "group_id", Value: 1}},
+			Keys:    bson.D{{Key: "note_id", Value: 1}},
 			Options: options.Index().SetUnique(true),
 		},
 	)
