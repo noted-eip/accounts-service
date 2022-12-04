@@ -120,6 +120,7 @@ func (s *server) initRepositories() {
 	s.accountsRepository = mongo.NewAccountsRepository(s.mongoDB.DB, s.logger)
 	s.groupsRepository = mongo.NewGroupsRepository(s.mongoDB.DB, s.logger)
 	s.membersRepository = mongo.NewMembersRepository(s.mongoDB.DB, s.logger)
+	s.invitesRepository = mongo.NewInvitesRepository(s.mongoDB.DB, s.logger)
 }
 
 func (s *server) initAccountsService() {
@@ -141,10 +142,11 @@ func (s *server) initGroupsService() {
 
 func (s *server) initInviteService() {
 	s.invitesService = &invitesAPI{
-		auth:       s.authService,
-		logger:     s.logger,
-		groupRepo:  s.groupsRepository,
-		inviteRepo: s.invitesRepository,
+		auth:        s.authService,
+		logger:      s.logger,
+		groupRepo:   s.groupsRepository,
+		inviteRepo:  s.invitesRepository,
+		accountRepo: s.accountsRepository,
 	}
 }
 
@@ -152,6 +154,7 @@ func (s *server) initGrpcServer(opt ...grpc.ServerOption) {
 	s.grpcServer = grpc.NewServer(opt...)
 	accountsv1.RegisterAccountsAPIServer(s.grpcServer, s.accountsService)
 	accountsv1.RegisterGroupsAPIServer(s.grpcServer, s.groupsService)
+	accountsv1.RegisterInvitesAPIServer(s.grpcServer, s.invitesService)
 }
 
 func must(err error, msg string) {
