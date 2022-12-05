@@ -28,10 +28,10 @@ type server struct {
 
 	mongoDB *mongo.Database
 
-	accountsRepository models.AccountsRepository
-	groupsRepository   models.GroupsRepository
-	tchatsRepository   models.ConversationsRepository
-	membersRepository  models.MembersRepository
+	accountsRepository      models.AccountsRepository
+	groupsRepository        models.GroupsRepository
+	conversationsRepository models.ConversationsRepository
+	membersRepository       models.MembersRepository
 
 	accountsService accountsv1.AccountsAPIServer
 	groupsService   accountsv1.GroupsAPIServer
@@ -119,7 +119,7 @@ func (s *server) initRepositories() {
 	must(err, "could not instantiate mongo database")
 	s.accountsRepository = mongo.NewAccountsRepository(s.mongoDB.DB, s.logger)
 	s.groupsRepository = mongo.NewGroupsRepository(s.mongoDB.DB, s.logger)
-	s.tchatsRepository = mongo.NewConversationsRepository(s.mongoDB.DB, s.logger)
+	s.conversationsRepository = mongo.NewConversationsRepository(s.mongoDB.DB, s.logger)
 	s.membersRepository = mongo.NewMembersRepository(s.mongoDB.DB, s.logger)
 }
 
@@ -127,7 +127,7 @@ func (s *server) initConversationsService() {
 	s.tchatsService = &conversationsAPI{
 		auth:   s.authService,
 		logger: s.logger,
-		repo:   s.tchatsRepository,
+		repo:   s.conversationsRepository,
 	}
 }
 
@@ -141,10 +141,11 @@ func (s *server) initAccountsService() {
 
 func (s *server) initGroupsService() {
 	s.groupsService = &groupsAPI{
-		auth:       s.authService,
-		logger:     s.logger,
-		groupRepo:  s.groupsRepository,
-		memberRepo: s.membersRepository,
+		auth:             s.authService,
+		logger:           s.logger,
+		groupRepo:        s.groupsRepository,
+		memberRepo:       s.membersRepository,
+		conversationRepo: s.conversationsRepository,
 	}
 }
 

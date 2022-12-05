@@ -17,10 +17,11 @@ import (
 type groupsAPI struct {
 	accountsv1.UnimplementedGroupsAPIServer
 
-	auth       auth.Service
-	logger     *zap.Logger
-	groupRepo  models.GroupsRepository
-	memberRepo models.MembersRepository
+	auth             auth.Service
+	logger           *zap.Logger
+	groupRepo        models.GroupsRepository
+	memberRepo       models.MembersRepository
+	conversationRepo models.ConversationsRepository
 }
 
 var _ accountsv1.GroupsAPIServer = &groupsAPI{}
@@ -42,6 +43,12 @@ func (srv *groupsAPI) CreateGroup(ctx context.Context, in *accountsv1.CreateGrou
 	_, err = srv.memberRepo.Create(ctx, &member)
 	if err != nil {
 		return nil, status.Error(codes.Internal, err.Error())
+	}
+
+	conversation := models.ConversationInfo{Title: "Default conversation", GroupID: group.ID}
+	_, err = srv.conversationRepo.Create(ctx, &conversation)
+	if err != nil {
+		return nil, statusFromModelError(err)
 	}
 
 	return &accountsv1.CreateGroupResponse{
