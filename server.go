@@ -33,9 +33,9 @@ type server struct {
 	conversationsRepository models.ConversationsRepository
 	membersRepository       models.MembersRepository
 
-	accountsService accountsv1.AccountsAPIServer
-	groupsService   accountsv1.GroupsAPIServer
-	tchatsService   accountsv1.ConversationsAPIServer
+	accountsService      accountsv1.AccountsAPIServer
+	groupsService        accountsv1.GroupsAPIServer
+	conversationsService accountsv1.ConversationsAPIServer
 
 	grpcServer *grpc.Server
 }
@@ -124,7 +124,7 @@ func (s *server) initRepositories() {
 }
 
 func (s *server) initConversationsService() {
-	s.tchatsService = &conversationsAPI{
+	s.conversationsService = &conversationsAPI{
 		auth:   s.authService,
 		logger: s.logger,
 		repo:   s.conversationsRepository,
@@ -153,7 +153,7 @@ func (s *server) initGrpcServer(opt ...grpc.ServerOption) {
 	s.grpcServer = grpc.NewServer(opt...)
 	accountsv1.RegisterAccountsAPIServer(s.grpcServer, s.accountsService)
 	accountsv1.RegisterGroupsAPIServer(s.grpcServer, s.groupsService)
-	accountsv1.RegisterConversationsAPIServer(s.grpcServer, s.tchatsService)
+	accountsv1.RegisterConversationsAPIServer(s.grpcServer, s.conversationsService)
 }
 
 func must(err error, msg string) {
