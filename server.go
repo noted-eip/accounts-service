@@ -32,6 +32,7 @@ type server struct {
 	groupsRepository   models.GroupsRepository
 	membersRepository  models.MembersRepository
 	invitesRepository  models.InvitesRepository
+	notesRepository    models.GroupNotesRepository
 
 	accountsService accountsv1.AccountsAPIServer
 	groupsService   accountsv1.GroupsAPIServer
@@ -121,6 +122,7 @@ func (s *server) initRepositories() {
 	s.groupsRepository = mongo.NewGroupsRepository(s.mongoDB.DB, s.logger)
 	s.membersRepository = mongo.NewMembersRepository(s.mongoDB.DB, s.logger)
 	s.invitesRepository = mongo.NewInvitesRepository(s.mongoDB.DB, s.logger)
+	s.notesRepository = mongo.NewNotesRepository(s.mongoDB.DB, s.logger)
 }
 
 func (s *server) initAccountsService() {
@@ -137,6 +139,7 @@ func (s *server) initGroupsService() {
 		logger:     s.logger,
 		groupRepo:  s.groupsRepository,
 		memberRepo: s.membersRepository,
+		noteRepo:   s.notesRepository,
 	}
 }
 
