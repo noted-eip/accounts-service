@@ -21,6 +21,7 @@ type groupsAPI struct {
 	logger     *zap.Logger
 	groupRepo  models.GroupsRepository
 	memberRepo models.MembersRepository
+	noteRepo   models.GroupNotesRepository
 }
 
 var _ accountsv1.GroupsAPIServer = &groupsAPI{}
