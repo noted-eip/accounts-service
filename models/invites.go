@@ -33,7 +33,7 @@ type InvitesRepository interface {
 
 	Get(ctx context.Context, filter *OneInviteFilter) (*Invite, error)
 
-	Delete(ctx context.Context, filter *OneInviteFilter) error
+	Delete(ctx context.Context, filter *ManyInvitesFilter) error
 
 	Update(ctx context.Context, filter *OneInviteFilter, Invite *InvitePayload) (*Invite, error)
 

@@ -73,7 +73,7 @@ func (srv *invitesAPI) GetInvite(ctx context.Context, in *accountsv1.GetInviteRe
 	accountId := token.UserID.String()
 
 	if invite == nil || (*invite.RecipientAccountID != accountId && *invite.SenderAccountID != accountId) {
-		return nil, status.Error(codes.NotFound, "invitation not found")
+		return nil, status.Error(codes.NotFound, "invite not found")
 	}
 
 	return &accountsv1.GetInviteResponse{Invite: &accountsv1.Invite{
@@ -116,6 +116,59 @@ func (srv *invitesAPI) ListInvites(ctx context.Context, in *accountsv1.ListInvit
 		inviteResp = append(inviteResp, elem)
 	}
 	return &accountsv1.ListInvitesResponse{Invites: inviteResp}, nil
+}
+
+func (srv *invitesAPI) AcceptInvite(ctx context.Context, in *accountsv1.AcceptInviteRequest) (*accountsv1.AcceptInviteResponse, error) {
+	token, err := srv.authenticate(ctx)
+	if err != nil {
+		return nil, status.Error(codes.Unauthenticated, err.Error())
+	}
+
+	accountId := token.UserID.String()
+
+	res, err := srv.GetInvite(ctx, &accountsv1.GetInviteRequest{InviteId: in.InviteId})
+	invite := res.Invite
+	if err != nil || invite == nil || (invite.RecipientAccountId != accountId && invite.SenderAccountId != accountId) {
+		return nil, status.Error(codes.NotFound, "invite not found")
+	}
+
+	_, err = srv.groupService.AddGroupMember(ctx, &accountsv1.AddGroupMemberRequest{GroupId: invite.GroupId, AccountId: invite.RecipientAccountId})
+	if err != nil {
+		return nil, err
+	}
+
+	err = srv.inviteRepo.Delete(ctx, &models.ManyInvitesFilter{RecipientAccountID: &invite.RecipientAccountId, GroupID: &invite.GroupId})
+	if err != nil {
+		return nil, err
+	}
+
+	return &accountsv1.AcceptInviteResponse{}, nil
+}
+
+func (srv *invitesAPI) DenyInvite(ctx context.Context, in *accountsv1.AcceptInviteRequest) (*accountsv1.AcceptInviteResponse, error) {
+	token, err := srv.authenticate(ctx)
+	if err != nil {
+		return nil, status.Error(codes.Unauthenticated, err.Error())
+	}
+
+	accountId := token.UserID.String()
+
+	res, err := srv.GetInvite(ctx, &accountsv1.GetInviteRequest{InviteId: in.InviteId})
+	invite := res.Invite
+	if err != nil || invite == nil || (invite.RecipientAccountId != accountId && invite.SenderAccountId != accountId) {
+		return nil, status.Error(codes.NotFound, "invite not found")
+	}
+
+	err = srv.inviteRepo.Delete(ctx, &models.ManyInvitesFilter{
+		RecipientAccountID: &invite.RecipientAccountId,
+		GroupID:            &invite.GroupId,
+		SenderAccountID:    &invite.SenderAccountId,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	return &accountsv1.AcceptInviteResponse{}, nil
 }
 
 // TODO: This function is duplicated from accountsService.authenticate().

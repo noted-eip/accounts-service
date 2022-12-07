@@ -81,8 +81,8 @@ func (srv *invitesRepository) Get(ctx context.Context, filter *models.OneInviteF
 	return &invite, nil
 }
 
-func (srv *invitesRepository) Delete(ctx context.Context, filter *models.OneInviteFilter) error {
-	delete, err := srv.coll.DeleteOne(ctx, filter)
+func (srv *invitesRepository) Delete(ctx context.Context, filter *models.ManyInvitesFilter) error {
+	delete, err := srv.coll.DeleteMany(ctx, filter)
 	if err != nil {
 		srv.logger.Error("delete failed", zap.Error(err))
 		return err
