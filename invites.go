@@ -34,7 +34,12 @@ func (srv *invitesAPI) SendInvite(ctx context.Context, in *accountsv1.SendInvite
 
 	_, err = srv.groupService.GetGroupMember(ctx, &accountsv1.GetGroupMemberRequest{GroupId: in.GroupId, AccountId: accountId})
 	if err != nil {
-		return nil, status.Error(codes.InvalidArgument, "failed to get member in group")
+		return nil, status.Error(codes.InvalidArgument, "sender not in group")
+	}
+
+	_, err = srv.groupService.GetGroupMember(ctx, &accountsv1.GetGroupMemberRequest{GroupId: in.GroupId, AccountId: in.RecipientAccountId})
+	if err == nil {
+		return nil, status.Error(codes.InvalidArgument, "recipient already in group")
 	}
 
 	invite, err := srv.inviteRepo.Create(ctx, &models.InvitePayload{SenderAccountID: &accountId, RecipientAccountID: &in.RecipientAccountId, GroupID: &in.GroupId})
