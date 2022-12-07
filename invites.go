@@ -14,11 +14,12 @@ import (
 type invitesAPI struct {
 	accountsv1.UnimplementedInvitesAPIServer
 
-	auth        auth.Service
-	logger      *zap.Logger
-	groupRepo   models.GroupsRepository
-	accountRepo models.AccountsRepository
-	inviteRepo  models.InvitesRepository
+	auth         auth.Service
+	logger       *zap.Logger
+	groupService accountsv1.GroupsAPIServer
+	groupRepo    models.GroupsRepository
+	accountRepo  models.AccountsRepository
+	inviteRepo   models.InvitesRepository
 }
 
 var _ accountsv1.InvitesAPIServer = &invitesAPI{}
@@ -31,14 +32,9 @@ func (srv *invitesAPI) SendInvite(ctx context.Context, in *accountsv1.SendInvite
 
 	accountId := token.UserID.String()
 
-	_, err = srv.groupRepo.Get(ctx, &models.OneGroupFilter{ID: in.GroupId})
+	_, err = srv.groupService.GetGroupMember(ctx, &accountsv1.GetGroupMemberRequest{GroupId: in.GroupId, AccountId: accountId})
 	if err != nil {
-		return nil, status.Error(codes.InvalidArgument, "failed to get group from group_id")
-	}
-
-	_, err = srv.accountRepo.Get(ctx, &models.OneAccountFilter{ID: in.RecipientAccountId})
-	if err != nil {
-		return nil, status.Error(codes.InvalidArgument, "failed to get recipient account id")
+		return nil, status.Error(codes.InvalidArgument, "failed to get member in group")
 	}
 
 	invite, err := srv.inviteRepo.Create(ctx, &models.InvitePayload{SenderAccountID: &accountId, RecipientAccountID: &in.RecipientAccountId, GroupID: &in.GroupId})

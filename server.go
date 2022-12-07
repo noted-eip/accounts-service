@@ -145,11 +145,12 @@ func (s *server) initGroupsService() {
 
 func (s *server) initInviteService() {
 	s.invitesService = &invitesAPI{
-		auth:        s.authService,
-		logger:      s.logger,
-		groupRepo:   s.groupsRepository,
-		inviteRepo:  s.invitesRepository,
-		accountRepo: s.accountsRepository,
+		auth:         s.authService,
+		logger:       s.logger,
+		groupRepo:    s.groupsRepository,
+		groupService: s.groupsService,
+		inviteRepo:   s.invitesRepository,
+		accountRepo:  s.accountsRepository,
 	}
 }
 
