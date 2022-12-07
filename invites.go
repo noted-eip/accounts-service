@@ -145,7 +145,7 @@ func (srv *invitesAPI) AcceptInvite(ctx context.Context, in *accountsv1.AcceptIn
 	return &accountsv1.AcceptInviteResponse{}, nil
 }
 
-func (srv *invitesAPI) DenyInvite(ctx context.Context, in *accountsv1.AcceptInviteRequest) (*accountsv1.AcceptInviteResponse, error) {
+func (srv *invitesAPI) DenyInvite(ctx context.Context, in *accountsv1.DenyInviteRequest) (*accountsv1.DenyInviteResponse, error) {
 	token, err := srv.authenticate(ctx)
 	if err != nil {
 		return nil, status.Error(codes.Unauthenticated, err.Error())
@@ -168,7 +168,7 @@ func (srv *invitesAPI) DenyInvite(ctx context.Context, in *accountsv1.AcceptInvi
 		return nil, err
 	}
 
-	return &accountsv1.AcceptInviteResponse{}, nil
+	return &accountsv1.DenyInviteResponse{}, nil
 }
 
 // TODO: This function is duplicated from accountsService.authenticate().
