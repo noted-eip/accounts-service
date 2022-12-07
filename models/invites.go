@@ -22,8 +22,9 @@ type OneInviteFilter struct {
 }
 
 type ManyInvitesFilter struct {
-	SenderAccountID *string `json:"sender_account_id" bson:"sender_account_id,omitempty"`
-	GroupID         *string `json:"group_id" bson:"group_id,omitempty"`
+	RecipientAccountID *string `json:"recipient_account_id" bson:"recipient_account_id,omitempty"`
+	SenderAccountID    *string `json:"sender_account_id" bson:"sender_account_id,omitempty"`
+	GroupID            *string `json:"group_id" bson:"group_id,omitempty"`
 }
 
 // InvitesRepository is safe for use in multiple goroutines.

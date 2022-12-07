@@ -59,6 +59,65 @@ func (srv *invitesAPI) SendInvite(ctx context.Context, in *accountsv1.SendInvite
 	}, nil
 }
 
+func (srv *invitesAPI) GetInvite(ctx context.Context, in *accountsv1.GetInviteRequest) (*accountsv1.GetInviteResponse, error) {
+	token, err := srv.authenticate(ctx)
+	if err != nil {
+		return nil, status.Error(codes.Unauthenticated, err.Error())
+	}
+
+	invite, err := srv.inviteRepo.Get(ctx, &models.OneInviteFilter{ID: in.InviteId})
+	if err != nil {
+		return nil, statusFromModelError(err)
+	}
+
+	accountId := token.UserID.String()
+
+	if invite == nil || (*invite.RecipientAccountID != accountId && *invite.SenderAccountID != accountId) {
+		return nil, status.Error(codes.NotFound, "invitation not found")
+	}
+
+	return &accountsv1.GetInviteResponse{Invite: &accountsv1.Invite{
+		Id:                 invite.ID,
+		GroupId:            *invite.GroupID,
+		SenderAccountId:    *invite.SenderAccountID,
+		RecipientAccountId: *invite.RecipientAccountID,
+	}}, nil
+}
+
+func (srv *invitesAPI) ListInvites(ctx context.Context, in *accountsv1.ListInvitesRequest) (*accountsv1.ListInvitesResponse, error) {
+	_, err := srv.authenticate(ctx)
+	if err != nil {
+		return nil, status.Error(codes.Unauthenticated, err.Error())
+	}
+
+	if in.Limit == 0 {
+		in.Limit = 20
+	}
+
+	invites, err := srv.inviteRepo.List(ctx, &models.ManyInvitesFilter{
+		SenderAccountID:    &in.SenderAccountId,
+		RecipientAccountID: &in.RecipientAccountId,
+		GroupID:            &in.GroupId,
+	}, &models.Pagination{Offset: int64(in.Offset), Limit: int64(in.Limit)})
+	if err != nil {
+		return nil, statusFromModelError(err)
+	}
+
+	// NOTE: As every account are apparently accessible to list and get from every account as long as you are authentificated, I did the same with invites
+
+	var inviteResp []*accountsv1.Invite
+	for _, invite := range invites {
+		elem := &accountsv1.Invite{
+			Id:                 invite.ID,
+			GroupId:            *invite.GroupID,
+			SenderAccountId:    *invite.SenderAccountID,
+			RecipientAccountId: in.RecipientAccountId,
+		}
+		inviteResp = append(inviteResp, elem)
+	}
+	return &accountsv1.ListInvitesResponse{Invites: inviteResp}, nil
+}
+
 // TODO: This function is duplicated from accountsService.authenticate().
 // Find a way to extract this into a separate function or use a base class
 // to share common behaviour.
