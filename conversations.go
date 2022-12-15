@@ -27,6 +27,16 @@ func (server *conversationsAPI) CreateConversation(ctx context.Context, in *conv
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}
+
+	groupConversations, err := server.repo.List(ctx, &models.AllConversationsFilter{ID: in.GroupId})
+
+	for _, conv := range groupConversations {
+		res := conv.Title == in.Title
+		if res {
+			return nil, status.Error(codes.Internal, "a conversations with this title always exist")
+		}
+	}
+
 	conversation, err := server.repo.Create(ctx, &models.ConversationInfo{Title: in.Title, GroupID: in.GroupId})
 	if err != nil {
 		return nil, statusFromModelError(err)
@@ -61,11 +71,60 @@ func (server *conversationsAPI) GetConversation(ctx context.Context, in *convers
 }
 
 func (server *conversationsAPI) DeleteConversation(ctx context.Context, in *conversationsv1.DeleteConversationRequest) (*conversationsv1.DeleteConversationResponse, error) {
-	return nil, nil
+	err := validators.ValidateDeleteConversationRequest(in)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, err.Error())
+	}
+
+	err = server.repo.Delete(ctx, &models.OneConversationFilter{ID: in.ConversationId})
+	if err != nil {
+		return nil, statusFromModelError(err)
+	}
+
+	return &conversationsv1.DeleteConversationResponse{}, nil
 }
 
 func (server *conversationsAPI) UpdateConversation(ctx context.Context, in *conversationsv1.UpdateConversationRequest) (*conversationsv1.UpdateConversationResponse, error) {
-	return nil, nil
+	err := validators.ValidateUpdateConversationRequest(in)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "could not validate update conversation request")
+	}
+
+	filter := models.OneConversationFilter{ID: in.ConversationId}
+
+	conversation, err := server.repo.Get(ctx, &filter)
+	if err != nil {
+		return nil, status.Error(codes.Internal, "failed to get conversation to update")
+	}
+
+	if conversation.Title == in.Title {
+		return nil, status.Error(codes.Internal, "new title same as old title")
+	}
+
+	groupConversations, err := server.repo.List(ctx, &models.AllConversationsFilter{ID: conversation.GroupID})
+	if err != nil {
+		return nil, status.Error(codes.Internal, "failed to get list of all conversations of group")
+	}
+
+	for _, conv := range groupConversations {
+		res := conv.Title == in.Title
+		if res {
+			return nil, status.Error(codes.Internal, "a conversations with this title always exist")
+		}
+	}
+
+	_, err = server.repo.Update(ctx, &filter, &models.ConversationTitle{Title: in.Title})
+	if err != nil {
+		return nil, status.Error(codes.Internal, "failed to update conversation title")
+	}
+
+	return &conversationsv1.UpdateConversationResponse{
+		Conversation: &conversationsv1.Conversation{
+			Id:      in.ConversationId,
+			GroupId: conversation.GroupID,
+			Title:   in.Title,
+		},
+	}, nil
 }
 
 func (server *conversationsAPI) ListConversations(ctx context.Context, in *conversationsv1.ListConversationsRequest) (*conversationsv1.ListConversationsResponse, error) {

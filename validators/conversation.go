@@ -24,7 +24,7 @@ func ValidateGetConversationRequest(in *conversationsv1.GetConversationRequest) 
 func ValidateUpdateConversationRequest(in *conversationsv1.UpdateConversationRequest) error {
 	return validation.ValidateStruct(in,
 		validation.Field(&in.ConversationId, validation.Required, is.UUID),
-		validation.Field(&in.Title, validation.Required, validation.Length(1, 20)),
+		validation.Field(&in.Title, validation.Required, validation.Length(1, 30)),
 	)
 }
 

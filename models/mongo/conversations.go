@@ -11,6 +11,7 @@ import (
 
 	"github.com/google/uuid"
 	// "go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
 
 	// "go.mongodb.org/mongo-driver/mongo/options"
@@ -80,12 +81,32 @@ func (srv *conversationsRepository) Get(ctx context.Context, filter *models.OneC
 	return &conversation, nil
 }
 
-func (srv *conversationsRepository) Delete(ctx context.Context) error {
+func (srv *conversationsRepository) Delete(ctx context.Context, filter *models.OneConversationFilter) error {
+	delete, err := srv.coll.DeleteOne(ctx, filter)
+	if err != nil {
+		srv.logger.Error("Delete failed", zap.Error(err))
+		return err
+	}
+
+	if delete.DeletedCount == 0 {
+		return models.ErrNotFound
+	}
 	return nil
 }
 
-func (srv *conversationsRepository) Update(ctx context.Context) error {
-	return nil
+func (srv *conversationsRepository) Update(ctx context.Context, filter *models.OneConversationFilter, info *models.ConversationTitle) (*models.Conversation, error) {
+	var conversation models.Conversation
+
+	update, err := srv.coll.UpdateOne(ctx, &filter, bson.D{{"$set", bson.D{{"title", info.Title}}}})
+	if err != nil {
+		srv.logger.Error("update title failed", zap.Error(err))
+		return nil, err
+	}
+	if update.ModifiedCount == 0 {
+		return nil, models.ErrNotFound
+	}
+
+	return &conversation, nil
 }
 
 func (srv *conversationsRepository) List(ctx context.Context, filter *models.AllConversationsFilter) ([]models.Conversation, error) {
