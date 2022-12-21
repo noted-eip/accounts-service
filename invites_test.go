@@ -123,7 +123,7 @@ func (s *InvitesAPISuite) TestSendInviteErrorGroupDoesNotExist() {
 	ctx, err := s.srv.auth.ContextWithToken(context.TODO(), &auth.Token{UserID: uid})
 	s.Require().NoError(err)
 
-	invite, err := s.srv.SendInvite(ctx, &accountsv1.SendInviteRequest{GroupId: "fakegroup", RecipientAccountId: recipient.ID})
+	invite, err := s.srv.SendInvite(ctx, &accountsv1.SendInviteRequest{GroupId: uuid.New().String(), RecipientAccountId: recipient.ID})
 
 	s.Require().Error(err)
 	s.Require().Nil(invite)
@@ -138,7 +138,7 @@ func (s *InvitesAPISuite) TestSendInviteErrorRecipientDoesNotExist() {
 
 	group := createDefaultGroup(s, ctx)
 
-	invite, err := s.srv.SendInvite(ctx, &accountsv1.SendInviteRequest{GroupId: group.Id, RecipientAccountId: "fakeid"})
+	invite, err := s.srv.SendInvite(ctx, &accountsv1.SendInviteRequest{GroupId: group.Id, RecipientAccountId: uuid.New().String()})
 	s.Require().Error(err)
 	s.Require().Nil(invite)
 }
@@ -240,7 +240,7 @@ func (s *InvitesAPISuite) TestAcceptNonExistingInvite() {
 	ctx, err := s.srv.auth.ContextWithToken(context.TODO(), &auth.Token{UserID: uid})
 	s.Require().NoError(err)
 
-	acceptInviteRes, err := s.srv.AcceptInvite(ctx, &accountsv1.AcceptInviteRequest{InviteId: "fakeinvite"})
+	acceptInviteRes, err := s.srv.AcceptInvite(ctx, &accountsv1.AcceptInviteRequest{InviteId: uuid.New().String()})
 	s.Require().Error(err)
 	s.Require().Nil(acceptInviteRes)
 }
@@ -252,7 +252,7 @@ func (s *InvitesAPISuite) TestDenyNonExistingInvite() {
 	ctx, err := s.srv.auth.ContextWithToken(context.TODO(), &auth.Token{UserID: uid})
 	s.Require().NoError(err)
 
-	denyInviteRes, err := s.srv.DenyInvite(ctx, &accountsv1.DenyInviteRequest{InviteId: "fakeinvite"})
+	denyInviteRes, err := s.srv.DenyInvite(ctx, &accountsv1.DenyInviteRequest{InviteId: uuid.New().String()})
 	s.Require().Error(err)
 	s.Require().Nil(denyInviteRes)
 }

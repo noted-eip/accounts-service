@@ -14,6 +14,18 @@ func ValidateSendInvite(in *accountsv1.SendInviteRequest) error {
 	)
 }
 
+func ValidateAcceptInvite(in *accountsv1.AcceptInviteRequest) error {
+	return validation.ValidateStruct(in,
+		validation.Field(&in.InviteId, validation.Required, is.UUID),
+	)
+}
+
+func ValidateDenyInvite(in *accountsv1.DenyInviteRequest) error {
+	return validation.ValidateStruct(in,
+		validation.Field(&in.InviteId, validation.Required, is.UUID),
+	)
+}
+
 func ValidateListInvites(in *accountsv1.ListInvitesRequest) error {
 	return validation.ValidateStruct(in,
 		validation.Field(&in.SenderAccountId, validation.Required, is.UUID),

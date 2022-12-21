@@ -4,6 +4,7 @@ import (
 	"accounts-service/auth"
 	"accounts-service/models"
 	accountsv1 "accounts-service/protorepo/noted/accounts/v1"
+	"accounts-service/validators"
 	"context"
 
 	"go.uber.org/zap"
@@ -25,6 +26,11 @@ type invitesAPI struct {
 var _ accountsv1.InvitesAPIServer = &invitesAPI{}
 
 func (srv *invitesAPI) SendInvite(ctx context.Context, in *accountsv1.SendInviteRequest) (*accountsv1.SendInviteResponse, error) {
+	err := validators.ValidateSendInvite(in)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, err.Error())
+	}
+
 	token, err := srv.authenticate(ctx)
 	if err != nil {
 		return nil, status.Error(codes.Unauthenticated, err.Error())
@@ -65,6 +71,11 @@ func (srv *invitesAPI) SendInvite(ctx context.Context, in *accountsv1.SendInvite
 }
 
 func (srv *invitesAPI) GetInvite(ctx context.Context, in *accountsv1.GetInviteRequest) (*accountsv1.GetInviteResponse, error) {
+	err := validators.ValidateGetInvite(in)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, err.Error())
+	}
+
 	token, err := srv.authenticate(ctx)
 	if err != nil {
 		return nil, status.Error(codes.Unauthenticated, err.Error())
@@ -90,7 +101,12 @@ func (srv *invitesAPI) GetInvite(ctx context.Context, in *accountsv1.GetInviteRe
 }
 
 func (srv *invitesAPI) ListInvites(ctx context.Context, in *accountsv1.ListInvitesRequest) (*accountsv1.ListInvitesResponse, error) {
-	_, err := srv.authenticate(ctx)
+	err := validators.ValidateListInvites(in)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, err.Error())
+	}
+
+	_, err = srv.authenticate(ctx)
 	if err != nil {
 		return nil, status.Error(codes.Unauthenticated, err.Error())
 	}
@@ -124,6 +140,11 @@ func (srv *invitesAPI) ListInvites(ctx context.Context, in *accountsv1.ListInvit
 }
 
 func (srv *invitesAPI) AcceptInvite(ctx context.Context, in *accountsv1.AcceptInviteRequest) (*accountsv1.AcceptInviteResponse, error) {
+	err := validators.ValidateAcceptInvite(in)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, err.Error())
+	}
+
 	token, err := srv.authenticate(ctx)
 	if err != nil {
 		return nil, status.Error(codes.Unauthenticated, err.Error())
@@ -155,6 +176,11 @@ func (srv *invitesAPI) AcceptInvite(ctx context.Context, in *accountsv1.AcceptIn
 }
 
 func (srv *invitesAPI) DenyInvite(ctx context.Context, in *accountsv1.DenyInviteRequest) (*accountsv1.DenyInviteResponse, error) {
+	err := validators.ValidateDenyInvite(in)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, err.Error())
+	}
+
 	token, err := srv.authenticate(ctx)
 	if err != nil {
 		return nil, status.Error(codes.Unauthenticated, err.Error())
