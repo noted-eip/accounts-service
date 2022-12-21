@@ -17,11 +17,12 @@ import (
 type groupsAPI struct {
 	accountsv1.UnimplementedGroupsAPIServer
 
-	auth             auth.Service
-	logger           *zap.Logger
-	groupRepo        models.GroupsRepository
-	memberRepo       models.MembersRepository
-	conversationRepo models.ConversationsRepository
+	auth                auth.Service
+	logger              *zap.Logger
+	conversationService accountsv1.ConversationsAPIServer
+	groupRepo           models.GroupsRepository
+	memberRepo          models.MembersRepository
+	conversationRepo    models.ConversationsRepository
 }
 
 var _ accountsv1.GroupsAPIServer = &groupsAPI{}
@@ -45,10 +46,9 @@ func (srv *groupsAPI) CreateGroup(ctx context.Context, in *accountsv1.CreateGrou
 		return nil, status.Error(codes.Internal, err.Error())
 	}
 
-	conversation := models.ConversationInfo{Title: "Default conversation", GroupID: group.ID}
-	_, err = srv.conversationRepo.Create(ctx, &conversation)
+	_, err = srv.conversationService.CreateConversation(ctx, &accountsv1.CreateConversationRequest{Title: "General conversation", GroupId: group.ID})
 	if err != nil {
-		return nil, statusFromModelError(err)
+		return nil, status.Error(codes.InvalidArgument, "failed when create conversation")
 	}
 
 	return &accountsv1.CreateGroupResponse{
@@ -70,6 +70,18 @@ func (srv *groupsAPI) DeleteGroup(ctx context.Context, in *accountsv1.DeleteGrou
 	_, err = srv.authenticate(ctx)
 	if err != nil {
 		return nil, status.Error(codes.Unauthenticated, err.Error())
+	}
+
+	conversations, err := srv.conversationService.ListConversations(ctx, &accountsv1.ListConversationsRequest{GroupId: in.GroupId})
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "failed to list conversation")
+	}
+
+	for _, conv := range conversations.Conversations {
+		_, err = srv.conversationService.DeleteConversation(ctx, &accountsv1.DeleteConversationRequest{ConversationId: conv.Id})
+		if err != nil {
+			return nil, status.Error(codes.InvalidArgument, "failed to delete conversation")
+		}
 	}
 
 	err = srv.groupRepo.Delete(ctx, &models.OneGroupFilter{ID: in.GroupId})

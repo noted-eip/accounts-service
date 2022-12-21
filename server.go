@@ -46,8 +46,8 @@ func (s *server) Init(opt ...grpc.ServerOption) {
 	s.initAuthService()
 	s.initRepositories()
 	s.initAccountsService()
-	s.initGroupsService()
 	s.initConversationsService()
+	s.initGroupsService()
 	s.initGrpcServer(opt...)
 }
 
@@ -141,11 +141,12 @@ func (s *server) initAccountsService() {
 
 func (s *server) initGroupsService() {
 	s.groupsService = &groupsAPI{
-		auth:             s.authService,
-		logger:           s.logger,
-		groupRepo:        s.groupsRepository,
-		memberRepo:       s.membersRepository,
-		conversationRepo: s.conversationsRepository,
+		auth:                s.authService,
+		logger:              s.logger,
+		conversationService: s.conversationsService,
+		groupRepo:           s.groupsRepository,
+		memberRepo:          s.membersRepository,
+		conversationRepo:    s.conversationsRepository,
 	}
 }
 
