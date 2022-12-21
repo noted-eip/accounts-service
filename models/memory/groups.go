@@ -24,7 +24,6 @@ func NewGroupsRepository(groupDB *Database, logger *zap.Logger) models.GroupsRep
 
 func (srv *groupsRepository) Create(ctx context.Context, payload *models.GroupPayload) (*models.Group, error) {
 	txn := srv.groupDB.DB.Txn(true)
-	defer txn.Abort()
 
 	id, err := uuid.NewRandom()
 	if err != nil {
@@ -50,7 +49,6 @@ func (srv *groupsRepository) Create(ctx context.Context, payload *models.GroupPa
 
 func (srv *groupsRepository) Get(ctx context.Context, filter *models.OneGroupFilter) (*models.Group, error) {
 	txn := srv.groupDB.DB.Txn(false)
-	defer txn.Abort()
 
 	raw, err := txn.First("group", "id", filter.ID)
 	if err != nil {
@@ -69,7 +67,6 @@ func (srv *groupsRepository) Get(ctx context.Context, filter *models.OneGroupFil
 
 func (srv *groupsRepository) Delete(ctx context.Context, filter *models.OneGroupFilter) error {
 	txn := srv.groupDB.DB.Txn(true)
-	defer txn.Abort()
 
 	err := txn.Delete("group", models.Group{ID: filter.ID})
 	if err != nil {
@@ -80,12 +77,12 @@ func (srv *groupsRepository) Delete(ctx context.Context, filter *models.OneGroup
 		return err
 	}
 
+	txn.Commit()
 	return nil
 }
 
 func (srv *groupsRepository) Update(ctx context.Context, filter *models.OneGroupFilter, group *models.GroupPayload) (*models.Group, error) {
 	txn := srv.groupDB.DB.Txn(true)
-	defer txn.Abort()
 
 	newGroup := models.Group{ID: filter.ID, Description: group.Description, Name: group.Name}
 	err := txn.Insert("group", &newGroup)
@@ -97,6 +94,7 @@ func (srv *groupsRepository) Update(ctx context.Context, filter *models.OneGroup
 		return nil, err
 	}
 
+	txn.Commit()
 	return &newGroup, nil
 }
 

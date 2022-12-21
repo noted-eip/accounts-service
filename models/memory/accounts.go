@@ -23,7 +23,6 @@ func NewAccountsRepository(db *Database, logger *zap.Logger) models.AccountsRepo
 
 func (srv *accountsRepository) Create(ctx context.Context, payload *models.AccountPayload) (*models.Account, error) {
 	txn := srv.db.DB.Txn(true)
-	defer txn.Abort()
 
 	id, err := uuid.NewRandom()
 	if err != nil {
@@ -44,7 +43,6 @@ func (srv *accountsRepository) Create(ctx context.Context, payload *models.Accou
 
 func (srv *accountsRepository) Get(ctx context.Context, filter *models.OneAccountFilter) (*models.Account, error) {
 	txn := srv.db.DB.Txn(false)
-	defer txn.Abort()
 
 	raw, err := txn.First("account", "id", filter.ID)
 	if err != nil {
@@ -60,7 +58,6 @@ func (srv *accountsRepository) Get(ctx context.Context, filter *models.OneAccoun
 
 func (srv *accountsRepository) Delete(ctx context.Context, filter *models.OneAccountFilter) error {
 	txn := srv.db.DB.Txn(true)
-	defer txn.Abort()
 
 	err := txn.Delete("account", models.Account{ID: filter.ID})
 	// Check for memdb.ErrNotFound and return a models.ErrNotFound.
@@ -69,6 +66,7 @@ func (srv *accountsRepository) Delete(ctx context.Context, filter *models.OneAcc
 		return err
 	}
 
+	txn.Commit()
 	return nil
 }
 
