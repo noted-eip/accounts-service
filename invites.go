@@ -37,6 +37,11 @@ func (srv *invitesAPI) SendInvite(ctx context.Context, in *accountsv1.SendInvite
 		return nil, status.Error(codes.InvalidArgument, "sender not in group")
 	}
 
+	_, err = srv.accountRepo.Get(ctx, &models.OneAccountFilter{ID: in.RecipientAccountId})
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "recipient does not exist")
+	}
+
 	_, err = srv.groupService.GetGroupMember(ctx, &accountsv1.GetGroupMemberRequest{GroupId: in.GroupId, AccountId: in.RecipientAccountId})
 	if err == nil {
 		return nil, status.Error(codes.InvalidArgument, "recipient already in group")
@@ -127,8 +132,12 @@ func (srv *invitesAPI) AcceptInvite(ctx context.Context, in *accountsv1.AcceptIn
 	accountId := token.UserID.String()
 
 	res, err := srv.GetInvite(ctx, &accountsv1.GetInviteRequest{InviteId: in.InviteId})
+	if err != nil {
+		return nil, status.Error(codes.NotFound, "invite not found")
+	}
+
 	invite := res.Invite
-	if err != nil || invite == nil || (invite.RecipientAccountId != accountId && invite.SenderAccountId != accountId) {
+	if invite == nil || (invite.RecipientAccountId != accountId) {
 		return nil, status.Error(codes.NotFound, "invite not found")
 	}
 
@@ -154,8 +163,12 @@ func (srv *invitesAPI) DenyInvite(ctx context.Context, in *accountsv1.DenyInvite
 	accountId := token.UserID.String()
 
 	res, err := srv.GetInvite(ctx, &accountsv1.GetInviteRequest{InviteId: in.InviteId})
+	if err != nil {
+		return nil, status.Error(codes.NotFound, "invite not found")
+	}
+
 	invite := res.Invite
-	if err != nil || invite == nil || (invite.RecipientAccountId != accountId && invite.SenderAccountId != accountId) {
+	if invite == nil || (invite.RecipientAccountId != accountId) {
 		return nil, status.Error(codes.NotFound, "invite not found")
 	}
 

@@ -24,7 +24,6 @@ func NewMembersRepository(membersDB *Database, logger *zap.Logger) models.Member
 
 func (srv *membersRepository) Create(ctx context.Context, payload *models.MemberPayload) (*models.Member, error) {
 	txn := srv.membersDB.DB.Txn(true)
-	defer txn.Abort()
 
 	id, err := uuid.NewRandom()
 	if err != nil {
@@ -51,7 +50,6 @@ func (srv *membersRepository) Create(ctx context.Context, payload *models.Member
 
 func (srv *membersRepository) DeleteOne(ctx context.Context, filter *models.MemberFilter) (*models.Member, error) {
 	txn := srv.membersDB.DB.Txn(true)
-	defer txn.Abort()
 
 	it, err := txn.Get("member", "group_id", *filter.GroupID)
 
@@ -82,7 +80,6 @@ func (srv *membersRepository) DeleteOne(ctx context.Context, filter *models.Memb
 
 func (srv *membersRepository) DeleteMany(ctx context.Context, filter *models.MemberFilter) error {
 	txn := srv.membersDB.DB.Txn(true)
-	defer txn.Abort()
 
 	it, err := txn.Get("member", "group_id", *filter.GroupID)
 
@@ -107,7 +104,6 @@ func (srv *membersRepository) DeleteMany(ctx context.Context, filter *models.Mem
 
 func (srv *membersRepository) Get(ctx context.Context, filter *models.MemberFilter) (*models.Member, error) {
 	txn := srv.membersDB.DB.Txn(false)
-	defer txn.Abort()
 
 	it, err := txn.Get("member", "account_id", *filter.AccountID)
 	if err != nil {
@@ -129,7 +125,6 @@ func (srv *membersRepository) Get(ctx context.Context, filter *models.MemberFilt
 
 func (srv *membersRepository) Update(ctx context.Context, filter *models.MemberFilter, member *models.MemberPayload) (*models.Member, error) {
 	txn := srv.membersDB.DB.Txn(true)
-	defer txn.Abort()
 
 	it, err := txn.Get("member", "group_id", *filter.GroupID)
 

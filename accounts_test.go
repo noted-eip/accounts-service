@@ -118,6 +118,9 @@ func (s *AccountsAPISuite) TestDeleteAccount() {
 
 	_, err = s.srv.DeleteAccount(ctx, &accountsv1.DeleteAccountRequest{Id: uid.String()})
 	s.Require().NoError(err)
+
+	_, err = s.srv.GetAccount(ctx, &accountsv1.GetAccountRequest{Id: uid.String(), Email: acc.Account.Email})
+	s.Require().Error(err)
 }
 
 func (s *AccountsAPISuite) TestDeleteAccountErrorNotFound() {
