@@ -9,7 +9,6 @@ import (
 	"testing"
 
 	"github.com/google/uuid"
-	"github.com/hashicorp/go-memdb"
 	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
 	"google.golang.org/grpc/codes"
@@ -30,7 +29,7 @@ func TestAccountsService(t *testing.T) {
 
 func (s *AccountsAPISuite) SetupSuite() {
 	logger := newLoggerOrFail(s.T())
-	db := newAccountsDatabaseOrFail(s.T(), logger)
+	db := newDatabaseOrFail(s.T(), logger)
 
 	s.srv = &accountsAPI{
 		auth:   auth.NewService(genKeyOrFail(s.T())),
@@ -146,40 +145,8 @@ func genKeyOrFail(t *testing.T) ed25519.PrivateKey {
 	return priv
 }
 
-func newAccountsDatabaseSchema() *memdb.DBSchema {
-	return &memdb.DBSchema{
-		Tables: map[string]*memdb.TableSchema{
-			"account": {
-				Name: "account",
-				Indexes: map[string]*memdb.IndexSchema{
-					"id": {
-						Name:    "id",
-						Unique:  true,
-						Indexer: &memdb.StringFieldIndex{Field: "ID"},
-					},
-					"email": {
-						Name:    "email",
-						Unique:  true,
-						Indexer: &memdb.StringFieldIndex{Field: "Email"},
-					},
-					"name": {
-						Name:    "name",
-						Unique:  false,
-						Indexer: &memdb.StringFieldIndex{Field: "Name"},
-					},
-					"hash": {
-						Name:    "hash",
-						Unique:  false,
-						Indexer: &memdb.StringFieldIndex{Field: "Hash"},
-					},
-				},
-			},
-		},
-	}
-}
-
-func newAccountsDatabaseOrFail(t *testing.T, logger *zap.Logger) *memory.Database {
-	db, err := memory.NewDatabase(context.Background(), newAccountsDatabaseSchema(), logger)
+func newDatabaseOrFail(t *testing.T, logger *zap.Logger) *memory.Database {
+	db, err := memory.NewDatabase(context.Background(), logger)
 	require.NoError(t, err, "could not instantiate in-memory database")
 	return db
 }
