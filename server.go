@@ -30,13 +30,16 @@ type server struct {
 
 	accountsRepository      models.AccountsRepository
 	groupsRepository        models.GroupsRepository
-	conversationsRepository models.ConversationsRepository
 	membersRepository       models.MembersRepository
+	invitesRepository       models.InvitesRepository
+	notesRepository         models.GroupNotesRepository
+	conversationsRepository models.ConversationsRepository
 
 	accountsService      accountsv1.AccountsAPIServer
 	groupsService        accountsv1.GroupsAPIServer
 	conversationsService accountsv1.ConversationsAPIServer
-	grpcServer           *grpc.Server
+
+	grpcServer *grpc.Server
 }
 
 // Init initializes the dependencies of the server and panics on error.
@@ -47,6 +50,7 @@ func (s *server) Init(opt ...grpc.ServerOption) {
 	s.initAccountsService()
 	s.initGroupsService()
 	s.initConversationsService()
+	s.initInviteService()
 	s.initGrpcServer(opt...)
 }
 
@@ -120,6 +124,8 @@ func (s *server) initRepositories() {
 	s.groupsRepository = mongo.NewGroupsRepository(s.mongoDB.DB, s.logger)
 	s.conversationsRepository = mongo.NewConversationsRepository(s.mongoDB.DB, s.logger)
 	s.membersRepository = mongo.NewMembersRepository(s.mongoDB.DB, s.logger)
+	s.invitesRepository = mongo.NewInvitesRepository(s.mongoDB.DB, s.logger)
+	s.notesRepository = mongo.NewNotesRepository(s.mongoDB.DB, s.logger)
 }
 
 func (s *server) initConversationsService() {
@@ -146,6 +152,18 @@ func (s *server) initGroupsService() {
 		groupRepo:        s.groupsRepository,
 		memberRepo:       s.membersRepository,
 		conversationRepo: s.conversationsRepository,
+		noteRepo:         s.notesRepository,
+	}
+}
+
+func (s *server) initInviteService() {
+	s.invitesService = &invitesAPI{
+		auth:         s.authService,
+		logger:       s.logger,
+		groupRepo:    s.groupsRepository,
+		groupService: s.groupsService,
+		inviteRepo:   s.invitesRepository,
+		accountRepo:  s.accountsRepository,
 	}
 }
 
@@ -154,6 +172,7 @@ func (s *server) initGrpcServer(opt ...grpc.ServerOption) {
 	accountsv1.RegisterAccountsAPIServer(s.grpcServer, s.accountsService)
 	accountsv1.RegisterGroupsAPIServer(s.grpcServer, s.groupsService)
 	accountsv1.RegisterConversationsAPIServer(s.grpcServer, s.conversationsService)
+	accountsv1.RegisterInvitesAPIServer(s.grpcServer, s.invitesService)
 }
 
 func must(err error, msg string) {

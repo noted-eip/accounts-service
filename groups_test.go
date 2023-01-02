@@ -8,10 +8,7 @@ import (
 	"testing"
 
 	"github.com/google/uuid"
-	"github.com/hashicorp/go-memdb"
-	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
-	"go.uber.org/zap"
 )
 
 type GroupsAPISuite struct {
@@ -26,98 +23,20 @@ func TestGroupsService(t *testing.T) {
 
 func (s *GroupsAPISuite) SetupSuite() {
 	logger := newLoggerOrFail(s.T())
-	groupDB := newGroupsDatabaseOrFail(s.T(), logger)
-	memberDB := newMembersDatabaseOrFail(s.T(), logger)
-	accountDB := newAccountsDatabaseOrFail(s.T(), logger)
+	db := newDatabaseOrFail(s.T(), logger)
 
 	s.accountSrv = &accountsAPI{
 		auth:   auth.NewService(genKeyOrFail(s.T())),
 		logger: logger,
-		repo:   memory.NewAccountsRepository(accountDB, logger),
+		repo:   memory.NewAccountsRepository(db, logger),
 	}
 
 	s.groupSrv = &groupsAPI{
 		auth:       auth.NewService(genKeyOrFail(s.T())),
 		logger:     logger,
-		groupRepo:  memory.NewGroupsRepository(groupDB, logger),
-		memberRepo: memory.NewMembersRepository(memberDB, logger),
+		groupRepo:  memory.NewGroupsRepository(db, logger),
+		memberRepo: memory.NewMembersRepository(db, logger),
 	}
-}
-
-func newGroupsDatabaseSchema() *memdb.DBSchema {
-	return &memdb.DBSchema{
-		Tables: map[string]*memdb.TableSchema{
-			"group": {
-				Name: "group",
-				Indexes: map[string]*memdb.IndexSchema{
-					"id": {
-						Name:    "id",
-						Unique:  true,
-						Indexer: &memdb.StringFieldIndex{Field: "ID"},
-					},
-					"name": {
-						Name:    "name",
-						Unique:  false,
-						Indexer: &memdb.StringFieldIndex{Field: "Name"},
-					},
-					"description": {
-						Name:    "description",
-						Unique:  false,
-						Indexer: &memdb.StringFieldIndex{Field: "Description"},
-					},
-					"created_at": {
-						Name:    "created_at",
-						Unique:  false,
-						Indexer: &memdb.StringFieldIndex{Field: "CreatedAt"},
-					},
-				},
-			},
-		},
-	}
-}
-
-func newMembersDatabaseSchema() *memdb.DBSchema {
-	return &memdb.DBSchema{
-		Tables: map[string]*memdb.TableSchema{
-			"member": {
-				Name: "member",
-				Indexes: map[string]*memdb.IndexSchema{
-					"id": {
-						Name:    "id",
-						Unique:  true,
-						Indexer: &memdb.StringFieldIndex{Field: "ID"},
-					},
-					"account_id": {
-						Name:    "account_id",
-						Unique:  false,
-						Indexer: &memdb.StringFieldIndex{Field: "AccountID"},
-					},
-					"group_id": {
-						Name:    "group_id",
-						Unique:  false,
-						Indexer: &memdb.StringFieldIndex{Field: "GroupID"},
-					},
-					"created_at": {
-						Name:    "created_at",
-						Unique:  false,
-						Indexer: &memdb.StringFieldIndex{Field: "CreatedAt"},
-					},
-				},
-			},
-		},
-	}
-}
-
-func newGroupsDatabaseOrFail(t *testing.T, logger *zap.Logger) *memory.Database {
-	groupDB, err := memory.NewDatabase(context.Background(), newGroupsDatabaseSchema(), logger)
-	require.NoError(t, err, "could not instantiate in-memory group database")
-	return groupDB
-}
-
-func newMembersDatabaseOrFail(t *testing.T, logger *zap.Logger) *memory.Database {
-	memberDB, err := memory.NewDatabase(context.Background(), newMembersDatabaseSchema(), logger)
-	require.NoError(t, err, "could not instantiate in-memory member database")
-	return memberDB
 }
 
 func (s *GroupsAPISuite) TestCreateGroup() {

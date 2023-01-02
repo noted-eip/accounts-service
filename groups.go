@@ -22,6 +22,7 @@ type groupsAPI struct {
 	groupRepo        models.GroupsRepository
 	memberRepo       models.MembersRepository
 	conversationRepo models.ConversationsRepository
+	noteRepo         models.GroupNotesRepository
 }
 
 var _ accountsv1.GroupsAPIServer = &groupsAPI{}
