@@ -15,22 +15,26 @@ import (
 type conversationsAPI struct {
 	accountsv1.UnimplementedConversationsAPIServer
 
-	auth   auth.Service
-	logger *zap.Logger
-	repo   models.ConversationsRepository
+	auth         auth.Service
+	logger       *zap.Logger
+	repo         models.ConversationsRepository
+	groupService accountsv1.GroupsAPIServer
 }
 
 var _ accountsv1.ConversationsAPIServer = &conversationsAPI{}
 
 func (server *conversationsAPI) CreateConversation(ctx context.Context, in *accountsv1.CreateConversationRequest) (*accountsv1.CreateConversationResponse, error) {
-	_, err := server.authenticate(ctx)
+	token, err := server.authenticate(ctx)
 	if err != nil {
 		return nil, status.Error(codes.Unauthenticated, err.Error())
 	}
 
-	// if token.UserID.String() != in.GroupId {
-	// 	return nil, status.Error(codes.NotFound, "user not from group")
-	// }
+	accountId := token.UserID.String()
+
+	_, err = server.groupService.GetGroupMember(ctx, &accountsv1.GetGroupMemberRequest{GroupId: in.GroupId, AccountId: accountId})
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "sender not in group")
+	}
 
 	err = validators.ValidateCreateConversationRequest(in)
 	if err != nil {
@@ -61,7 +65,7 @@ func (server *conversationsAPI) CreateConversation(ctx context.Context, in *acco
 }
 
 func (server *conversationsAPI) GetConversation(ctx context.Context, in *accountsv1.GetConversationRequest) (*accountsv1.GetConversationResponse, error) {
-	_, err := server.authenticate(ctx)
+	token, err := server.authenticate(ctx)
 	if err != nil {
 		return nil, status.Error(codes.Unauthenticated, err.Error())
 	}
@@ -76,9 +80,12 @@ func (server *conversationsAPI) GetConversation(ctx context.Context, in *account
 		return nil, statusFromModelError(err)
 	}
 
-	// if token.UserID.String() != conversation.GroupID {
-	// 	return nil, status.Error(codes.NotFound, "user not from group")
-	// }
+	accountId := token.UserID.String()
+
+	_, err = server.groupService.GetGroupMember(ctx, &accountsv1.GetGroupMemberRequest{GroupId: conversation.GroupID, AccountId: accountId})
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "sender not in group")
+	}
 
 	return &accountsv1.GetConversationResponse{
 		Conversation: &accountsv1.Conversation{
@@ -90,7 +97,7 @@ func (server *conversationsAPI) GetConversation(ctx context.Context, in *account
 }
 
 func (server *conversationsAPI) DeleteConversation(ctx context.Context, in *accountsv1.DeleteConversationRequest) (*accountsv1.DeleteConversationResponse, error) {
-	_, err := server.authenticate(ctx)
+	token, err := server.authenticate(ctx)
 	if err != nil {
 		return nil, status.Error(codes.Unauthenticated, err.Error())
 	}
@@ -100,14 +107,17 @@ func (server *conversationsAPI) DeleteConversation(ctx context.Context, in *acco
 		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}
 
-	// conversation, err := server.repo.Get(ctx, &models.OneConversationFilter{ID: in.ConversationId})
-	// if err != nil {
-	// 	return nil, statusFromModelError(err)
-	// }
+	conversation, err := server.repo.Get(ctx, &models.OneConversationFilter{ID: in.ConversationId})
+	if err != nil {
+		return nil, statusFromModelError(err)
+	}
 
-	// if token.UserID.String() != conversation.GroupID {
-	// 	return nil, status.Error(codes.NotFound, "user not from group")
-	// }
+	accountId := token.UserID.String()
+
+	_, err = server.groupService.GetGroupMember(ctx, &accountsv1.GetGroupMemberRequest{GroupId: conversation.GroupID, AccountId: accountId})
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "sender not in group")
+	}
 
 	err = server.repo.Delete(ctx, &models.OneConversationFilter{ID: in.ConversationId})
 	if err != nil {
@@ -118,9 +128,21 @@ func (server *conversationsAPI) DeleteConversation(ctx context.Context, in *acco
 }
 
 func (server *conversationsAPI) UpdateConversation(ctx context.Context, in *accountsv1.UpdateConversationRequest) (*accountsv1.UpdateConversationResponse, error) {
-	_, err := server.authenticate(ctx)
+	token, err := server.authenticate(ctx)
 	if err != nil {
 		return nil, status.Error(codes.Unauthenticated, err.Error())
+	}
+
+	conversation, err := server.repo.Get(ctx, &models.OneConversationFilter{ID: in.ConversationId})
+	if err != nil {
+		return nil, statusFromModelError(err)
+	}
+
+	accountId := token.UserID.String()
+
+	_, err = server.groupService.GetGroupMember(ctx, &accountsv1.GetGroupMemberRequest{GroupId: conversation.GroupID, AccountId: accountId})
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "sender not in group")
 	}
 
 	err = validators.ValidateUpdateConversationRequest(in)
@@ -135,10 +157,6 @@ func (server *conversationsAPI) UpdateConversation(ctx context.Context, in *acco
 		return nil, statusFromModelError(err)
 	}
 
-	// if token.UserID.String() != updatedConversation.GroupID {
-	// 	return nil, status.Error(codes.NotFound, "user not from group")
-	// }
-
 	return &accountsv1.UpdateConversationResponse{
 		Conversation: &accountsv1.Conversation{
 			Id:      in.ConversationId,
@@ -149,14 +167,17 @@ func (server *conversationsAPI) UpdateConversation(ctx context.Context, in *acco
 }
 
 func (server *conversationsAPI) ListConversations(ctx context.Context, in *accountsv1.ListConversationsRequest) (*accountsv1.ListConversationsResponse, error) {
-	_, err := server.authenticate(ctx)
+	token, err := server.authenticate(ctx)
 	if err != nil {
 		return nil, status.Error(codes.Unauthenticated, err.Error())
 	}
 
-	// if token.UserID.String() != in.GroupId {
-	// 	return nil, status.Error(codes.NotFound, "user not from group")
-	// }
+	accountId := token.UserID.String()
+
+	_, err = server.groupService.GetGroupMember(ctx, &accountsv1.GetGroupMemberRequest{GroupId: in.GroupId, AccountId: accountId})
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "sender not in group")
+	}
 
 	err = validators.ValidateListConversationRequest(in)
 	if err != nil {

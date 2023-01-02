@@ -36,8 +36,7 @@ type server struct {
 	accountsService      accountsv1.AccountsAPIServer
 	groupsService        accountsv1.GroupsAPIServer
 	conversationsService accountsv1.ConversationsAPIServer
-
-	grpcServer *grpc.Server
+	grpcServer           *grpc.Server
 }
 
 // Init initializes the dependencies of the server and panics on error.
@@ -46,8 +45,8 @@ func (s *server) Init(opt ...grpc.ServerOption) {
 	s.initAuthService()
 	s.initRepositories()
 	s.initAccountsService()
-	s.initConversationsService()
 	s.initGroupsService()
+	s.initConversationsService()
 	s.initGrpcServer(opt...)
 }
 
@@ -125,9 +124,10 @@ func (s *server) initRepositories() {
 
 func (s *server) initConversationsService() {
 	s.conversationsService = &conversationsAPI{
-		auth:   s.authService,
-		logger: s.logger,
-		repo:   s.conversationsRepository,
+		auth:         s.authService,
+		logger:       s.logger,
+		repo:         s.conversationsRepository,
+		groupService: s.groupsService,
 	}
 }
 
@@ -141,12 +141,11 @@ func (s *server) initAccountsService() {
 
 func (s *server) initGroupsService() {
 	s.groupsService = &groupsAPI{
-		auth:                s.authService,
-		logger:              s.logger,
-		conversationService: s.conversationsService,
-		groupRepo:           s.groupsRepository,
-		memberRepo:          s.membersRepository,
-		conversationRepo:    s.conversationsRepository,
+		auth:             s.authService,
+		logger:           s.logger,
+		groupRepo:        s.groupsRepository,
+		memberRepo:       s.membersRepository,
+		conversationRepo: s.conversationsRepository,
 	}
 }
 
