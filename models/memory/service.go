@@ -118,6 +118,26 @@ func NewDatabase(ctx context.Context, logger *zap.Logger) (*Database, error) {
 					},
 				},
 			},
+			"conversation": {
+				Name: "conversation",
+				Indexes: map[string]*memdb.IndexSchema{
+					"id": {
+						Name:    "id",
+						Unique:  true,
+						Indexer: &memdb.StringFieldIndex{Field: "ID"},
+					},
+					"group_id": {
+						Name:    "group_id",
+						Unique:  false,
+						Indexer: &memdb.StringFieldIndex{Field: "groupID"},
+					},
+					"title": {
+						Name:    "title",
+						Unique:  false,
+						Indexer: &memdb.StringFieldIndex{Field: "Title"},
+					},
+				},
+			},
 		},
 	}
 

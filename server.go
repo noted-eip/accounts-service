@@ -38,6 +38,7 @@ type server struct {
 	accountsService      accountsv1.AccountsAPIServer
 	groupsService        accountsv1.GroupsAPIServer
 	conversationsService accountsv1.ConversationsAPIServer
+	invitesService       accountsv1.InvitesAPIServer
 
 	grpcServer *grpc.Server
 }
