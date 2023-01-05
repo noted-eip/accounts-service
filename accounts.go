@@ -160,7 +160,7 @@ func (srv *accountsAPI) ListAccounts(ctx context.Context, in *accountsv1.ListAcc
 		return nil, statusFromModelError(err)
 	}
 
-	var accountsResp []*accountsv1.Account
+	accountsResp := []*accountsv1.Account{}
 	for _, account := range accounts {
 		elem := &accountsv1.Account{Id: account.ID, Name: *account.Name, Email: *account.Email}
 		if err != nil {
