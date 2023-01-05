@@ -101,7 +101,8 @@ func (srv *accountsRepository) Update(ctx context.Context, filter *models.OneAcc
 		srv.logger.Error("update one failed", zap.Error(err))
 		return nil, err
 	}
-	if update.ModifiedCount == 0 {
+
+	if update.MatchedCount == 0 {
 		return nil, models.ErrNotFound
 	}
 	return &accountUpdated, nil
