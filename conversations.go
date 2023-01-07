@@ -41,16 +41,16 @@ func (server *conversationsAPI) CreateConversation(ctx context.Context, in *acco
 		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}
 
-	groupConversations, err := server.repo.List(ctx, &models.ManyConversationsFilter{GroupID: in.GroupId})
+	// groupConversations, err := server.repo.List(ctx, &models.ManyConversationsFilter{GroupID: in.GroupId})
 
-	for _, conv := range groupConversations {
-		res := conv.Title == in.Title
-		if res {
-			return nil, status.Error(codes.Internal, "a conversations with this title always exist")
-		}
-	}
+	// for _, conv := range groupConversations {
+	// 	res := conv.Title == in.Title
+	// 	if res {
+	// 		return nil, status.Error(codes.Internal, "a conversations with this title always exist")
+	// 	}
+	// }
 
-	conversation, err := server.repo.Create(ctx, &models.CreateConversationPayload{Title: in.Title, GroupID: in.GroupId})
+	conversation, err := server.repo.Create(ctx, &models.CreateConversationPayload{GroupID: in.GroupId, Title: in.Title})
 	if err != nil {
 		return nil, statusFromModelError(err)
 	}

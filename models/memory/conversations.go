@@ -35,7 +35,7 @@ func (srv *conversationsRepository) Create(ctx context.Context, payload *models.
 
 	err = txn.Insert("conversation", &conversation)
 	if err != nil {
-		srv.logger.Error("insert conversation failed", zap.Error(err), zap.String("id", conversation.ID))
+		srv.logger.Error("insert conversation failed", zap.Error(err), zap.String("ID", conversation.ID))
 		return nil, err
 	}
 
