@@ -92,6 +92,7 @@ func (srv *accountsAPI) UpdateAccount(ctx context.Context, in *accountsv1.Update
 		return nil, status.Error(codes.NotFound, "account not found")
 	}
 
+	accountID := in.Account.Id
 	fieldMask := in.GetUpdateMask()
 	fieldMask.Normalize()
 	if !fieldMask.IsValid(in.Account) {
@@ -99,10 +100,10 @@ func (srv *accountsAPI) UpdateAccount(ctx context.Context, in *accountsv1.Update
 	}
 
 	allowList := []string{"name"}
-	fmutils.Filter(in.GetAccount(), allowList)
 	fmutils.Filter(in.GetAccount(), fieldMask.GetPaths())
+	fmutils.Filter(in.GetAccount(), allowList)
 
-	_, err = srv.repo.Update(ctx, &models.OneAccountFilter{ID: in.Account.Id}, &models.AccountPayload{Name: &in.Account.Name})
+	_, err = srv.repo.Update(ctx, &models.OneAccountFilter{ID: accountID}, &models.AccountPayload{Name: &in.Account.Name})
 	if err != nil {
 		return nil, statusFromModelError(err)
 	}
@@ -159,7 +160,7 @@ func (srv *accountsAPI) ListAccounts(ctx context.Context, in *accountsv1.ListAcc
 		return nil, statusFromModelError(err)
 	}
 
-	var accountsResp []*accountsv1.Account
+	accountsResp := []*accountsv1.Account{}
 	for _, account := range accounts {
 		elem := &accountsv1.Account{Id: account.ID, Name: *account.Name, Email: *account.Email}
 		if err != nil {
@@ -214,6 +215,9 @@ func statusFromModelError(err error) error {
 	}
 	if errors.Is(err, models.ErrDuplicateKeyFound) {
 		return status.Error(codes.AlreadyExists, "already exists")
+	}
+	if errors.Is(err, models.ErrUpdateInvalidField) {
+		return status.Error(codes.InvalidArgument, "invalid argument")
 	}
 	return status.Error(codes.Internal, "internal error")
 }

@@ -92,6 +92,7 @@ func (srv *groupsAPI) UpdateGroup(ctx context.Context, in *accountsv1.UpdateGrou
 		return nil, status.Error(codes.InvalidArgument, "could not update Group")
 	}
 
+	groupID := in.Group.Id
 	fieldMask := in.GetUpdateMask()
 	fieldMask.Normalize()
 	if !fieldMask.IsValid(in.Group) {
@@ -102,7 +103,7 @@ func (srv *groupsAPI) UpdateGroup(ctx context.Context, in *accountsv1.UpdateGrou
 	fmutils.Filter(in.GetGroup(), fieldMask.GetPaths())
 	fmutils.Filter(in.GetGroup(), allowList)
 
-	_, err = srv.groupRepo.Update(ctx, &models.OneGroupFilter{ID: in.Group.Id}, &models.GroupPayload{Name: &in.GetGroup().Name, Description: &in.GetGroup().Description})
+	_, err = srv.groupRepo.Update(ctx, &models.OneGroupFilter{ID: groupID}, &models.GroupPayload{Name: &in.GetGroup().Name, Description: &in.GetGroup().Description})
 	if err != nil {
 		return nil, statusFromModelError(err)
 	}
@@ -122,9 +123,9 @@ func (srv *groupsAPI) GetGroup(ctx context.Context, in *accountsv1.GetGroupReque
 	}
 
 	group, err := srv.groupRepo.Get(ctx, &models.OneGroupFilter{ID: in.GroupId})
-
 	if err != nil {
 		srv.logger.Error("failed get group from group id", zap.Error(err))
+		return nil, statusFromModelError(err)
 	}
 
 	return &accountsv1.GetGroupResponse{
@@ -157,7 +158,7 @@ func (srv *groupsAPI) ListGroups(ctx context.Context, in *accountsv1.ListGroupsR
 		return nil, status.Error(codes.Unauthenticated, "could not list groups member from groups Id")
 	}
 
-	var groups []*accountsv1.Group
+	groups := []*accountsv1.Group{}
 	for _, member := range memberFromGroups {
 		group, err := srv.groupRepo.Get(ctx, &models.OneGroupFilter{ID: *member.GroupID})
 

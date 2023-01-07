@@ -17,4 +17,7 @@ var (
 
 	// Returned when a `Create`, try to insert unique value such as email twice.
 	ErrDuplicateKeyFound = errors.New("duplicate key found")
+
+	// Returned when a `Update`, try to update non-existant field.
+	ErrUpdateInvalidField = errors.New("invalid update field requested")
 )

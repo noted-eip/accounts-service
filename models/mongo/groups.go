@@ -51,7 +51,7 @@ func (srv *groupsRepository) Get(ctx context.Context, filter *models.OneGroupFil
 	err := srv.coll.FindOne(ctx, filter).Decode(&group)
 	if err != nil {
 		if errors.Is(err, mongo.ErrNoDocuments) {
-			return nil, err
+			return nil, models.ErrNotFound
 		}
 		srv.logger.Error("query failed", zap.Error(err))
 		return nil, err
@@ -77,12 +77,17 @@ func (srv *groupsRepository) Update(ctx context.Context, filter *models.OneGroup
 	var updatedGroup models.Group
 
 	field := buildUpdateFilter(group)
+	if field == nil {
+		return nil, models.ErrUpdateInvalidField
+	}
+
 	update, err := srv.coll.UpdateOne(ctx, filter, field)
 	if err != nil {
 		srv.logger.Error("update failed", zap.Error(err))
 		return nil, err
 	}
-	if update.ModifiedCount == 0 {
+
+	if update.MatchedCount == 0 {
 		return nil, models.ErrNotFound
 	}
 
@@ -101,6 +106,8 @@ func buildUpdateFilter(group *models.GroupPayload) bson.D {
 		field = bson.D{{"$set", bson.D{{"name", group.Name}}}}
 	} else if *group.Description != "" {
 		field = bson.D{{"$set", bson.D{{"description", group.Description}}}}
+	} else {
+		return nil
 	}
 	return field
 }
