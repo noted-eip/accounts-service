@@ -256,3 +256,38 @@ func (s *InvitesAPISuite) TestDenyNonExistingInvite() {
 	s.Require().Error(err)
 	s.Require().Nil(denyInviteRes)
 }
+
+func (s *InvitesAPISuite) TestListInviteGroupContext() {
+	// Create two accounts and a group, admin invites a recipient
+	first_account, second_account := createTwoRandomAccounts(s)
+
+	uid := uuid.MustParse(first_account.ID)
+	ctx, err := s.srv.auth.ContextWithToken(context.TODO(), &auth.Token{UserID: uid})
+	s.Require().NoError(err)
+
+	group := createDefaultGroup(s, ctx)
+
+	invite, err := s.srv.SendInvite(ctx, &accountsv1.SendInviteRequest{GroupId: group.Id, RecipientAccountId: second_account.ID})
+	s.Require().NoError(err)
+
+	// Connect as second account, create second group, send an invite to first_account
+	uid = uuid.MustParse(second_account.ID)
+	second_ctx, err := s.srv.auth.ContextWithToken(context.TODO(), &auth.Token{UserID: uid})
+	s.Require().NoError(err)
+
+	second_group := createDefaultGroup(s, second_ctx)
+	second_invite, err := s.srv.SendInvite(second_ctx, &accountsv1.SendInviteRequest{GroupId: second_group.Id, RecipientAccountId: first_account.ID})
+	s.Require().NoError(err)
+
+	// List invites with different context and
+	first_list, err := s.srv.ListInvites(second_ctx, &accountsv1.ListInvitesRequest{GroupId: second_group.Id})
+	s.Require().NoError(err)
+
+	s.Require().Equal(1, len(first_list.Invites))
+	s.Require().Equal(second_invite.Invite.Id, first_list.Invites[0].Id)
+
+	second_list, err := s.srv.ListInvites(ctx, &accountsv1.ListInvitesRequest{GroupId: group.Id})
+	s.Require().NoError(err)
+	s.Require().Equal(1, len(first_list.Invites))
+	s.Require().Equal(invite.Invite.Id, second_list.Invites[0].Id)
+}

@@ -106,9 +106,36 @@ func (srv *invitesAPI) ListInvites(ctx context.Context, in *accountsv1.ListInvit
 		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}
 
-	_, err = srv.authenticate(ctx)
+	token, err := srv.authenticate(ctx)
 	if err != nil {
 		return nil, status.Error(codes.Unauthenticated, err.Error())
+	}
+
+	// If you try to fetch notes from a specific group
+	if in.GroupId != "" {
+		m, err := srv.groupService.GetGroupMember(ctx, &accountsv1.GetGroupMemberRequest{GroupId: in.GroupId, AccountId: token.UserID.String()})
+
+		// If you are already in the group and not an Admin, you should ask only for invites where you are the sender
+		if err == nil && m.Member.Role != auth.RoleAdmin && in.SenderAccountId != token.UserID.String() {
+			return nil, status.Error(codes.Unauthenticated, "as a user, you can only list your invites")
+		} else if err != nil {
+			e, ok := status.FromError(err)
+			if !ok {
+				return nil, status.Error(codes.Internal, e.Message())
+			}
+			if e.Code() != codes.NotFound {
+				return nil, err
+			}
+
+			// If you are not in the current group, you should ask only for invites where you are the recipient
+			if in.RecipientAccountId != token.UserID.String() {
+				return nil, status.Error(codes.Unauthenticated, "you can only fetch your invites for this group")
+			}
+		}
+
+		// If you are not trying to fetch invites from a group, you should only fetch those where you are sender or recipient
+	} else if in.RecipientAccountId != token.UserID.String() && in.SenderAccountId != token.UserID.String() {
+		return nil, status.Error(codes.Unauthenticated, "you have no rights to fetch other users invites")
 	}
 
 	if in.Limit == 0 {

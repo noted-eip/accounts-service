@@ -119,19 +119,8 @@ func (srv *invitesRepository) List(ctx context.Context, filter *models.ManyInvit
 		Limit: &pagination.Limit,
 		Skip:  &pagination.Offset,
 	}
-	f := bson.D{}
 
-	if filter.GroupID != nil && (*filter.GroupID) != "" {
-		f = append(f, bson.E{Key: "group_id", Value: filter.GroupID})
-	}
-	if filter.RecipientAccountID != nil && (*filter.RecipientAccountID) != "" {
-		f = append(f, bson.E{Key: "recipient_account_id", Value: filter.RecipientAccountID})
-	}
-	if filter.SenderAccountID != nil && (*filter.SenderAccountID) != "" {
-		f = append(f, bson.E{Key: "sender_account_id", Value: filter.SenderAccountID})
-	}
-
-	cursor, err := srv.coll.Find(ctx, f, &opt)
+	cursor, err := srv.coll.Find(ctx, &filter, &opt)
 	if err != nil {
 		srv.logger.Error("mongo find invites query failed", zap.Error(err))
 		return nil, err
