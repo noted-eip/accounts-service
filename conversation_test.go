@@ -2,11 +2,9 @@ package main
 
 import (
 	"accounts-service/auth"
-	"accounts-service/models"
 	"accounts-service/models/memory"
 	accountsv1 "accounts-service/protorepo/noted/accounts/v1"
 	"context"
-	"fmt"
 	"testing"
 
 	"github.com/google/uuid"
@@ -15,8 +13,9 @@ import (
 
 type ConversationsAPISuite struct {
 	suite.Suite
-	account *accountsAPI
-	srv     *conversationsAPI
+	// account *accountsAPI
+	auth auth.TestService
+	srv  *conversationsAPI
 }
 
 func TestConversationsService(t *testing.T) {
@@ -28,36 +27,37 @@ func (s *ConversationsAPISuite) SetupSuite() {
 	db := newDatabaseOrFail(s.T(), logger)
 
 	s.srv = &conversationsAPI{
-		auth:   auth.NewService(genKeyOrFail(s.T())),
+		auth:   &s.auth,
 		logger: logger,
 		repo:   memory.NewConversationsRepository(db, logger),
 	}
 
-	s.account = &accountsAPI{
-		auth:   s.srv.auth,
-		logger: s.srv.logger,
-		repo:   memory.NewAccountsRepository(db, logger),
-	}
+	// s.account = &accountsAPI{
+	// 	auth:   s.srv.auth,
+	// 	logger: s.srv.logger,
+	// 	repo:   memory.NewAccountsRepository(db, logger),
+	// }
 
 	s.srv.groupService = &groupsAPI{
-		auth:       s.srv.auth,
-		logger:     s.srv.logger,
-		groupRepo:  memory.NewGroupsRepository(db, logger),
-		memberRepo: memory.NewMembersRepository(db, logger),
-		noteRepo:   nil,
+		auth:             s.srv.auth,
+		logger:           s.srv.logger,
+		groupRepo:        memory.NewGroupsRepository(db, logger),
+		memberRepo:       memory.NewMembersRepository(db, logger),
+		conversationRepo: s.srv.repo,
+		noteRepo:         nil,
 	}
 }
 
-func ConvCreateUser(s *ConversationsAPISuite, name string, email string, hash []byte) (*models.Account, error) {
-	return s.account.repo.Create(context.TODO(), &models.AccountPayload{Name: &name, Email: &email, Hash: &hash})
-}
+// func ConvCreateUser(s *ConversationsAPISuite, name string, email string, hash []byte) (*models.Account, error) {
+// 	return s.account.repo.Create(context.TODO(), &models.AccountPayload{Name: &name, Email: &email, Hash: &hash})
+// }
 
-func createRandomAccount(s *ConversationsAPISuite) *models.Account {
-	first, err := ConvCreateUser(s, "first", fmt.Sprint(randomString(), randomString(), "@email.fr"), randomString())
-	s.Require().NoError(err)
-	s.Require().NotNil(first)
-	return first
-}
+// func createRandomAccount(s *ConversationsAPISuite) *models.Account {
+// 	first, err := ConvCreateUser(s, "first", fmt.Sprint(randomString(), randomString(), "@email.fr"), randomString())
+// 	s.Require().NoError(err)
+// 	s.Require().NotNil(first)
+// 	return first
+// }
 
 func ConvCreateDefaultGroup(s *ConversationsAPISuite, ctx context.Context) *accountsv1.Group {
 	groupRes, err := s.srv.groupService.CreateGroup(ctx, &accountsv1.CreateGroupRequest{
@@ -71,10 +71,9 @@ func ConvCreateDefaultGroup(s *ConversationsAPISuite, ctx context.Context) *acco
 }
 
 func (s *ConversationsAPISuite) TestCreateGroupWithDefaultConversation() {
-	account := createRandomAccount(s)
-
-	uid := uuid.MustParse(account.ID)
-	ctx, err := s.srv.auth.ContextWithToken(context.TODO(), &auth.Token{UserID: uid})
+	uuid, err := uuid.NewRandom()
+	s.Require().NoError(err)
+	ctx, err := s.auth.ContextWithToken(context.TODO(), &auth.Token{UserID: uuid})
 	s.Require().NoError(err)
 
 	group := ConvCreateDefaultGroup(s, ctx)
@@ -84,10 +83,9 @@ func (s *ConversationsAPISuite) TestCreateGroupWithDefaultConversation() {
 }
 
 func (s *ConversationsAPISuite) TestCreateConversation() {
-	account := createRandomAccount(s)
-
-	uid := uuid.MustParse(account.ID)
-	ctx, err := s.srv.auth.ContextWithToken(context.TODO(), &auth.Token{UserID: uid})
+	uuid, err := uuid.NewRandom()
+	s.Require().NoError(err)
+	ctx, err := s.auth.ContextWithToken(context.TODO(), &auth.Token{UserID: uuid})
 	s.Require().NoError(err)
 
 	group := ConvCreateDefaultGroup(s, ctx)
@@ -97,14 +95,13 @@ func (s *ConversationsAPISuite) TestCreateConversation() {
 
 	listedConv, err := s.srv.ListConversations(ctx, &accountsv1.ListConversationsRequest{GroupId: group.Id})
 	s.Require().NoError(err)
-	s.Require().Equal(len(listedConv.Conversations), 1)
+	s.Require().Equal(len(listedConv.Conversations), 2)
 }
 
 func (s *ConversationsAPISuite) TestDeleteConversation() {
-	account := createRandomAccount(s)
-
-	uid := uuid.MustParse(account.ID)
-	ctx, err := s.srv.auth.ContextWithToken(context.TODO(), &auth.Token{UserID: uid})
+	uuid, err := uuid.NewRandom()
+	s.Require().NoError(err)
+	ctx, err := s.auth.ContextWithToken(context.TODO(), &auth.Token{UserID: uuid})
 	s.Require().NoError(err)
 
 	group := ConvCreateDefaultGroup(s, ctx)

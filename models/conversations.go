@@ -20,7 +20,7 @@ type UpdateConversationPayload struct {
 }
 
 type OneConversationFilter struct {
-	ID string `json:"id" bson:"_id,omitempty"`
+	ID string `json:"id" bson:"id,omitempty"`
 }
 
 type ManyConversationsFilter struct {

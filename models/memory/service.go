@@ -129,7 +129,7 @@ func NewDatabase(ctx context.Context, logger *zap.Logger) (*Database, error) {
 					"group_id": {
 						Name:    "group_id",
 						Unique:  false,
-						Indexer: &memdb.StringFieldIndex{Field: "groupID"},
+						Indexer: &memdb.StringFieldIndex{Field: "GroupID"},
 					},
 					"title": {
 						Name:    "title",

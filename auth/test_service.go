@@ -42,7 +42,13 @@ func (srv *TestService) TokenFromContext(ctx context.Context) (*Token, error) {
 	}
 
 	token := &Token{}
+
 	json.Unmarshal([]byte(tokenString), token)
 
 	return token, nil
+}
+
+// NOTE: Not sure but works for conversations tests
+func (srv *TestService) SignToken(info *Token) (string, error) {
+	return "", nil
 }

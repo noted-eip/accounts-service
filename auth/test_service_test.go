@@ -2,7 +2,7 @@ package auth_test
 
 import (
 	"context"
-	"notes-service/auth"
+	"accounts-service/auth"
 	"testing"
 
 	"github.com/google/uuid"

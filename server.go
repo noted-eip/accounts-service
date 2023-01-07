@@ -34,6 +34,7 @@ type server struct {
 	invitesRepository       models.InvitesRepository
 	notesRepository         models.GroupNotesRepository
 	conversationsRepository models.ConversationsRepository
+	messagesRepository      models.ConversationMessagesRepository
 
 	accountsService      accountsv1.AccountsAPIServer
 	groupsService        accountsv1.GroupsAPIServer
@@ -124,6 +125,7 @@ func (s *server) initRepositories() {
 	s.accountsRepository = mongo.NewAccountsRepository(s.mongoDB.DB, s.logger)
 	s.groupsRepository = mongo.NewGroupsRepository(s.mongoDB.DB, s.logger)
 	s.conversationsRepository = mongo.NewConversationsRepository(s.mongoDB.DB, s.logger)
+	s.messagesRepository = mongo.NewConversationMessagesRepository(s.mongoDB.DB, s.logger)
 	s.membersRepository = mongo.NewMembersRepository(s.mongoDB.DB, s.logger)
 	s.invitesRepository = mongo.NewInvitesRepository(s.mongoDB.DB, s.logger)
 	s.notesRepository = mongo.NewNotesRepository(s.mongoDB.DB, s.logger)
@@ -134,6 +136,7 @@ func (s *server) initConversationsService() {
 		auth:         s.authService,
 		logger:       s.logger,
 		repo:         s.conversationsRepository,
+		messageRepo:  s.messagesRepository,
 		groupService: s.groupsService,
 	}
 }
