@@ -119,7 +119,8 @@ func (srv *invitesRepository) List(ctx context.Context, filter *models.ManyInvit
 		Limit: &pagination.Limit,
 		Skip:  &pagination.Offset,
 	}
-	cursor, err := srv.coll.Find(ctx, bson.D{}, &opt)
+
+	cursor, err := srv.coll.Find(ctx, &filter, &opt)
 	if err != nil {
 		srv.logger.Error("mongo find invites query failed", zap.Error(err))
 		return nil, err

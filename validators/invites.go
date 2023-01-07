@@ -28,9 +28,9 @@ func ValidateDenyInvite(in *accountsv1.DenyInviteRequest) error {
 
 func ValidateListInvites(in *accountsv1.ListInvitesRequest) error {
 	return validation.ValidateStruct(in,
-		validation.Field(&in.SenderAccountId, validation.Required, is.UUID),
-		validation.Field(&in.RecipientAccountId, validation.Required, is.UUID),
-		validation.Field(&in.GroupId, validation.Required, is.UUID),
+		validation.Field(&in.GroupId, is.UUID),
+		validation.Field(&in.SenderAccountId, is.UUID),
+		validation.Field(&in.RecipientAccountId, is.UUID),
 	)
 }
 
