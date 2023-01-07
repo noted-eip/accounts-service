@@ -142,16 +142,20 @@ func (srv *invitesAPI) ListInvites(ctx context.Context, in *accountsv1.ListInvit
 		in.Limit = 20
 	}
 
+	nilIfEmpty := func(s string) *string {
+		if s == "" {
+			return nil
+		}
+		return &s
+	}
 	invites, err := srv.inviteRepo.List(ctx, &models.ManyInvitesFilter{
-		SenderAccountID:    &in.SenderAccountId,
-		RecipientAccountID: &in.RecipientAccountId,
-		GroupID:            &in.GroupId,
+		SenderAccountID:    nilIfEmpty(in.SenderAccountId),
+		RecipientAccountID: nilIfEmpty(in.RecipientAccountId),
+		GroupID:            nilIfEmpty(in.GroupId),
 	}, &models.Pagination{Offset: int64(in.Offset), Limit: int64(in.Limit)})
 	if err != nil {
 		return nil, statusFromModelError(err)
 	}
-
-	// NOTE: As every account are apparently accessible to list and get from every account as long as you are authentificated, I did the same with invites
 
 	var inviteResp []*accountsv1.Invite
 	for _, invite := range invites {
