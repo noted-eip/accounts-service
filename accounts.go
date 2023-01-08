@@ -54,7 +54,7 @@ func (srv *accountsAPI) CreateAccount(ctx context.Context, in *accountsv1.Create
 }
 
 func (srv *accountsAPI) GetAccount(ctx context.Context, in *accountsv1.GetAccountRequest) (*accountsv1.GetAccountResponse, error) {
-	token, err := srv.authenticate(ctx)
+	_, err := srv.authenticate(ctx)
 	if err != nil {
 		return nil, status.Error(codes.Unauthenticated, err.Error())
 	}
@@ -67,10 +67,6 @@ func (srv *accountsAPI) GetAccount(ctx context.Context, in *accountsv1.GetAccoun
 	account, err := srv.repo.Get(ctx, &models.OneAccountFilter{ID: in.Id, Email: &in.Email})
 	if err != nil {
 		return nil, statusFromModelError(err)
-	}
-
-	if account == nil || token.UserID.String() != account.ID && token.Role != auth.RoleAdmin {
-		return nil, status.Error(codes.NotFound, "account not found")
 	}
 
 	acc := accountsv1.Account{Email: *account.Email, Name: *account.Name, Id: account.ID}
