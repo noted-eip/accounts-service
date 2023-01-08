@@ -38,5 +38,5 @@ type GroupNotesRepository interface {
 
 	Update(ctx context.Context, filter *GroupNoteFilter, GroupNote *GroupNotePayload) (*GroupNote, error)
 
-	List(ctx context.Context, filter *GroupNoteFilter) ([]GroupNote, error)
+	List(ctx context.Context, filter *GroupNoteFilter, pagination *Pagination) ([]GroupNote, error)
 }

@@ -7,6 +7,7 @@ import (
 	"context"
 	"errors"
 
+	"go.uber.org/zap"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
@@ -71,9 +72,66 @@ func (srv *groupsAPI) UpdateGroupNote(ctx context.Context, in *accountsv1.Update
 }
 
 func (srv *groupsAPI) GetGroupNote(ctx context.Context, in *accountsv1.GetGroupNoteRequest) (*accountsv1.GetGroupNoteResponse, error) {
-	return nil, errors.New("not implemented")
+	token, err := srv.authenticate(ctx)
+	if err != nil {
+		return nil, status.Error(codes.Unauthenticated, err.Error())
+	}
+
+	accountId := token.UserID.String()
+
+	_, err = srv.memberRepo.Get(ctx, &models.MemberFilter{AccountID: &accountId, GroupID: &in.GroupId})
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "could not validate get groupNotes request")
+	}
+
+	err = validators.ValidateGetGroupNote(in)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, err.Error())
+	}
+
+	note, err := srv.noteRepo.Get(ctx, &models.GroupNoteFilter{NoteID: in.NoteId, GroupID: in.GroupId})
+	if err != nil {
+		return nil, statusFromModelError(err)
+	}
+
+	groupNote := accountsv1.GroupNote{AuthorAccountId: note.AuthorID, NoteId: note.NoteID, Title: note.Title}
+	return &accountsv1.GetGroupNoteResponse{Note: &groupNote}, nil
 }
 
 func (srv *groupsAPI) ListGroupNotes(ctx context.Context, in *accountsv1.ListGroupNotesRequest) (*accountsv1.ListGroupNotesResponse, error) {
-	return nil, errors.New("not implemented")
+	token, err := srv.authenticate(ctx)
+	if err != nil {
+		return nil, status.Error(codes.Unauthenticated, err.Error())
+	}
+
+	err = validators.ValidateListGroupNote(in)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "could not validate list groupNotes request")
+	}
+
+	accountId := token.UserID.String()
+
+	_, err = srv.memberRepo.Get(ctx, &models.MemberFilter{AccountID: &accountId, GroupID: &in.GroupId})
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "failed to get member from group_id")
+	}
+
+	if in.Limit == 0 {
+		in.Limit = 20
+	}
+
+	groupNotes, err := srv.noteRepo.List(ctx, &models.GroupNoteFilter{GroupID: in.GroupId, AuthorID: in.AuthorAccountId}, &models.Pagination{Offset: int64(in.Offset), Limit: int64(in.Limit)})
+	if err != nil {
+		return nil, statusFromModelError(err)
+	}
+
+	groupsNotesResp := []*accountsv1.GroupNote{}
+	for _, groupNote := range groupNotes {
+		elem := &accountsv1.GroupNote{NoteId: groupNote.NoteID, Title: groupNote.Title, AuthorAccountId: groupNote.AuthorID}
+		if err != nil {
+			srv.logger.Error("failed to decode groupNote", zap.Error(err))
+		}
+		groupsNotesResp = append(groupsNotesResp, elem)
+	}
+	return &accountsv1.ListGroupNotesResponse{Notes: groupsNotesResp}, nil
 }

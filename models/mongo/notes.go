@@ -77,13 +77,47 @@ func (srv *groupNotesRepository) DeleteMany(ctx context.Context, filter *models.
 }
 
 func (srv *groupNotesRepository) Get(ctx context.Context, filter *models.GroupNoteFilter) (*models.GroupNote, error) {
-	return nil, errors.New("not implemented")
+	var note models.GroupNote
+
+	err := srv.coll.FindOne(ctx, filter).Decode(&note)
+	if err != nil {
+		if errors.Is(err, mongo.ErrNoDocuments) {
+			return nil, models.ErrNotFound
+		}
+		srv.logger.Error("query failed", zap.Error(err))
+		return nil, err
+	}
+
+	return &note, nil
 }
 
 func (srv *groupNotesRepository) Update(ctx context.Context, filter *models.GroupNoteFilter, GroupNote *models.GroupNotePayload) (*models.GroupNote, error) {
 	return nil, errors.New("not implemented")
 }
 
-func (srv *groupNotesRepository) List(ctx context.Context, filter *models.GroupNoteFilter) ([]models.GroupNote, error) {
-	return nil, errors.New("not implemented")
+func (srv *groupNotesRepository) List(ctx context.Context, filter *models.GroupNoteFilter, pagination *models.Pagination) ([]models.GroupNote, error) {
+	var groupNotes []models.GroupNote
+
+	opt := options.FindOptions{
+		Limit: &pagination.Limit,
+		Skip:  &pagination.Offset,
+	}
+
+	cursor, err := srv.coll.Find(ctx, filter, &opt)
+	if err != nil {
+		srv.logger.Error("mongo find groupNotes query failed", zap.Error(err))
+		return nil, err
+	}
+	defer cursor.Close(ctx)
+
+	for cursor.Next(ctx) {
+		var elem models.GroupNote
+		err := cursor.Decode(&elem)
+		if err != nil {
+			srv.logger.Error("failed to decode mongo cursor result", zap.Error(err))
+		}
+		groupNotes = append(groupNotes, elem)
+	}
+
+	return groupNotes, nil
 }

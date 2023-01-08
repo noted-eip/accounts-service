@@ -31,7 +31,7 @@ func ValidateUpdateGroupNote(in *accountsv1.UpdateGroupNoteRequest) error {
 func ValidateListGroupNote(in *accountsv1.ListGroupNotesRequest) error {
 	err := validation.ValidateStruct(in,
 		validation.Field(&in.GroupId, validation.Required, is.UUID),
-		validation.Field(&in.AuthorAccountId, validation.Required, is.UUID),
+		validation.Field(&in.AuthorAccountId, validation.When(in.AuthorAccountId != "", validation.Required), is.UUID),
 	)
 	if err != nil {
 		return err
