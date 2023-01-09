@@ -3,6 +3,7 @@ package memory
 import (
 	"accounts-service/models"
 	"errors"
+	"fmt"
 
 	"github.com/google/uuid"
 	"github.com/hashicorp/go-memdb"
@@ -126,7 +127,7 @@ func (srv *membersRepository) Get(ctx context.Context, filter *models.MemberFilt
 func (srv *membersRepository) Update(ctx context.Context, filter *models.MemberFilter, member *models.MemberPayload) (*models.Member, error) {
 	txn := srv.membersDB.DB.Txn(true)
 
-	it, err := txn.Get("member", "group_id", *filter.GroupID)
+	obj, err := txn.First("member", "group_id", *filter.GroupID)
 
 	if err != nil {
 		if errors.Is(err, memdb.ErrNotFound) {
@@ -135,17 +136,21 @@ func (srv *membersRepository) Update(ctx context.Context, filter *models.MemberF
 		srv.logger.Error("unable to get members", zap.Error(err))
 		return nil, err
 	}
-	var newAdmin models.Member
-	for obj := it.Next(); obj != nil; obj = it.Next() {
-		newAdmin := obj.(*models.Member)
-		err = txn.Insert("member", &models.Member{ID: newAdmin.ID, AccountID: member.AccountID, GroupID: member.GroupID, Role: member.Role})
-		if err != nil {
-			srv.logger.Error("unable to update member from object", zap.Error(err))
-			return nil, err
-		} else {
-			break
-		}
+
+	newAdmin := models.Member{
+		ID:        obj.(*models.Member).ID,
+		GroupID:   obj.(*models.Member).GroupID,
+		AccountID: obj.(*models.Member).AccountID,
+		Role:      member.Role,
 	}
+
+	err = txn.Insert("member", &newAdmin)
+	if err != nil {
+		fmt.Println(err.Error())
+		srv.logger.Error("unable to update member from object", zap.Error(err))
+		return nil, err
+	}
+
 	txn.Commit()
 	return &newAdmin, nil
 }
