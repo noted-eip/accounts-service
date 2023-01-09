@@ -39,7 +39,7 @@ func (srv *groupsAPI) CreateGroup(ctx context.Context, in *accountsv1.CreateGrou
 		return nil, statusFromModelError(err)
 	}
 
-	member := models.MemberPayload{AccountID: &accountId, GroupID: &group.ID, Role: auth.RoleAdmin}
+	member := models.MemberPayload{AccountID: &accountId, GroupID: &group.ID, Role: "admin"}
 	_, err = srv.memberRepo.Create(ctx, &member)
 	if err != nil {
 		return nil, status.Error(codes.Internal, err.Error())

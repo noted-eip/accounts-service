@@ -1,7 +1,6 @@
 package main
 
 import (
-	"accounts-service/auth"
 	"accounts-service/models"
 	accountsv1 "accounts-service/protorepo/noted/accounts/v1"
 	"accounts-service/validators"
@@ -27,7 +26,7 @@ func (srv *groupsAPI) AddGroupMember(ctx context.Context, in *accountsv1.AddGrou
 		return nil, status.Error(codes.InvalidArgument, "failed to get group from group_id")
 	}
 
-	payload := models.MemberPayload{AccountID: &in.AccountId, GroupID: &in.GroupId, Role: auth.RoleUser}
+	payload := models.MemberPayload{AccountID: &in.AccountId, GroupID: &in.GroupId, Role: "user"}
 	_, err = srv.memberRepo.Create(ctx, &payload)
 	if err != nil {
 		return nil, status.Error(codes.Internal, "failed to add member to group")
@@ -58,10 +57,10 @@ func (srv *groupsAPI) RemoveGroupMember(ctx context.Context, in *accountsv1.Remo
 	memberRequestDeletion, err := srv.memberRepo.Get(ctx, &memberRequestDeletionFilter)
 
 	if err != nil {
-		return nil, status.Error(codes.Internal, "failed to get user from requested group")
+		return nil, status.Error(codes.Internal, "failed to authorize request")
 	}
 
-	if memberRequestDeletion.Role == auth.RoleUser && *member.AccountID != token.UserID.String() {
+	if memberRequestDeletion.Role == "user" && *member.AccountID != token.UserID.String() {
 		return nil, status.Error(codes.PermissionDenied, "user must be admin or delete himself")
 	}
 
@@ -70,8 +69,8 @@ func (srv *groupsAPI) RemoveGroupMember(ctx context.Context, in *accountsv1.Remo
 		return nil, status.Error(codes.Internal, "failed to remove member to group")
 	}
 
-	if memberDel.Role == auth.RoleAdmin {
-		_, err = srv.memberRepo.Update(ctx, &models.MemberFilter{GroupID: memberDel.GroupID}, &models.MemberPayload{GroupID: member.GroupID, AccountID: member.AccountID, Role: auth.RoleAdmin})
+	if memberDel.Role == "admin" {
+		_, err = srv.memberRepo.Update(ctx, &models.MemberFilter{GroupID: memberDel.GroupID}, &models.MemberPayload{GroupID: member.GroupID, Role: "admin"})
 		if err != nil {
 			return nil, statusFromModelError(err)
 		}
