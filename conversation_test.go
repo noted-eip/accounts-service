@@ -13,7 +13,6 @@ import (
 
 type ConversationsAPISuite struct {
 	suite.Suite
-	// account *accountsAPI
 	auth auth.TestService
 	srv  *conversationsAPI
 }
@@ -24,40 +23,23 @@ func TestConversationsService(t *testing.T) {
 
 func (s *ConversationsAPISuite) SetupSuite() {
 	logger := newLoggerOrFail(s.T())
-	db := newDatabaseOrFail(s.T(), logger)
+	newMemoryTestDatabaseOrFail := newDatabaseOrFail(s.T(), logger)
 
 	s.srv = &conversationsAPI{
 		auth:   &s.auth,
 		logger: logger,
-		repo:   memory.NewConversationsRepository(db, logger),
+		repo:   memory.NewConversationsRepository(newMemoryTestDatabaseOrFail, logger),
 	}
-
-	// s.account = &accountsAPI{
-	// 	auth:   s.srv.auth,
-	// 	logger: s.srv.logger,
-	// 	repo:   memory.NewAccountsRepository(db, logger),
-	// }
 
 	s.srv.groupService = &groupsAPI{
 		auth:             s.srv.auth,
 		logger:           s.srv.logger,
-		groupRepo:        memory.NewGroupsRepository(db, logger),
-		memberRepo:       memory.NewMembersRepository(db, logger),
+		groupRepo:        memory.NewGroupsRepository(newMemoryTestDatabaseOrFail, logger),
+		memberRepo:       memory.NewMembersRepository(newMemoryTestDatabaseOrFail, logger),
 		conversationRepo: s.srv.repo,
 		noteRepo:         nil,
 	}
 }
-
-// func ConvCreateUser(s *ConversationsAPISuite, name string, email string, hash []byte) (*models.Account, error) {
-// 	return s.account.repo.Create(context.TODO(), &models.AccountPayload{Name: &name, Email: &email, Hash: &hash})
-// }
-
-// func createRandomAccount(s *ConversationsAPISuite) *models.Account {
-// 	first, err := ConvCreateUser(s, "first", fmt.Sprint(randomString(), randomString(), "@email.fr"), randomString())
-// 	s.Require().NoError(err)
-// 	s.Require().NotNil(first)
-// 	return first
-// }
 
 func ConvCreateDefaultGroup(s *ConversationsAPISuite, ctx context.Context) *accountsv1.Group {
 	groupRes, err := s.srv.groupService.CreateGroup(ctx, &accountsv1.CreateGroupRequest{
@@ -115,4 +97,64 @@ func (s *ConversationsAPISuite) TestDeleteConversation() {
 	updatedListedConv, err := s.srv.ListConversations(ctx, &accountsv1.ListConversationsRequest{GroupId: group.Id})
 	s.Require().NoError(err)
 	s.Require().Equal(len(updatedListedConv.Conversations), 0)
+}
+
+func (s *ConversationsAPISuite) TestGetConversation() {
+	uuid, err := uuid.NewRandom()
+	s.Require().NoError(err)
+	ctx, err := s.auth.ContextWithToken(context.TODO(), &auth.Token{UserID: uuid})
+	s.Require().NoError(err)
+
+	group := ConvCreateDefaultGroup(s, ctx)
+
+	listedConv, err := s.srv.ListConversations(ctx, &accountsv1.ListConversationsRequest{GroupId: group.Id})
+	s.Require().NoError(err)
+
+	getConv, err := s.srv.GetConversation(ctx, &accountsv1.GetConversationRequest{ConversationId: listedConv.Conversations[0].Id})
+	s.Require().NoError(err)
+	s.Require().Equal(getConv.Conversation.Title, "General conversation")
+}
+
+func (s *ConversationsAPISuite) TestGetConversationWithRandomUUID() {
+	id, err := uuid.NewRandom()
+	s.Require().NoError(err)
+	ctx, err := s.auth.ContextWithToken(context.TODO(), &auth.Token{UserID: id})
+	s.Require().NoError(err)
+
+	randomUUID, err := uuid.NewRandom()
+	s.Require().NoError(err)
+
+	_, err = s.srv.GetConversation(ctx, &accountsv1.GetConversationRequest{ConversationId: randomUUID.String()})
+	s.Require().Error(err)
+}
+
+func (s *ConversationsAPISuite) TestUpdateConversation() {
+	uuid, err := uuid.NewRandom()
+	s.Require().NoError(err)
+	ctx, err := s.auth.ContextWithToken(context.TODO(), &auth.Token{UserID: uuid})
+	s.Require().NoError(err)
+
+	group := ConvCreateDefaultGroup(s, ctx)
+
+	listedConv, err := s.srv.ListConversations(ctx, &accountsv1.ListConversationsRequest{GroupId: group.Id})
+	s.Require().NoError(err)
+
+	updatedConv, err := s.srv.UpdateConversation(ctx, &accountsv1.UpdateConversationRequest{ConversationId: listedConv.Conversations[0].Id, Title: "New title for test"})
+	s.Require().NoError(err)
+	s.Require().Equal(updatedConv.Conversation.Title, "New title for test")
+}
+
+func (s *ConversationsAPISuite) TestUpdateConversationWithTooLongTitle() {
+	uuid, err := uuid.NewRandom()
+	s.Require().NoError(err)
+	ctx, err := s.auth.ContextWithToken(context.TODO(), &auth.Token{UserID: uuid})
+	s.Require().NoError(err)
+
+	group := ConvCreateDefaultGroup(s, ctx)
+
+	listedConv, err := s.srv.ListConversations(ctx, &accountsv1.ListConversationsRequest{GroupId: group.Id})
+	s.Require().NoError(err)
+
+	_, err = s.srv.UpdateConversation(ctx, &accountsv1.UpdateConversationRequest{ConversationId: listedConv.Conversations[0].Id, Title: "New title that should be too long to pass the test and if it work it is not normal (call 0646294625 to complain)"})
+	s.Require().Error(err)
 }

@@ -25,6 +25,11 @@ type conversationsAPI struct {
 var _ accountsv1.ConversationsAPIServer = &conversationsAPI{}
 
 func (server *conversationsAPI) CreateConversation(ctx context.Context, in *accountsv1.CreateConversationRequest) (*accountsv1.CreateConversationResponse, error) {
+	err := validators.ValidateCreateConversationRequest(in)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, err.Error())
+	}
+
 	token, err := server.authenticate(ctx)
 	if err != nil {
 		return nil, status.Error(codes.Unauthenticated, err.Error())
@@ -34,12 +39,7 @@ func (server *conversationsAPI) CreateConversation(ctx context.Context, in *acco
 
 	_, err = server.groupService.GetGroupMember(ctx, &accountsv1.GetGroupMemberRequest{GroupId: in.GroupId, AccountId: accountId})
 	if err != nil {
-		return nil, status.Error(codes.InvalidArgument, "sender not in group")
-	}
-
-	err = validators.ValidateCreateConversationRequest(in)
-	if err != nil {
-		return nil, status.Error(codes.InvalidArgument, err.Error())
+		return nil, status.Error(codes.InvalidArgument, "not in group")
 	}
 
 	conversation, err := server.repo.Create(ctx, &models.CreateConversationPayload{GroupID: in.GroupId, Title: in.Title})
@@ -57,14 +57,14 @@ func (server *conversationsAPI) CreateConversation(ctx context.Context, in *acco
 }
 
 func (server *conversationsAPI) GetConversation(ctx context.Context, in *accountsv1.GetConversationRequest) (*accountsv1.GetConversationResponse, error) {
+	err := validators.ValidateGetConversationRequest(in)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, err.Error())
+	}
+
 	token, err := server.authenticate(ctx)
 	if err != nil {
 		return nil, status.Error(codes.Unauthenticated, err.Error())
-	}
-
-	err = validators.ValidateGetConversationRequest(in)
-	if err != nil {
-		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}
 
 	conversation, err := server.repo.Get(ctx, &models.OneConversationFilter{ID: in.ConversationId})
@@ -76,7 +76,7 @@ func (server *conversationsAPI) GetConversation(ctx context.Context, in *account
 
 	_, err = server.groupService.GetGroupMember(ctx, &accountsv1.GetGroupMemberRequest{GroupId: conversation.GroupID, AccountId: accountId})
 	if err != nil {
-		return nil, status.Error(codes.InvalidArgument, "sender not in group")
+		return nil, status.Error(codes.InvalidArgument, "not in group")
 	}
 
 	return &accountsv1.GetConversationResponse{
@@ -89,14 +89,14 @@ func (server *conversationsAPI) GetConversation(ctx context.Context, in *account
 }
 
 func (server *conversationsAPI) DeleteConversation(ctx context.Context, in *accountsv1.DeleteConversationRequest) (*accountsv1.DeleteConversationResponse, error) {
+	err := validators.ValidateDeleteConversationRequest(in)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, err.Error())
+	}
+
 	token, err := server.authenticate(ctx)
 	if err != nil {
 		return nil, status.Error(codes.Unauthenticated, err.Error())
-	}
-
-	err = validators.ValidateDeleteConversationRequest(in)
-	if err != nil {
-		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}
 
 	conversation, err := server.repo.Get(ctx, &models.OneConversationFilter{ID: in.ConversationId})
@@ -108,7 +108,7 @@ func (server *conversationsAPI) DeleteConversation(ctx context.Context, in *acco
 
 	_, err = server.groupService.GetGroupMember(ctx, &accountsv1.GetGroupMemberRequest{GroupId: conversation.GroupID, AccountId: accountId})
 	if err != nil {
-		return nil, status.Error(codes.InvalidArgument, "sender not in group")
+		return nil, status.Error(codes.InvalidArgument, "not in group")
 	}
 
 	err = server.repo.Delete(ctx, &models.OneConversationFilter{ID: in.ConversationId})
@@ -120,6 +120,11 @@ func (server *conversationsAPI) DeleteConversation(ctx context.Context, in *acco
 }
 
 func (server *conversationsAPI) UpdateConversation(ctx context.Context, in *accountsv1.UpdateConversationRequest) (*accountsv1.UpdateConversationResponse, error) {
+	err := validators.ValidateUpdateConversationRequest(in)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, err.Error())
+	}
+
 	token, err := server.authenticate(ctx)
 	if err != nil {
 		return nil, status.Error(codes.Unauthenticated, err.Error())
@@ -134,12 +139,7 @@ func (server *conversationsAPI) UpdateConversation(ctx context.Context, in *acco
 
 	_, err = server.groupService.GetGroupMember(ctx, &accountsv1.GetGroupMemberRequest{GroupId: conversation.GroupID, AccountId: accountId})
 	if err != nil {
-		return nil, status.Error(codes.InvalidArgument, "sender not in group")
-	}
-
-	err = validators.ValidateUpdateConversationRequest(in)
-	if err != nil {
-		return nil, status.Error(codes.InvalidArgument, err.Error())
+		return nil, status.Error(codes.InvalidArgument, "not in group")
 	}
 
 	filter := models.OneConversationFilter{ID: in.ConversationId}
@@ -159,6 +159,11 @@ func (server *conversationsAPI) UpdateConversation(ctx context.Context, in *acco
 }
 
 func (server *conversationsAPI) ListConversations(ctx context.Context, in *accountsv1.ListConversationsRequest) (*accountsv1.ListConversationsResponse, error) {
+	err := validators.ValidateListConversationRequest(in)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, err.Error())
+	}
+
 	token, err := server.authenticate(ctx)
 	if err != nil {
 		return nil, status.Error(codes.Unauthenticated, err.Error())
@@ -168,12 +173,7 @@ func (server *conversationsAPI) ListConversations(ctx context.Context, in *accou
 
 	_, err = server.groupService.GetGroupMember(ctx, &accountsv1.GetGroupMemberRequest{GroupId: in.GroupId, AccountId: accountId})
 	if err != nil {
-		return nil, status.Error(codes.InvalidArgument, "sender not in group")
-	}
-
-	err = validators.ValidateListConversationRequest(in)
-	if err != nil {
-		return nil, status.Error(codes.InvalidArgument, err.Error())
+		return nil, status.Error(codes.InvalidArgument, "not in group")
 	}
 
 	conversations, err := server.repo.List(ctx, &models.ManyConversationsFilter{GroupID: in.GroupId})
@@ -181,7 +181,7 @@ func (server *conversationsAPI) ListConversations(ctx context.Context, in *accou
 		return nil, statusFromModelError(err)
 	}
 
-	var groupConversations []*accountsv1.Conversation
+	groupConversations := make([]*accountsv1.Conversation, 0)
 
 	for _, conversation := range conversations {
 		groupConversation := &accountsv1.Conversation{Id: conversation.ID, GroupId: conversation.GroupID, Title: conversation.Title}

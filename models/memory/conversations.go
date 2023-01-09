@@ -1,9 +1,10 @@
-// Package memory is an in-memory implementation of models.InvitesRepository
+// Package memory is an in-memory implementation of models.ConversationsRepository
 package memory
 
 import (
 	"accounts-service/models"
 	"context"
+	"errors"
 
 	"github.com/google/uuid"
 	"github.com/hashicorp/go-memdb"
@@ -48,7 +49,7 @@ func (srv *conversationsRepository) Get(ctx context.Context, filter *models.OneC
 
 	raw, err := txn.First("conversation", "id", filter.ID)
 	if err != nil {
-		srv.logger.Error("unable to query invite", zap.Error(err))
+		srv.logger.Error("unable to query conversation", zap.Error(err))
 		return nil, err
 	}
 
@@ -75,7 +76,27 @@ func (srv *conversationsRepository) Delete(ctx context.Context, filter *models.O
 }
 
 func (srv *conversationsRepository) Update(ctx context.Context, filter *models.OneConversationFilter, conv *models.UpdateConversationPayload) (*models.Conversation, error) {
-	return nil, nil
+	txn := srv.db.DB.Txn(true)
+
+	raw, err := txn.First("conversation", "id", filter.ID)
+	if err != nil {
+		srv.logger.Error("unable to query conversation", zap.Error(err))
+		return nil, err
+	}
+
+	updatedConversation := models.Conversation{ID: filter.ID, GroupID: raw.(*models.Conversation).GroupID, Title: conv.Title}
+
+	err = txn.Insert("conversation", &updatedConversation)
+	if err != nil {
+		if errors.Is(err, memdb.ErrNotFound) {
+			return nil, models.ErrNotFound
+		}
+		srv.logger.Error("update failed", zap.Error(err))
+		return nil, err
+	}
+
+	txn.Commit()
+	return &updatedConversation, nil
 }
 
 func (srv *conversationsRepository) List(ctx context.Context, filter *models.ManyConversationsFilter) ([]models.Conversation, error) {

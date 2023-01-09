@@ -10,7 +10,7 @@ import (
 func ValidateSendConversationMessageRequest(in *accountsv1.SendConversationMessageRequest) error {
 	return validation.ValidateStruct(in,
 		validation.Field(&in.ConversationId, validation.Required, is.UUID),
-		validation.Field(&in.Content, validation.Required),
+		validation.Field(&in.Content, validation.Required, validation.Length(1, 250)),
 	)
 }
 
@@ -25,7 +25,7 @@ func ValidateUpdateConversationMessageRequest(in *accountsv1.UpdateConversationM
 	return validation.ValidateStruct(in,
 		validation.Field(&in.MessageId, validation.Required, is.UUID),
 		validation.Field(&in.ConversationId, validation.Required, is.UUID),
-		validation.Field(&in.Content, validation.Required),
+		validation.Field(&in.Content, validation.Required, validation.Length(1, 250)),
 	)
 }
 

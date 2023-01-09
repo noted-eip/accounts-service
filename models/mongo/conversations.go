@@ -43,7 +43,7 @@ func (srv *conversationsRepository) Create(ctx context.Context, info *models.Cre
 		if mongo.IsDuplicateKeyError(err) {
 			return nil, models.ErrDuplicateKeyFound
 		}
-		srv.logger.Error("insert failed", zap.Error(err), zap.String("Title", conversation.Title))
+		srv.logger.Error("insert failed", zap.Error(err), zap.String("title", conversation.Title))
 		return nil, err
 	}
 
