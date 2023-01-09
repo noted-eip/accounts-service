@@ -30,18 +30,6 @@ func (server *conversationsAPI) CreateConversation(ctx context.Context, in *acco
 		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}
 
-	token, err := server.authenticate(ctx)
-	if err != nil {
-		return nil, status.Error(codes.Unauthenticated, err.Error())
-	}
-
-	accountId := token.UserID.String()
-
-	_, err = server.groupService.GetGroupMember(ctx, &accountsv1.GetGroupMemberRequest{GroupId: in.GroupId, AccountId: accountId})
-	if err != nil {
-		return nil, status.Error(codes.InvalidArgument, "not in group")
-	}
-
 	conversation, err := server.repo.Create(ctx, &models.CreateConversationPayload{GroupID: in.GroupId, Title: in.Title})
 	if err != nil {
 		return nil, statusFromModelError(err)
