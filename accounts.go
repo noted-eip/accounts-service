@@ -150,8 +150,7 @@ func (srv *accountsAPI) ListAccounts(ctx context.Context, in *accountsv1.ListAcc
 	if in.Limit == 0 {
 		in.Limit = 20
 	}
-
-	accounts, err := srv.repo.List(ctx, &models.ManyAccountsFilter{}, &models.Pagination{Offset: int64(in.Offset), Limit: int64(in.Limit)})
+	accounts, err := srv.repo.List(ctx, &models.ManyAccountsFilter{EmailContains: &in.EmailContains}, &models.Pagination{Offset: int64(in.Offset), Limit: int64(in.Limit)})
 	if err != nil {
 		return nil, statusFromModelError(err)
 	}
