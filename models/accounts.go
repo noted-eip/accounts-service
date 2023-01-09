@@ -23,7 +23,7 @@ type OneAccountFilter struct {
 }
 
 type ManyAccountsFilter struct {
-	EmailContains *string
+	EmailContains string
 }
 
 // AccountsRepository is safe for use in multiple goroutines.

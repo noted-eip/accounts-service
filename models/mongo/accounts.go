@@ -116,13 +116,11 @@ func (srv *accountsRepository) List(ctx context.Context, filter *models.ManyAcco
 		Limit: &pagination.Limit,
 		Skip:  &pagination.Offset,
 	}
-	// check input filter email if is empty return message email is required
-
-	if filter.EmailContains == nil || *filter.EmailContains == "" {
+	if filter.EmailContains == "" {
 		return nil, errors.New("email is required")
 	}
 	cursor, err := srv.coll.Find(ctx, bson.M{"email": bson.M{"$regex": primitive.Regex{
-		Pattern: ".*" + *filter.EmailContains + ".*",
+		Pattern: ".*" + filter.EmailContains + ".*",
 		Options: "i",
 	}}}, &opt)
 	if err != nil {

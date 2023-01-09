@@ -51,5 +51,10 @@ func ValidateListRequest(in *accountsv1.ListAccountsRequest) error {
 	if err != nil {
 		return err
 	}
+
+	err = validation.Validate(in.EmailContains, validation.Required)
+	if err != nil {
+		return err
+	}
 	return nil
 }
