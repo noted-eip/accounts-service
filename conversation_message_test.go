@@ -167,57 +167,6 @@ func (s *ConversationMessagesAPISuite) TestListMessagesFromNonExistingConversati
 	s.Require().Error(err)
 }
 
-// func (s *ConversationMessagesAPISuite) TestCreateGroupWithDefaultConversation() {
-// 	uuid, err := uuid.NewRandom()
-// 	s.Require().NoError(err)
-// 	ctx, err := s.auth.ContextWithToken(context.TODO(), &auth.Token{UserID: uuid})
-// 	s.Require().NoError(err)
-
-// 	group := ConvCreateDefaultGroup(s, ctx)
-// 	listedConv, err := s.srv.ListConversations(ctx, &accountsv1.ListConversationsRequest{GroupId: group.Id})
-// 	s.Require().NoError(err)
-// 	s.Require().Equal(listedConv.Conversations[0].Title, "General conversation")
-// }
-
-// func (s *ConversationMessagesAPISuite) TestCreateConversation() {
-// 	uuid, err := uuid.NewRandom()
-// 	s.Require().NoError(err)
-// 	ctx, err := s.auth.ContextWithToken(context.TODO(), &auth.Token{UserID: uuid})
-// 	s.Require().NoError(err)
-
-// 	group := ConvCreateDefaultGroup(s, ctx)
-// 	nConv, err := s.srv.CreateConversation(ctx, &accountsv1.CreateConversationRequest{GroupId: group.Id, Title: "Test"})
-// 	s.Require().NoError(err)
-// 	s.Require().Equal(nConv.Conversation.Title, "Test")
-
-// 	listedConv, err := s.srv.ListConversations(ctx, &accountsv1.ListConversationsRequest{GroupId: group.Id})
-// 	s.Require().NoError(err)
-// 	s.Require().Equal(len(listedConv.Conversations), 2)
-// }
-
-// func (s *ConversationMessagesAPISuite) TestDeleteConversation() {
-// 	uuid, err := uuid.NewRandom()
-// 	s.Require().NoError(err)
-// 	ctx, err := s.auth.ContextWithToken(context.TODO(), &auth.Token{UserID: uuid})
-// 	s.Require().NoError(err)
-
-// 	group := ConvCreateDefaultGroup(s, ctx)
-
-// 	listedConv, err := s.srv.ListConversations(ctx, &accountsv1.ListConversationsRequest{GroupId: group.Id})
-// 	s.Require().NoError(err)
-
-// 	_, err = s.srv.DeleteConversation(ctx, &accountsv1.DeleteConversationRequest{ConversationId: listedConv.Conversations[0].Id})
-// 	s.Require().NoError(err)
-
-// 	updatedListedConv, err := s.srv.ListConversations(ctx, &accountsv1.ListConversationsRequest{GroupId: group.Id})
-// 	s.Require().NoError(err)
-// 	s.Require().Equal(len(updatedListedConv.Conversations), 0)
-// }
-
-// func (s *ConversationMessagesAPISuite) TestGetConversation() {
-// 	uuid, err := uuid.NewRandom()
-// 	s.Require().NoError(err)
-// 	ctx, err := s.auth.ContextWithToken(context.TODO(), &auth.Token{UserID: uuid})
 // 	s.Require().NoError(err)
 
 // 	group := ConvCreateDefaultGroup(s, ctx)
