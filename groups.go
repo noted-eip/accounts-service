@@ -61,9 +61,20 @@ func (srv *groupsAPI) DeleteGroup(ctx context.Context, in *accountsv1.DeleteGrou
 		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}
 
-	_, err = srv.authenticate(ctx)
+	token, err := srv.authenticate(ctx)
 	if err != nil {
 		return nil, status.Error(codes.Unauthenticated, err.Error())
+	}
+
+	accountId := token.UserID.String()
+
+	member, err := srv.memberRepo.Get(ctx, &models.MemberFilter{AccountID: &accountId, GroupID: &in.GroupId})
+	if err != nil {
+		return nil, statusFromModelError(err)
+	}
+
+	if member.Role != auth.RoleAdmin {
+		return nil, status.Error(codes.InvalidArgument, "user must be admin to delete a group")
 	}
 
 	err = srv.groupRepo.Delete(ctx, &models.OneGroupFilter{ID: in.GroupId})
