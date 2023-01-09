@@ -210,15 +210,3 @@ func (s *ConversationMessagesAPISuite) TestListMessagesFromNonExistingConversati
 
 // func (s *ConversationMessagesAPISuite) TestUpdateConversationWithTooLongTitle() {
 // 	uuid, err := uuid.NewRandom()
-// 	s.Require().NoError(err)
-// 	ctx, err := s.auth.ContextWithToken(context.TODO(), &auth.Token{UserID: uuid})
-// 	s.Require().NoError(err)
-
-// 	group := ConvCreateDefaultGroup(s, ctx)
-
-// 	listedConv, err := s.srv.ListConversations(ctx, &accountsv1.ListConversationsRequest{GroupId: group.Id})
-// 	s.Require().NoError(err)
-
-// 	_, err = s.srv.UpdateConversation(ctx, &accountsv1.UpdateConversationRequest{ConversationId: listedConv.Conversations[0].Id, Title: "New title that should be too long to pass the test and if it work it is not normal (call 0646294625 to complain)"})
-// 	s.Require().Error(err)
-// }
