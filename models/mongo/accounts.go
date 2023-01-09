@@ -9,6 +9,7 @@ import (
 
 	"github.com/google/uuid"
 	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 	"go.uber.org/zap"
@@ -115,7 +116,13 @@ func (srv *accountsRepository) List(ctx context.Context, filter *models.ManyAcco
 		Limit: &pagination.Limit,
 		Skip:  &pagination.Offset,
 	}
-	cursor, err := srv.coll.Find(ctx, bson.D{}, &opt)
+	if filter.EmailContains == "" {
+		return nil, errors.New("email is required")
+	}
+	cursor, err := srv.coll.Find(ctx, bson.M{"email": bson.M{"$regex": primitive.Regex{
+		Pattern: ".*" + filter.EmailContains + ".*",
+		Options: "i",
+	}}}, &opt)
 	if err != nil {
 		srv.logger.Error("mongo find accounts query failed", zap.Error(err))
 		return nil, err

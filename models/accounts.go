@@ -22,7 +22,9 @@ type OneAccountFilter struct {
 	Email *string `json:"email" bson:"email,omitempty"`
 }
 
-type ManyAccountsFilter struct{}
+type ManyAccountsFilter struct {
+	EmailContains string
+}
 
 // AccountsRepository is safe for use in multiple goroutines.
 type AccountsRepository interface {
