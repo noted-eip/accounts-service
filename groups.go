@@ -42,7 +42,7 @@ func (srv *groupsAPI) CreateGroup(ctx context.Context, in *accountsv1.CreateGrou
 	member := models.MemberPayload{AccountID: &accountId, GroupID: &group.ID, Role: "admin"}
 	_, err = srv.memberRepo.Create(ctx, &member)
 	if err != nil {
-		return nil, status.Error(codes.Internal, err.Error())
+		return nil, statusFromModelError(err)
 	}
 
 	return &accountsv1.CreateGroupResponse{
@@ -73,7 +73,7 @@ func (srv *groupsAPI) DeleteGroup(ctx context.Context, in *accountsv1.DeleteGrou
 	memberFilter := models.MemberFilter{GroupID: &in.GroupId}
 	err = srv.memberRepo.DeleteMany(ctx, &memberFilter)
 	if err != nil {
-		return nil, status.Error(codes.Internal, err.Error())
+		return nil, statusFromModelError(err)
 	}
 
 	return &accountsv1.DeleteGroupResponse{}, nil
@@ -83,7 +83,7 @@ func (srv *groupsAPI) UpdateGroup(ctx context.Context, in *accountsv1.UpdateGrou
 
 	err := validators.ValidateUpdatedGroupRequest(in)
 	if err != nil {
-		return nil, status.Error(codes.InvalidArgument, "could not update Group")
+		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}
 
 	groupID := in.Group.Id
@@ -113,7 +113,7 @@ func (srv *groupsAPI) GetGroup(ctx context.Context, in *accountsv1.GetGroupReque
 
 	err = validators.ValidateGetGroup(in)
 	if err != nil {
-		return nil, status.Error(codes.InvalidArgument, "could not get Group")
+		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}
 
 	group, err := srv.groupRepo.Get(ctx, &models.OneGroupFilter{ID: in.GroupId})
@@ -135,7 +135,7 @@ func (srv *groupsAPI) GetGroup(ctx context.Context, in *accountsv1.GetGroupReque
 func (srv *groupsAPI) ListGroups(ctx context.Context, in *accountsv1.ListGroupsRequest) (*accountsv1.ListGroupsResponse, error) {
 	err := validators.ValidateListGroups(in)
 	if err != nil {
-		return nil, status.Error(codes.InvalidArgument, "could not validate list groups request")
+		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}
 
 	_, err = srv.authenticate(ctx)
@@ -149,13 +149,12 @@ func (srv *groupsAPI) ListGroups(ctx context.Context, in *accountsv1.ListGroupsR
 
 	memberFromGroups, err := srv.memberRepo.List(ctx, &models.MemberFilter{AccountID: &in.AccountId})
 	if err != nil {
-		return nil, status.Error(codes.Unauthenticated, "could not list groups member from groups Id")
+		return nil, statusFromModelError(err)
 	}
 
 	groups := []*accountsv1.Group{}
 	for _, member := range memberFromGroups {
 		group, err := srv.groupRepo.Get(ctx, &models.OneGroupFilter{ID: *member.GroupID})
-
 		if err != nil {
 			srv.logger.Error("failed get group from member id", zap.Error(err))
 		}

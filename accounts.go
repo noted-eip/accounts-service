@@ -36,7 +36,7 @@ func (srv *accountsAPI) CreateAccount(ctx context.Context, in *accountsv1.Create
 	hashed, err := bcrypt.GenerateFromPassword([]byte(in.Password), 8)
 	if err != nil {
 		srv.logger.Error("bcrypt failed to hash password", zap.Error(err))
-		return nil, status.Error(codes.Internal, "failed to create account")
+		return nil, status.Error(codes.Internal, err.Error())
 	}
 
 	acc, err := srv.repo.Create(ctx, &models.AccountPayload{Email: &in.Email, Name: &in.Name, Hash: &hashed})
@@ -125,7 +125,7 @@ func (srv *accountsAPI) DeleteAccount(ctx context.Context, in *accountsv1.Delete
 	id, err := uuid.Parse(in.Id)
 	if err != nil {
 		srv.logger.Error("failed to convert uuid from string", zap.Error(err))
-		return nil, status.Error(codes.Internal, "failed to delete account")
+		return nil, status.Error(codes.Internal, err.Error())
 	}
 
 	err = srv.repo.Delete(ctx, &models.OneAccountFilter{ID: id.String()})
@@ -144,7 +144,7 @@ func (srv *accountsAPI) ListAccounts(ctx context.Context, in *accountsv1.ListAcc
 
 	err = validators.ValidateListRequest(in)
 	if err != nil {
-		return nil, status.Error(codes.InvalidArgument, "could not validate list accounts request")
+		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}
 
 	if in.Limit == 0 {
