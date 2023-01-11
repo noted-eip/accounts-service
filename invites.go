@@ -163,7 +163,7 @@ func (srv *invitesAPI) ListInvites(ctx context.Context, in *accountsv1.ListInvit
 			Id:                 invite.ID,
 			GroupId:            *invite.GroupID,
 			SenderAccountId:    *invite.SenderAccountID,
-			RecipientAccountId: in.RecipientAccountId,
+			RecipientAccountId: *invite.RecipientAccountID,
 		}
 		inviteResp = append(inviteResp, elem)
 	}
