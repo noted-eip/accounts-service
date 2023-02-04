@@ -56,7 +56,7 @@ func (srv *accountsAPI) CreateAccount(ctx context.Context, in *accountsv1.Create
 func (srv *accountsAPI) GetAccount(ctx context.Context, in *accountsv1.GetAccountRequest) (*accountsv1.GetAccountResponse, error) {
 	_, err := srv.authenticate(ctx)
 	if err != nil {
-		return nil, status.Error(codes.Unauthenticated, err.Error())
+		return nil, err
 	}
 
 	err = validators.ValidateGetAccountRequest(in)
@@ -76,7 +76,7 @@ func (srv *accountsAPI) GetAccount(ctx context.Context, in *accountsv1.GetAccoun
 func (srv *accountsAPI) UpdateAccount(ctx context.Context, in *accountsv1.UpdateAccountRequest) (*accountsv1.UpdateAccountResponse, error) {
 	token, err := srv.authenticate(ctx)
 	if err != nil {
-		return nil, status.Error(codes.Unauthenticated, err.Error())
+		return nil, err
 	}
 
 	err = validators.ValidateUpdateAccountRequest(in)
@@ -109,7 +109,7 @@ func (srv *accountsAPI) UpdateAccount(ctx context.Context, in *accountsv1.Update
 func (srv *accountsAPI) DeleteAccount(ctx context.Context, in *accountsv1.DeleteAccountRequest) (*accountsv1.DeleteAccountResponse, error) {
 	token, err := srv.authenticate(ctx)
 	if err != nil {
-		return nil, status.Error(codes.Unauthenticated, err.Error())
+		return nil, err
 	}
 
 	err = validators.ValidateDeleteAccountRequest(in)
@@ -138,7 +138,7 @@ func (srv *accountsAPI) DeleteAccount(ctx context.Context, in *accountsv1.Delete
 func (srv *accountsAPI) ListAccounts(ctx context.Context, in *accountsv1.ListAccountsRequest) (*accountsv1.ListAccountsResponse, error) {
 	_, err := srv.authenticate(ctx)
 	if err != nil {
-		return nil, status.Error(codes.Unauthenticated, err.Error())
+		return nil, err
 	}
 
 	err = validators.ValidateListRequest(in)
