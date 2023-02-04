@@ -88,7 +88,6 @@ func (srv *accountsAPI) UpdateAccount(ctx context.Context, in *accountsv1.Update
 		return nil, status.Error(codes.NotFound, "account not found")
 	}
 
-	accountID := in.Account.Id
 	fieldMask := in.GetUpdateMask()
 	fieldMask.Normalize()
 	if !fieldMask.IsValid(in.Account) {
@@ -99,7 +98,7 @@ func (srv *accountsAPI) UpdateAccount(ctx context.Context, in *accountsv1.Update
 	fmutils.Filter(in.GetAccount(), fieldMask.GetPaths())
 	fmutils.Filter(in.GetAccount(), allowList)
 
-	_, err = srv.repo.Update(ctx, &models.OneAccountFilter{ID: accountID}, &models.AccountPayload{Name: &in.Account.Name})
+	_, err = srv.repo.Update(ctx, &models.OneAccountFilter{ID: in.AccountId}, &models.AccountPayload{Name: &in.Account.Name})
 	if err != nil {
 		return nil, statusFromModelError(err)
 	}
