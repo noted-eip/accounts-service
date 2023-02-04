@@ -64,7 +64,7 @@ func (srv *accountsAPI) GetAccount(ctx context.Context, in *accountsv1.GetAccoun
 		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}
 
-	account, err := srv.repo.Get(ctx, &models.OneAccountFilter{ID: in.Id, Email: &in.Email})
+	account, err := srv.repo.Get(ctx, &models.OneAccountFilter{ID: in.AccountId, Email: &in.Email})
 	if err != nil {
 		return nil, statusFromModelError(err)
 	}
@@ -118,11 +118,11 @@ func (srv *accountsAPI) DeleteAccount(ctx context.Context, in *accountsv1.Delete
 		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}
 
-	if token.UserID.String() != in.Id && token.Role != auth.RoleAdmin {
+	if token.UserID.String() != in.AccountId && token.Role != auth.RoleAdmin {
 		return nil, status.Error(codes.NotFound, "account not found")
 	}
 
-	id, err := uuid.Parse(in.Id)
+	id, err := uuid.Parse(in.AccountId)
 	if err != nil {
 		srv.logger.Error("failed to convert uuid from string", zap.Error(err))
 		return nil, status.Error(codes.Internal, err.Error())
