@@ -11,10 +11,10 @@ import (
 	"github.com/mennanov/fmutils"
 	"go.uber.org/zap"
 	"golang.org/x/crypto/bcrypt"
+	"google.golang.org/genproto/protobuf/field_mask"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
-
-	"github.com/google/uuid"
+	"google.golang.org/protobuf/reflect/protoreflect"
 )
 
 type accountsAPI struct {
@@ -56,7 +56,7 @@ func (srv *accountsAPI) CreateAccount(ctx context.Context, in *accountsv1.Create
 func (srv *accountsAPI) GetAccount(ctx context.Context, in *accountsv1.GetAccountRequest) (*accountsv1.GetAccountResponse, error) {
 	_, err := srv.authenticate(ctx)
 	if err != nil {
-		return nil, status.Error(codes.Unauthenticated, err.Error())
+		return nil, err
 	}
 
 	err = validators.ValidateGetAccountRequest(in)
@@ -64,7 +64,7 @@ func (srv *accountsAPI) GetAccount(ctx context.Context, in *accountsv1.GetAccoun
 		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}
 
-	account, err := srv.repo.Get(ctx, &models.OneAccountFilter{ID: in.Id, Email: &in.Email})
+	account, err := srv.repo.Get(ctx, &models.OneAccountFilter{ID: in.AccountId, Email: &in.Email})
 	if err != nil {
 		return nil, statusFromModelError(err)
 	}
@@ -76,7 +76,7 @@ func (srv *accountsAPI) GetAccount(ctx context.Context, in *accountsv1.GetAccoun
 func (srv *accountsAPI) UpdateAccount(ctx context.Context, in *accountsv1.UpdateAccountRequest) (*accountsv1.UpdateAccountResponse, error) {
 	token, err := srv.authenticate(ctx)
 	if err != nil {
-		return nil, status.Error(codes.Unauthenticated, err.Error())
+		return nil, err
 	}
 
 	err = validators.ValidateUpdateAccountRequest(in)
@@ -84,33 +84,27 @@ func (srv *accountsAPI) UpdateAccount(ctx context.Context, in *accountsv1.Update
 		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}
 
-	if token.UserID.String() != in.Account.Id && token.Role != auth.RoleAdmin {
+	if token.AccountID != in.AccountId {
 		return nil, status.Error(codes.NotFound, "account not found")
 	}
 
-	accountID := in.Account.Id
-	fieldMask := in.GetUpdateMask()
-	fieldMask.Normalize()
-	if !fieldMask.IsValid(in.Account) {
-		return nil, status.Error(codes.InvalidArgument, "invalid field mask")
+	err = applyUpdateMask(in.UpdateMask, in.Account, []string{"name"})
+	if err != nil {
+		return nil, err
 	}
 
-	allowList := []string{"name"}
-	fmutils.Filter(in.GetAccount(), fieldMask.GetPaths())
-	fmutils.Filter(in.GetAccount(), allowList)
-
-	_, err = srv.repo.Update(ctx, &models.OneAccountFilter{ID: accountID}, &models.AccountPayload{Name: &in.Account.Name})
+	account, err := srv.repo.Update(ctx, &models.OneAccountFilter{ID: in.AccountId}, &models.AccountPayload{Name: &in.Account.Name})
 	if err != nil {
 		return nil, statusFromModelError(err)
 	}
 
-	return &accountsv1.UpdateAccountResponse{Account: in.GetAccount()}, nil
+	return &accountsv1.UpdateAccountResponse{Account: modelsAccountToProtobufAccount(account)}, nil
 }
 
 func (srv *accountsAPI) DeleteAccount(ctx context.Context, in *accountsv1.DeleteAccountRequest) (*accountsv1.DeleteAccountResponse, error) {
 	token, err := srv.authenticate(ctx)
 	if err != nil {
-		return nil, status.Error(codes.Unauthenticated, err.Error())
+		return nil, err
 	}
 
 	err = validators.ValidateDeleteAccountRequest(in)
@@ -118,17 +112,11 @@ func (srv *accountsAPI) DeleteAccount(ctx context.Context, in *accountsv1.Delete
 		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}
 
-	if token.UserID.String() != in.Id && token.Role != auth.RoleAdmin {
+	if token.AccountID != in.AccountId {
 		return nil, status.Error(codes.NotFound, "account not found")
 	}
 
-	id, err := uuid.Parse(in.Id)
-	if err != nil {
-		srv.logger.Error("failed to convert uuid from string", zap.Error(err))
-		return nil, status.Error(codes.Internal, err.Error())
-	}
-
-	err = srv.repo.Delete(ctx, &models.OneAccountFilter{ID: id.String()})
+	err = srv.repo.Delete(ctx, &models.OneAccountFilter{ID: in.AccountId})
 	if err != nil {
 		return nil, statusFromModelError(err)
 	}
@@ -139,7 +127,7 @@ func (srv *accountsAPI) DeleteAccount(ctx context.Context, in *accountsv1.Delete
 func (srv *accountsAPI) ListAccounts(ctx context.Context, in *accountsv1.ListAccountsRequest) (*accountsv1.ListAccountsResponse, error) {
 	_, err := srv.authenticate(ctx)
 	if err != nil {
-		return nil, status.Error(codes.Unauthenticated, err.Error())
+		return nil, err
 	}
 
 	err = validators.ValidateListRequest(in)
@@ -178,13 +166,7 @@ func (srv *accountsAPI) Authenticate(ctx context.Context, in *accountsv1.Authent
 		return nil, status.Error(codes.InvalidArgument, "wrong password or email")
 	}
 
-	id, err := uuid.Parse(acc.ID)
-	if err != nil {
-		srv.logger.Error("failed to convert uuid from string", zap.Error(err))
-		return nil, status.Error(codes.Internal, "failed to get account")
-	}
-
-	tokenString, err := srv.auth.SignToken(&auth.Token{UserID: id})
+	tokenString, err := srv.auth.SignToken(&auth.Token{AccountID: acc.ID})
 	if err != nil {
 		srv.logger.Error("failed to sign token", zap.Error(err))
 		return nil, status.Error(codes.Internal, "failed to authenticate user")
@@ -216,4 +198,18 @@ func statusFromModelError(err error) error {
 		return status.Error(codes.InvalidArgument, "invalid argument")
 	}
 	return status.Error(codes.Internal, "internal error")
+}
+
+func modelsAccountToProtobufAccount(acc *models.Account) *accountsv1.Account {
+	return &accountsv1.Account{Id: acc.ID, Name: *acc.Name, Email: *acc.Email}
+}
+
+func applyUpdateMask(mask *field_mask.FieldMask, msg protoreflect.ProtoMessage, allowedFields []string) error {
+	mask.Normalize()
+	if !mask.IsValid(msg) {
+		return status.Error(codes.InvalidArgument, "invalid field mask")
+	}
+	fmutils.Filter(msg, mask.GetPaths())
+	fmutils.Filter(msg, allowedFields)
+	return nil
 }

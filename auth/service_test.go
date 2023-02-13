@@ -7,7 +7,6 @@ import (
 	"testing"
 
 	"github.com/golang-jwt/jwt"
-	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc/metadata"
 )
@@ -16,13 +15,9 @@ func Test_service_ContextWithToken(t *testing.T) {
 	// Given
 	pub, priv := genKeyOrFail(t)
 	srv := auth.NewService(priv)
-	uid := uuid.New()
 
 	// When
-	ctx, err := srv.ContextWithToken(context.TODO(), &auth.Token{
-		UserID: uid,
-		Role:   auth.RoleAdmin,
-	})
+	ctx, err := srv.ContextWithToken(context.TODO(), &auth.Token{AccountID: "123"})
 
 	// Then
 	require.NoError(t, err)
@@ -50,7 +45,7 @@ func Test_service_ContextWithToken(t *testing.T) {
 	})
 
 	t.Run("the token should contain user data", func(t *testing.T) {
-		require.Equal(t, claims.UserID, uid)
+		require.Equal(t, claims.AccountID, "123")
 	})
 }
 
@@ -58,11 +53,7 @@ func Test_service_TokenFromContext(t *testing.T) {
 	// Given
 	_, priv := genKeyOrFail(t)
 	srv := auth.NewService(priv)
-	uid := uuid.New()
-	ctx, err := srv.ContextWithToken(context.TODO(), &auth.Token{
-		UserID: uid,
-		Role:   auth.RoleAdmin,
-	})
+	ctx, err := srv.ContextWithToken(context.TODO(), &auth.Token{AccountID: "123"})
 	require.NoError(t, err)
 
 	// When
@@ -72,7 +63,7 @@ func Test_service_TokenFromContext(t *testing.T) {
 	require.NoError(t, err)
 
 	t.Run("the token should contain the user data", func(t *testing.T) {
-		require.Equal(t, token.UserID, uid)
+		require.Equal(t, token.AccountID, "123")
 	})
 }
 

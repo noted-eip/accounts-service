@@ -20,4 +20,6 @@ var (
 
 	// Returned when a `Update`, try to update non-existant field.
 	ErrUpdateInvalidField = errors.New("invalid update field requested")
+
+	ErrUnknown = errors.New("unknown error")
 )
