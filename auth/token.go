@@ -6,6 +6,6 @@ import (
 
 // Token represents the payload section of a JWT.
 type Token struct {
-	AccountID string `json:"uid,omitempty"`
+	AccountID string `json:"aid,omitempty"`
 	jwt.StandardClaims
 }
