@@ -66,8 +66,7 @@ func (repo *accountsRepository) Create(ctx context.Context, payload *models.Acco
 func (repo *accountsRepository) Get(ctx context.Context, filter *models.OneAccountFilter) (*models.Account, error) {
 	var account models.Account
 
-	accFilter := buildAccountFilter(filter)
-	err := repo.coll.FindOne(ctx, accFilter).Decode(&account)
+	err := repo.coll.FindOne(ctx, filter).Decode(&account)
 	if err != nil {
 		if errors.Is(err, mongo.ErrNoDocuments) {
 			return nil, models.ErrNotFound
@@ -136,7 +135,7 @@ func (repo *accountsRepository) List(ctx context.Context, filter *models.ManyAcc
 }
 
 func buildAccountFilter(filter *models.OneAccountFilter) *models.OneAccountFilter {
-	if filter.Email == nil || *filter.Email == "" {
+	if filter.Email == "" {
 		return &models.OneAccountFilter{ID: filter.ID}
 	} else if filter.ID == "" {
 		return &models.OneAccountFilter{Email: filter.Email}
