@@ -122,4 +122,30 @@ func TestAccountsAPI(t *testing.T) {
 		require.Equal(t, daveEmail, res.Account.Email)
 		require.Equal(t, dave.ID, res.Account.Id)
 	})
+
+	t.Run("owner-can-update-account-name", func(t *testing.T) {
+		res, err := tu.accounts.UpdateAccount(dave.Context, &accountsv1.UpdateAccountRequest{
+			AccountId: dave.ID,
+			Account: &accountsv1.Account{
+				Name: "Dave Doe Jr",
+			},
+		})
+		require.NoError(t, err)
+		require.NotNil(t, res)
+		require.NotNil(t, res.Account)
+		require.Equal(t, "Dave Doe Jr", res.Account.Name)
+		require.Equal(t, daveEmail, res.Account.Email)
+		require.Equal(t, dave.ID, res.Account.Id)
+	})
+
+	t.Run("owner-cannot-update-account-with-empty-name", func(t *testing.T) {
+		res, err := tu.accounts.UpdateAccount(dave.Context, &accountsv1.UpdateAccountRequest{
+			AccountId: dave.ID,
+			Account: &accountsv1.Account{
+				Name: "",
+			},
+		})
+		requireErrorHasGRPCCode(t, codes.InvalidArgument, err)
+		require.Nil(t, res)
+	})
 }

@@ -212,6 +212,9 @@ func modelsAccountToProtobufAccount(acc *models.Account) *accountsv1.Account {
 }
 
 func applyUpdateMask(mask *field_mask.FieldMask, msg protoreflect.ProtoMessage, allowedFields []string) error {
+	if mask == nil {
+		mask = &field_mask.FieldMask{Paths: allowedFields}
+	}
 	mask.Normalize()
 	if !mask.IsValid(msg) {
 		return status.Error(codes.InvalidArgument, "invalid field mask")

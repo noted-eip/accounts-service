@@ -23,7 +23,15 @@ func ValidateGetAccountRequest(in *accountsv1.GetAccountRequest) error {
 }
 
 func ValidateUpdateAccountRequest(in *accountsv1.UpdateAccountRequest) error {
-	return validation.Validate(in.AccountId, validation.Required)
+	err := validation.Validate(in.AccountId, validation.Required)
+	if err != nil {
+		return err
+	}
+	err = validation.Validate(in.Account, validation.Required)
+	if err != nil {
+		return err
+	}
+	return validation.Validate(in.Account.Name, validation.Required, validation.Length(4, 20))
 }
 
 func ValidateDeleteAccountRequest(in *accountsv1.DeleteAccountRequest) error {
