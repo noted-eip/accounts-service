@@ -2,6 +2,7 @@ package main
 
 import (
 	"accounts-service/auth"
+	"accounts-service/communication"
 	"accounts-service/models"
 	"accounts-service/models/mongo"
 	accountsv1 "accounts-service/protorepo/noted/accounts/v1"
@@ -114,10 +115,14 @@ func (s *server) initRepositories() {
 }
 
 func (s *server) initAccountsAPI() {
+	noteService, err := communication.NewNoteServiceClient(*noteServiceUrl)
+	must(err, "could not instantiate note service connection")
+
 	s.accountsService = &accountsAPI{
-		auth:   s.authService,
-		logger: s.logger,
-		repo:   s.accountsRepository,
+		noteService: noteService,
+		auth:        s.authService,
+		logger:      s.logger,
+		repo:        s.accountsRepository,
 	}
 }
 

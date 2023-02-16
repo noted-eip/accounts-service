@@ -2,8 +2,10 @@ package main
 
 import (
 	"accounts-service/auth"
+	"accounts-service/communication"
 	"accounts-service/models"
 	accountsv1 "accounts-service/protorepo/noted/accounts/v1"
+	v1 "accounts-service/protorepo/noted/notes/v1"
 	"accounts-service/validators"
 	"context"
 	"errors"
@@ -20,9 +22,10 @@ import (
 type accountsAPI struct {
 	accountsv1.UnimplementedAccountsAPIServer
 
-	auth   auth.Service
-	logger *zap.Logger
-	repo   models.AccountsRepository
+	noteService *communication.NoteServiceClient
+	auth        auth.Service
+	logger      *zap.Logger
+	repo        models.AccountsRepository
 }
 
 var _ accountsv1.AccountsAPIServer = &accountsAPI{}
@@ -42,6 +45,11 @@ func (srv *accountsAPI) CreateAccount(ctx context.Context, in *accountsv1.Create
 	acc, err := srv.repo.Create(ctx, &models.AccountPayload{Email: &in.Email, Name: &in.Name, Hash: &hashed})
 	if err != nil {
 		return nil, statusFromModelError(err)
+	}
+
+	_, err = srv.noteService.Groups.CreateWorkspace(ctx, &v1.CreateWorkspaceRequest{})
+	if err != nil {
+		return nil, err
 	}
 
 	return &accountsv1.CreateAccountResponse{
