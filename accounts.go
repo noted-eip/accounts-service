@@ -124,6 +124,11 @@ func (srv *accountsAPI) DeleteAccount(ctx context.Context, in *accountsv1.Delete
 		return nil, status.Error(codes.NotFound, "account not found")
 	}
 
+	_, err = srv.noteService.Notes.OnAccountDelete(ctx, &v1.OnAccountDeleteRequest{})
+	if err != nil {
+		return nil, status.Error(codes.Internal, err.Error())
+	}
+
 	err = srv.repo.Delete(ctx, &models.OneAccountFilter{ID: in.AccountId})
 	if err != nil {
 		return nil, statusFromModelError(err)
