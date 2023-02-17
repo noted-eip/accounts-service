@@ -32,6 +32,7 @@ type server struct {
 	accountsRepository models.AccountsRepository
 
 	accountsService accountsv1.AccountsAPIServer
+	noteService     *communication.NoteServiceClient
 
 	grpcServer *grpc.Server
 }
@@ -41,6 +42,7 @@ func (s *server) Init(opt ...grpc.ServerOption) {
 	s.initLogger()
 	s.initAuthService()
 	s.initRepositories()
+	s.initNoteServiceClient()
 	s.initAccountsAPI()
 	s.initGrpcServer(opt...)
 }
@@ -57,6 +59,7 @@ func (s *server) Run() {
 func (s *server) Close() {
 	s.logger.Info("graceful shutdown")
 	s.mongoDB.Disconnect(context.Background())
+	s.noteService.Close()
 	s.logger.Sync()
 }
 
@@ -101,6 +104,13 @@ func (s *server) initLogger() {
 	must(err, "unable to instantiate zap.Logger")
 }
 
+func (s *server) initNoteServiceClient() {
+	noteService, err := communication.NewNoteServiceClient(*noteServiceUrl)
+	must(err, "could not instantiate note service connection")
+
+	s.noteService = noteService
+}
+
 func (s *server) initAuthService() {
 	rawKey, err := base64.StdEncoding.DecodeString(*jwtPrivateKey)
 	must(err, "could not decode jwt private key")
@@ -115,11 +125,8 @@ func (s *server) initRepositories() {
 }
 
 func (s *server) initAccountsAPI() {
-	noteService, err := communication.NewNoteServiceClient(*noteServiceUrl)
-	must(err, "could not instantiate note service connection")
-
 	s.accountsService = &accountsAPI{
-		noteService: noteService,
+		noteService: s.noteService,
 		auth:        s.authService,
 		logger:      s.logger,
 		repo:        s.accountsRepository,

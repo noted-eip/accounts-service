@@ -36,6 +36,6 @@ func (c *NoteServiceClient) Init(address string) error {
 	return nil
 }
 
-func (c *NoteServiceClient) Close(address string) error {
+func (c *NoteServiceClient) Close() error {
 	return c.conn.Close()
 }
