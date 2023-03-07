@@ -35,6 +35,7 @@ require (
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/golang-jwt/jwt v3.2.2+incompatible
 	github.com/golang/protobuf v1.5.2 // indirect
+	github.com/gomarkdown/markdown v0.0.0-20221013030248-663e2500819c
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	go.uber.org/zap v1.21.0
 	golang.org/x/net v0.3.0 // indirect
