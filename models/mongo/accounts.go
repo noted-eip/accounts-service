@@ -78,6 +78,41 @@ func (srv *accountsRepository) Get(ctx context.Context, filter *models.OneAccoun
 	return &account, nil
 }
 
+func (srv *accountsRepository) GetMailsFromIDs(ctx context.Context, filter []*models.OneAccountFilter) ([]string, error) {
+	var IDs bson.A
+	var mails []string
+
+	for _, val := range filter {
+		IDs = append(IDs, val.ID)
+	}
+
+	query := bson.D{
+		{Key: "_id", Value: bson.D{
+			{Key: "$in", Value: IDs},
+		}},
+	}
+
+	opts := options.Find().SetProjection(bson.D{{Key: "hash", Value: 0}, {Key: "_id", Value: 0}, {Key: "name", Value: 0}})
+
+	cursor, err := srv.coll.Find(ctx, query, opts)
+	if err != nil {
+		srv.logger.Error("mongo find accounts query failed", zap.Error(err))
+		return nil, err
+	}
+	defer cursor.Close(ctx)
+
+	for cursor.Next(ctx) {
+		var elem models.Account
+		err := cursor.Decode(&elem)
+		if err != nil {
+			srv.logger.Error("failed to decode mongo cursor result", zap.Error(err))
+		}
+		mails = append(mails, *elem.Email)
+	}
+
+	return mails, nil
+}
+
 func (srv *accountsRepository) Delete(ctx context.Context, filter *models.OneAccountFilter) error {
 	delete, err := srv.coll.DeleteOne(ctx, filter)
 	if err != nil {
