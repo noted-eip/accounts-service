@@ -106,8 +106,12 @@ func (s *server) initLogger() {
 
 func (s *server) initNoteServiceClient() {
 	noteService, err := communication.NewNoteServiceClient(*noteServiceUrl)
-	must(err, "could not instantiate note service connection")
-
+	if *environment == envIsDev && err != nil {
+		s.logger.Warn("could not instantiate note service connection")
+		noteService = nil
+	} else {
+		must(err, "could not instantiate note service connection")
+	}
 	s.noteService = noteService
 }
 

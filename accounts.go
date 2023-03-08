@@ -47,9 +47,13 @@ func (srv *accountsAPI) CreateAccount(ctx context.Context, in *accountsv1.Create
 		return nil, statusFromModelError(err)
 	}
 
-	_, err = srv.noteService.Groups.CreateWorkspace(ctx, &v1.CreateWorkspaceRequest{})
-	if err != nil {
-		return nil, err
+	if srv.noteService != nil {
+		_, err = srv.noteService.Groups.CreateWorkspace(ctx, &v1.CreateWorkspaceRequest{AccountId: acc.ID})
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		srv.logger.Warn("CreateWorkspace was not called on CreateAccount because it is not connected to the notes-service")
 	}
 
 	return &accountsv1.CreateAccountResponse{
@@ -124,9 +128,13 @@ func (srv *accountsAPI) DeleteAccount(ctx context.Context, in *accountsv1.Delete
 		return nil, status.Error(codes.NotFound, "account not found")
 	}
 
-	_, err = srv.noteService.Notes.OnAccountDelete(ctx, &v1.OnAccountDeleteRequest{})
-	if err != nil {
-		return nil, status.Error(codes.Internal, err.Error())
+	if srv.noteService != nil {
+		_, err = srv.noteService.Notes.OnAccountDelete(ctx, &v1.OnAccountDeleteRequest{})
+		if err != nil {
+			return nil, status.Error(codes.Internal, err.Error())
+		}
+	} else {
+		srv.logger.Warn("OnAccountDelete from notes-service was not called due to the fact that the accounts-service is not connected to the notes one")
 	}
 
 	err = srv.repo.Delete(ctx, &models.OneAccountFilter{ID: in.AccountId})

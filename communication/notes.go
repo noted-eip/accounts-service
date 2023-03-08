@@ -4,6 +4,7 @@ import (
 	notesv1 "accounts-service/protorepo/noted/notes/v1"
 
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
 )
 
 type NoteServiceClient struct {
@@ -24,7 +25,7 @@ func NewNoteServiceClient(address string) (*NoteServiceClient, error) {
 }
 
 func (c *NoteServiceClient) Init(address string) error {
-	conn, err := grpc.Dial(address)
+	conn, err := grpc.Dial(address, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		return err
 	}
