@@ -18,8 +18,8 @@ type AccountPayload struct {
 }
 
 type OneAccountFilter struct {
-	ID    string  `json:"id" bson:"_id,omitempty"`
-	Email *string `json:"email" bson:"email,omitempty"`
+	ID    string `json:"id" bson:"_id,omitempty"`
+	Email string `json:"email" bson:"email,omitempty"`
 }
 
 type ManyAccountsFilter struct{}

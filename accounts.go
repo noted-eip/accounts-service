@@ -76,13 +76,20 @@ func (srv *accountsAPI) GetAccount(ctx context.Context, in *accountsv1.GetAccoun
 		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}
 
-	account, err := srv.repo.Get(ctx, &models.OneAccountFilter{ID: in.AccountId, Email: &in.Email})
+	if in.AccountId != "" {
+		account, err := srv.repo.Get(ctx, &models.OneAccountFilter{ID: in.AccountId})
+		if err != nil {
+			return nil, statusFromModelError(err)
+		}
+		return &accountsv1.GetAccountResponse{Account: modelsAccountToProtobufAccount(account)}, nil
+	}
+
+	account, err := srv.repo.Get(ctx, &models.OneAccountFilter{Email: in.Email})
 	if err != nil {
 		return nil, statusFromModelError(err)
 	}
 
-	acc := accountsv1.Account{Email: *account.Email, Name: *account.Name, Id: account.ID}
-	return &accountsv1.GetAccountResponse{Account: &acc}, nil
+	return &accountsv1.GetAccountResponse{Account: modelsAccountToProtobufAccount(account)}, nil
 }
 
 func (srv *accountsAPI) UpdateAccount(ctx context.Context, in *accountsv1.UpdateAccountRequest) (*accountsv1.UpdateAccountResponse, error) {
@@ -177,7 +184,7 @@ func (srv *accountsAPI) ListAccounts(ctx context.Context, in *accountsv1.ListAcc
 }
 
 func (srv *accountsAPI) Authenticate(ctx context.Context, in *accountsv1.AuthenticateRequest) (*accountsv1.AuthenticateResponse, error) {
-	acc, err := srv.repo.Get(ctx, &models.OneAccountFilter{Email: &in.Email})
+	acc, err := srv.repo.Get(ctx, &models.OneAccountFilter{Email: in.Email})
 	if err != nil {
 		return nil, statusFromModelError(err)
 	}
@@ -226,6 +233,9 @@ func modelsAccountToProtobufAccount(acc *models.Account) *accountsv1.Account {
 }
 
 func applyUpdateMask(mask *field_mask.FieldMask, msg protoreflect.ProtoMessage, allowedFields []string) error {
+	if mask == nil {
+		mask = &field_mask.FieldMask{Paths: allowedFields}
+	}
 	mask.Normalize()
 	if !mask.IsValid(msg) {
 		return status.Error(codes.InvalidArgument, "invalid field mask")
