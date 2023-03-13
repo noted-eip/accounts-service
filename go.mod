@@ -4,10 +4,9 @@ go 1.18
 
 require (
 	github.com/go-ozzo/ozzo-validation/v4 v4.3.0
-	github.com/google/uuid v1.1.2
 	github.com/grpc-ecosystem/grpc-gateway/v2 v2.15.0
 	github.com/mennanov/fmutils v0.2.0
-	github.com/stretchr/testify v1.7.1
+	github.com/stretchr/testify v1.8.0
 	go.mongodb.org/mongo-driver v1.9.1
 	golang.org/x/crypto v0.0.0-20201216223049-8b5274cf687f
 	google.golang.org/grpc v1.51.0
@@ -36,6 +35,7 @@ require (
 	github.com/golang-jwt/jwt v3.2.2+incompatible
 	github.com/golang/protobuf v1.5.2 // indirect
 	github.com/gomarkdown/markdown v0.0.0-20221013030248-663e2500819c
+	github.com/jaevor/go-nanoid v1.3.0
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	go.uber.org/zap v1.21.0
 	golang.org/x/net v0.3.0 // indirect

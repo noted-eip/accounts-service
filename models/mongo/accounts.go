@@ -7,7 +7,7 @@ import (
 	"context"
 	"errors"
 
-	"github.com/google/uuid"
+	"github.com/jaevor/go-nanoid"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
@@ -15,19 +15,26 @@ import (
 )
 
 type accountsRepository struct {
-	logger *zap.Logger
-	db     *mongo.Database
-	coll   *mongo.Collection
+	logger  *zap.Logger
+	db      *mongo.Database
+	coll    *mongo.Collection
+	newUUID func() string
 }
 
 func NewAccountsRepository(db *mongo.Database, logger *zap.Logger) models.AccountsRepository {
-	rep := &accountsRepository{
-		logger: logger.Named("mongo").Named("accounts"),
-		db:     db,
-		coll:   db.Collection("accounts"),
+	newUUID, err := nanoid.Standard(21)
+	if err != nil {
+		panic(err)
 	}
 
-	_, err := rep.coll.Indexes().CreateOne(
+	rep := &accountsRepository{
+		logger:  logger.Named("mongo").Named("accounts"),
+		db:      db,
+		coll:    db.Collection("accounts"),
+		newUUID: newUUID,
+	}
+
+	_, err = rep.coll.Indexes().CreateOne(
 		context.Background(),
 		mongo.IndexModel{
 			Keys:    bson.D{{Key: "email", Value: 1}},
@@ -41,37 +48,30 @@ func NewAccountsRepository(db *mongo.Database, logger *zap.Logger) models.Accoun
 	return rep
 }
 
-func (srv *accountsRepository) Create(ctx context.Context, payload *models.AccountPayload) (*models.Account, error) {
-	id, err := uuid.NewRandom()
-	if err != nil {
-		srv.logger.Error("failed to generate new random uuid", zap.Error(err))
-		return nil, err
-	}
+func (repo *accountsRepository) Create(ctx context.Context, payload *models.AccountPayload) (*models.Account, error) {
+	account := models.Account{ID: repo.newUUID(), Email: payload.Email, Name: payload.Name, Hash: payload.Hash}
 
-	account := models.Account{ID: id.String(), Email: payload.Email, Name: payload.Name, Hash: payload.Hash}
-
-	_, err = srv.coll.InsertOne(ctx, account)
+	_, err := repo.coll.InsertOne(ctx, account)
 	if err != nil {
 		if mongo.IsDuplicateKeyError(err) {
 			return nil, models.ErrDuplicateKeyFound
 		}
-		srv.logger.Error("insert failed", zap.Error(err), zap.String("email", *account.Email))
+		repo.logger.Error("insert failed", zap.Error(err), zap.String("email", *account.Email))
 		return nil, err
 	}
 
 	return &account, nil
 }
 
-func (srv *accountsRepository) Get(ctx context.Context, filter *models.OneAccountFilter) (*models.Account, error) {
+func (repo *accountsRepository) Get(ctx context.Context, filter *models.OneAccountFilter) (*models.Account, error) {
 	var account models.Account
 
-	accFilter := buildAccountFilter(filter)
-	err := srv.coll.FindOne(ctx, accFilter).Decode(&account)
+	err := repo.coll.FindOne(ctx, filter).Decode(&account)
 	if err != nil {
 		if errors.Is(err, mongo.ErrNoDocuments) {
 			return nil, models.ErrNotFound
 		}
-		srv.logger.Error("query failed", zap.Error(err))
+		repo.logger.Error("query failed", zap.Error(err))
 		return nil, err
 	}
 
@@ -113,10 +113,11 @@ func (srv *accountsRepository) GetMailsFromIDs(ctx context.Context, filter []*mo
 	return mails, nil
 }
 
-func (srv *accountsRepository) Delete(ctx context.Context, filter *models.OneAccountFilter) error {
-	delete, err := srv.coll.DeleteOne(ctx, filter)
-	if err != nil {
-		srv.logger.Error("delete failed", zap.Error(err))
+func (repo *accountsRepository) Delete(ctx context.Context, filter *models.OneAccountFilter) error {
+	delete, err := repo.coll.DeleteOne(ctx, filter)
+
+  if err != nil {
+		repo.logger.Error("delete failed", zap.Error(err))
 		return err
 	}
 	if delete.DeletedCount == 0 {
@@ -126,33 +127,33 @@ func (srv *accountsRepository) Delete(ctx context.Context, filter *models.OneAcc
 	return nil
 }
 
-func (srv *accountsRepository) Update(ctx context.Context, filter *models.OneAccountFilter, account *models.AccountPayload) (*models.Account, error) {
-	var accountUpdated models.Account
+func (repo *accountsRepository) Update(ctx context.Context, filter *models.OneAccountFilter, account *models.AccountPayload) (*models.Account, error) {
+	var updatedAccount models.Account
 
-	field := bson.D{{Key: "$set", Value: bson.D{{"name", account.Name}}}}
-	update, err := srv.coll.UpdateOne(ctx, filter, field)
+	field := bson.D{{Key: "$set", Value: bson.D{{Key: "name", Value: account.Name}}}}
 
+	err := repo.coll.FindOneAndUpdate(ctx, filter, field, options.FindOneAndUpdate().SetReturnDocument(options.After)).Decode(&updatedAccount)
 	if err != nil {
-		srv.logger.Error("update one failed", zap.Error(err))
-		return nil, err
+		if errors.Is(err, mongo.ErrNoDocuments) {
+			return nil, models.ErrNotFound
+		}
+		repo.logger.Error("update one failed", zap.Error(err))
+		return nil, models.ErrUnknown
 	}
 
-	if update.MatchedCount == 0 {
-		return nil, models.ErrNotFound
-	}
-	return &accountUpdated, nil
+	return &updatedAccount, nil
 }
 
-func (srv *accountsRepository) List(ctx context.Context, filter *models.ManyAccountsFilter, pagination *models.Pagination) ([]models.Account, error) {
+func (repo *accountsRepository) List(ctx context.Context, filter *models.ManyAccountsFilter, pagination *models.Pagination) ([]models.Account, error) {
 	var accounts []models.Account
 
 	opt := options.FindOptions{
 		Limit: &pagination.Limit,
 		Skip:  &pagination.Offset,
 	}
-	cursor, err := srv.coll.Find(ctx, bson.D{}, &opt)
+	cursor, err := repo.coll.Find(ctx, bson.D{}, &opt)
 	if err != nil {
-		srv.logger.Error("mongo find accounts query failed", zap.Error(err))
+		repo.logger.Error("mongo find accounts query failed", zap.Error(err))
 		return nil, err
 	}
 	defer cursor.Close(ctx)
@@ -161,7 +162,7 @@ func (srv *accountsRepository) List(ctx context.Context, filter *models.ManyAcco
 		var elem models.Account
 		err := cursor.Decode(&elem)
 		if err != nil {
-			srv.logger.Error("failed to decode mongo cursor result", zap.Error(err))
+			repo.logger.Error("failed to decode mongo cursor result", zap.Error(err))
 		}
 		accounts = append(accounts, elem)
 	}
@@ -170,7 +171,7 @@ func (srv *accountsRepository) List(ctx context.Context, filter *models.ManyAcco
 }
 
 func buildAccountFilter(filter *models.OneAccountFilter) *models.OneAccountFilter {
-	if filter.Email == nil || *filter.Email == "" {
+	if filter.Email == "" {
 		return &models.OneAccountFilter{ID: filter.ID}
 	} else if filter.ID == "" {
 		return &models.OneAccountFilter{Email: filter.Email}
