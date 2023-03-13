@@ -6,7 +6,7 @@ import (
 	validation "github.com/go-ozzo/ozzo-validation/v4"
 )
 
-func ValidateSendEmailRequest(in *mailingv1.SendEmailRequest) error {
+func ValidateSendEmailsRequest(in *mailingv1.SendEmailsRequest) error {
 	return validation.ValidateStruct(in,
 		validation.Field(&in.MarkdownBody, validation.Required),
 		validation.Field(&in.Subject, validation.Required),

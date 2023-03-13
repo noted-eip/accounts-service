@@ -10,8 +10,6 @@ import (
 	"html/template"
 	"net/smtp"
 
-	// "text/template"
-
 	"go.uber.org/zap"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -54,7 +52,7 @@ func NewRequest(from string, to []string, subject, body string, super []byte) *R
 	}
 }
 
-func (r *Request) SendEmail() error {
+func (r *Request) SendEmailToAccounts() error {
 	subject := "Subject: " + r.subject + "!\n"
 	mine := "MIME-version: 1.0;\nContent-Type: text/html; charset=\"UTF-8\";\n\n"
 	msg := []byte(subject + mine + r.body)
@@ -86,9 +84,9 @@ func (r *Request) ParseTemplate(templateFileName string, data interface{}) error
 	return nil
 }
 
-func (srv *mailingAPI) SendEmail(ctx context.Context, in *mailingv1.SendEmailRequest) (*mailingv1.SendEmailResponse, error) {
+func (srv *mailingAPI) SendEmails(ctx context.Context, in *mailingv1.SendEmailsRequest) (*mailingv1.SendEmailsResponse, error) {
 
-	err := validators.ValidateSendEmailRequest(in)
+	err := validators.ValidateSendEmailsRequest(in)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}
@@ -122,9 +120,9 @@ func (srv *mailingAPI) SendEmail(ctx context.Context, in *mailingv1.SendEmailReq
 	if err != nil {
 		return nil, status.Error(codes.Internal, err.Error())
 	}
-	err = r.SendEmail()
+	err = r.SendEmailToAccounts()
 	if err != nil {
 		return nil, status.Error(codes.Internal, err.Error())
 	}
-	return &mailingv1.SendEmailResponse{}, nil
+	return &mailingv1.SendEmailsResponse{}, nil
 }
