@@ -6,9 +6,9 @@ import (
 	"accounts-service/validators"
 	"bytes"
 	"context"
-	"encoding/base64"
 	"html/template"
 	"net/smtp"
+	"os"
 
 	"go.uber.org/zap"
 	"google.golang.org/grpc/codes"
@@ -23,7 +23,6 @@ type mailingAPI struct {
 
 	logger *zap.Logger
 	repo   models.AccountsRepository
-	secret []byte
 }
 
 var _ mailingv1.MailingAPIServer = &mailingAPI{}
@@ -42,13 +41,12 @@ type Request struct {
 	super   []byte
 }
 
-func NewRequest(from string, to []string, subject, body string, super []byte) *Request {
+func NewRequest(from string, to []string, subject, body string) *Request {
 	return &Request{
 		from:    from,
 		to:      to,
 		subject: subject,
 		body:    body,
-		super:   super,
 	}
 }
 
@@ -57,9 +55,10 @@ func (r *Request) SendEmailToAccounts() error {
 	mine := "MIME-version: 1.0;\nContent-Type: text/html; charset=\"UTF-8\";\n\n"
 	msg := []byte(subject + mine + r.body)
 	addr := "smtp.gmail.com:587"
-	ssPassword, err := base64.StdEncoding.DecodeString(string(r.super))
-	if err != nil {
-		return err
+	ssPassword := os.Getenv("GMAIL_SUPER_SECRET")
+
+	if ssPassword == "" {
+		return status.Error(codes.Internal, "could not retrieve super secret from environement")
 	}
 
 	auth := smtp.PlainAuth("", r.from, string(ssPassword), "smtp.gmail.com")
@@ -115,7 +114,7 @@ func (srv *mailingAPI) SendEmails(ctx context.Context, in *mailingv1.SendEmailsR
 		TITLE:   in.Title,
 	}
 
-	r := NewRequest("noted.organisation@gmail.com", mails, in.Subject, in.MarkdownBody, srv.secret)
+	r := NewRequest("noted.organisation@gmail.com", mails, in.Subject, in.MarkdownBody)
 	err = r.ParseTemplate("ressources/mail.html", templateData)
 	if err != nil {
 		return nil, status.Error(codes.Internal, err.Error())

@@ -12,7 +12,6 @@ import (
 	"errors"
 	"fmt"
 	"net"
-	"os"
 	"strings"
 	"time"
 
@@ -127,13 +126,9 @@ func (s *server) initAccountsAPI() {
 }
 
 func (s *server) initMailingAPI() {
-	content, err := os.ReadFile("./ressources/super.txt")
-	must(err, "could not instantiate mailing API")
-
 	s.mailingService = &mailingAPI{
 		logger: s.logger,
 		repo:   s.accountsRepository,
-		secret: content,
 	}
 }
 
