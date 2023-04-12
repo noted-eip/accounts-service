@@ -2,6 +2,7 @@ package main
 
 import (
 	"accounts-service/auth"
+	"accounts-service/communication"
 	"accounts-service/models"
 	"accounts-service/models/mongo"
 	accountsv1 "accounts-service/protorepo/noted/accounts/v1"
@@ -32,6 +33,7 @@ type server struct {
 	accountsRepository models.AccountsRepository
 
 	accountsService accountsv1.AccountsAPIServer
+	noteService     *communication.NoteServiceClient
 
 	mailingService mailingv1.MailingAPIServer
 
@@ -43,6 +45,7 @@ func (s *server) Init(opt ...grpc.ServerOption) {
 	s.initLogger()
 	s.initAuthService()
 	s.initRepositories()
+	s.initNoteServiceClient()
 	s.initAccountsAPI()
 	s.initMailingAPI()
 	s.initGrpcServer(opt...)
@@ -60,6 +63,7 @@ func (s *server) Run() {
 func (s *server) Close() {
 	s.logger.Info("graceful shutdown")
 	s.mongoDB.Disconnect(context.Background())
+	s.noteService.Close()
 	s.logger.Sync()
 }
 
@@ -104,6 +108,17 @@ func (s *server) initLogger() {
 	must(err, "unable to instantiate zap.Logger")
 }
 
+func (s *server) initNoteServiceClient() {
+	noteService, err := communication.NewNoteServiceClient(*noteServiceUrl)
+	if *environment == envIsDev && err != nil {
+		s.logger.Warn(fmt.Sprintf("could not instantiate note service connection: %v", err))
+		noteService = nil
+	} else {
+		must(err, "could not instantiate note service connection")
+	}
+	s.noteService = noteService
+}
+
 func (s *server) initAuthService() {
 	rawKey, err := base64.StdEncoding.DecodeString(*jwtPrivateKey)
 	must(err, "could not decode jwt private key")
@@ -119,9 +134,10 @@ func (s *server) initRepositories() {
 
 func (s *server) initAccountsAPI() {
 	s.accountsService = &accountsAPI{
-		auth:   s.authService,
-		logger: s.logger,
-		repo:   s.accountsRepository,
+		noteService: s.noteService,
+		auth:        s.authService,
+		logger:      s.logger,
+		repo:        s.accountsRepository,
 	}
 }
 
