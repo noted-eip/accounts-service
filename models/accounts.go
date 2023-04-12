@@ -30,6 +30,8 @@ type AccountsRepository interface {
 
 	Get(ctx context.Context, filter *OneAccountFilter) (*Account, error)
 
+	GetMailsFromIDs(ctx context.Context, filter []*OneAccountFilter) ([]string, error)
+
 	Delete(ctx context.Context, filter *OneAccountFilter) error
 
 	Update(ctx context.Context, filter *OneAccountFilter, account *AccountPayload) (*Account, error)

@@ -6,6 +6,7 @@ import (
 	"accounts-service/models"
 	"accounts-service/models/mongo"
 	accountsv1 "accounts-service/protorepo/noted/accounts/v1"
+	mailingv1 "accounts-service/protorepo/noted/mailing/v1"
 	"context"
 	"crypto/ed25519"
 	"encoding/base64"
@@ -34,6 +35,8 @@ type server struct {
 	accountsService accountsv1.AccountsAPIServer
 	noteService     *communication.NoteServiceClient
 
+	mailingService mailingv1.MailingAPIServer
+
 	grpcServer *grpc.Server
 }
 
@@ -44,6 +47,7 @@ func (s *server) Init(opt ...grpc.ServerOption) {
 	s.initRepositories()
 	s.initNoteServiceClient()
 	s.initAccountsAPI()
+	s.initMailingAPI()
 	s.initGrpcServer(opt...)
 }
 
@@ -137,9 +141,17 @@ func (s *server) initAccountsAPI() {
 	}
 }
 
+func (s *server) initMailingAPI() {
+	s.mailingService = &mailingAPI{
+		logger: s.logger,
+		repo:   s.accountsRepository,
+	}
+}
+
 func (s *server) initGrpcServer(opt ...grpc.ServerOption) {
 	s.grpcServer = grpc.NewServer(opt...)
 	accountsv1.RegisterAccountsAPIServer(s.grpcServer, s.accountsService)
+	mailingv1.RegisterMailingAPIServer(s.grpcServer, s.mailingService)
 }
 
 func must(err error, msg string) {
