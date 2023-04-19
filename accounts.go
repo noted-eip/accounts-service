@@ -6,11 +6,15 @@ import (
 	accountsv1 "accounts-service/protorepo/noted/accounts/v1"
 	"accounts-service/validators"
 	"context"
+	"encoding/json"
 	"errors"
+	"io/ioutil"
 
 	"github.com/mennanov/fmutils"
 	"go.uber.org/zap"
 	"golang.org/x/crypto/bcrypt"
+	"golang.org/x/oauth2"
+	"golang.org/x/oauth2/google"
 	"google.golang.org/genproto/protobuf/field_mask"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -20,9 +24,10 @@ import (
 type accountsAPI struct {
 	accountsv1.UnimplementedAccountsAPIServer
 
-	auth   auth.Service
-	logger *zap.Logger
-	repo   models.AccountsRepository
+	auth        auth.Service
+	logger      *zap.Logger
+	repo        models.AccountsRepository
+	googleOAuth *oauth2.Config
 }
 
 var _ accountsv1.AccountsAPIServer = &accountsAPI{}
@@ -212,4 +217,71 @@ func applyUpdateMask(mask *field_mask.FieldMask, msg protoreflect.ProtoMessage, 
 	fmutils.Filter(msg, mask.GetPaths())
 	fmutils.Filter(msg, allowedFields)
 	return nil
+}
+
+const GOOGLE_APP_ID = "test"
+const GOOGLE_APP_SECRET = "test"
+const GOOGLE_REDIRECT_URI = "test"
+const oauthStateString = "test"
+
+func getUserInfo(ctx context.Context, srv *accountsAPI) ([]byte, error) {
+
+	code := ctx.Value("code").(string)
+	srv.googleOAuth = &oauth2.Config{
+		RedirectURL:  GOOGLE_REDIRECT_URI,
+		ClientID:     GOOGLE_APP_ID,
+		ClientSecret: GOOGLE_APP_SECRET,
+		Scopes: []string{"https://www.googleapis.com/auth/userinfo.email",
+			"https://www.googleapis.com/auth/userinfo.profile"},
+		Endpoint: google.Endpoint,
+	}
+	// // change the state to the one you set in the frontend
+
+	// if state != oauthStateString {
+	// 	return nil, status.Error(codes.InvalidArgument, "invalid oauth state")
+	// }
+
+	token, err := srv.googleOAuth.Exchange(context.Background(), code)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "failed to exchange token: "+err.Error())
+	}
+
+	userinfo, err := srv.googleOAuth.Client(context.Background(), token).Get("https://www.googleapis.com/oauth2/v2/userinfo")
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "failed to get userinfo: "+err.Error())
+	}
+
+	defer userinfo.Body.Close()
+	content, err := ioutil.ReadAll(userinfo.Body)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "failed to read response body: "+err.Error())
+	}
+
+	var userInfo map[string]interface{}
+	err = json.Unmarshal(content, &userInfo)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "failed to unmarshal response body: "+err.Error())
+	}
+
+	hashed, err := bcrypt.GenerateFromPassword([]byte(userInfo["email"].(string)), 8)
+	if err != nil {
+		srv.logger.Error("bcrypt failed to hash password", zap.Error(err))
+		return nil, status.Error(codes.Internal, err.Error())
+	}
+	// get the userinfo email in string format
+	email := userInfo["email"].(string)
+	// get the userinfo name in string format
+	name := userInfo["name"].(string)
+	acc, err := srv.repo.Create(ctx, &models.AccountPayload{Email: &email, Name: &name, Hash: &hashed})
+	if err != nil {
+		return nil, statusFromModelError(err)
+	}
+
+	return &accountsv1.CreateAccountResponse{
+		Account: &accountsv1.Account{
+			Id:    acc.ID,
+			Name:  *acc.Name,
+			Email: *acc.Email,
+		},
+	}, nil
 }

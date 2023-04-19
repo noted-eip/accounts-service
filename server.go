@@ -19,6 +19,8 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/reflection"
 	"google.golang.org/grpc/status"
+
+	"golang.org/x/oauth2"
 )
 
 type server struct {
@@ -33,6 +35,8 @@ type server struct {
 	accountsService accountsv1.AccountsAPIServer
 
 	grpcServer *grpc.Server
+
+	googleOauthConfig *oauth2.Config
 }
 
 // Init initializes the dependencies of the server and panics on error.
@@ -83,10 +87,9 @@ func (s *server) LoggerUnaryInterceptor(ctx context.Context, req interface{}, in
 
 	s.logger.Info("rpc",
 		zap.String("code", status.Code(err).String()),
-		zap.String("method", method),
+		zap.String("will", method),
 		zap.Duration("duration", end.Sub(start)),
 	)
-
 	return res, nil
 }
 
@@ -101,6 +104,9 @@ func (s *server) initLogger() {
 }
 
 func (s *server) initAuthService() {
+
+	// set setip oauth2 config for google
+
 	rawKey, err := base64.StdEncoding.DecodeString(*jwtPrivateKey)
 	must(err, "could not decode jwt private key")
 	s.authService = auth.NewService(ed25519.PrivateKey(rawKey))
@@ -115,9 +121,10 @@ func (s *server) initRepositories() {
 
 func (s *server) initAccountsAPI() {
 	s.accountsService = &accountsAPI{
-		auth:   s.authService,
-		logger: s.logger,
-		repo:   s.accountsRepository,
+		auth:        s.authService,
+		logger:      s.logger,
+		repo:        s.accountsRepository,
+		googleOAuth: s.googleOauthConfig,
 	}
 }
 
