@@ -2,13 +2,10 @@ package main
 
 import (
 	"accounts-service/models"
-	mailingv1 "accounts-service/protorepo/noted/mailing/v1"
-	"accounts-service/validators"
 	"bytes"
 	"context"
 	"html/template"
 	"net/smtp"
-	"os"
 
 	"go.uber.org/zap"
 	"google.golang.org/grpc/codes"
@@ -19,13 +16,10 @@ import (
 )
 
 type mailingAPI struct {
-	mailingv1.UnimplementedMailingAPIServer
-
 	logger *zap.Logger
 	repo   models.AccountsRepository
+	secret string
 }
-
-var _ mailingv1.MailingAPIServer = &mailingAPI{}
 
 type TemplateData struct {
 	CODE    string
@@ -38,7 +32,13 @@ type Request struct {
 	to      []string
 	subject string
 	body    string
-	super   []byte
+}
+
+type SendEmailsRequest struct {
+	to      []string
+	subject string
+	title   string
+	body    string
 }
 
 func NewRequest(from string, to []string, subject, body string) *Request {
@@ -50,19 +50,14 @@ func NewRequest(from string, to []string, subject, body string) *Request {
 	}
 }
 
-func (r *Request) SendEmailToAccounts() error {
+func (r *Request) SendEmailToAccounts(secret string) error {
+
 	subject := "Subject: " + r.subject + "!\n"
 	mine := "MIME-version: 1.0;\nContent-Type: text/html; charset=\"UTF-8\";\n\n"
 	msg := []byte(subject + mine + r.body)
 	addr := "smtp.gmail.com:587"
-	ssPassword := os.Getenv("GMAIL_SUPER_SECRET")
 
-	if ssPassword == "" {
-		return status.Error(codes.Internal, "could not retrieve super secret from environement")
-	}
-
-	auth := smtp.PlainAuth("", r.from, string(ssPassword), "smtp.gmail.com")
-
+	auth := smtp.PlainAuth("", r.from, secret, "smtp.gmail.com")
 	if err := smtp.SendMail(addr, auth, r.from, r.to, msg); err != nil {
 		return err
 	}
@@ -83,45 +78,41 @@ func (r *Request) ParseTemplate(templateFileName string, data interface{}) error
 	return nil
 }
 
-func (srv *mailingAPI) SendEmails(ctx context.Context, in *mailingv1.SendEmailsRequest) (*mailingv1.SendEmailsResponse, error) {
+func (srv *mailingAPI) SendEmails(ctx context.Context, req *SendEmailsRequest) error {
 
-	err := validators.ValidateSendEmailsRequest(in)
-	if err != nil {
-		return nil, status.Error(codes.InvalidArgument, err.Error())
+	if srv.secret == "" {
+		return status.Error(codes.Internal, "could not retrieve super secret from environement")
 	}
 
 	filters := []*models.OneAccountFilter{}
-
-	for _, val := range in.Recipients {
-		filters = append(filters, &models.OneAccountFilter{ID: val.AccountId})
+	for _, accountID := range req.to {
+		filters = append(filters, &models.OneAccountFilter{ID: accountID})
 	}
 
 	mails, err := srv.repo.GetMailsFromIDs(ctx, filters)
 	if err != nil {
-		return nil, statusFromModelError(err)
+		return statusFromModelError(err)
 	}
 
 	extensions := parser.CommonExtensions | parser.AutoHeadingIDs
 	parser := parser.NewWithExtensions(extensions)
-
-	md := []byte(in.MarkdownBody)
+	md := []byte(req.body)
 	html := markdown.ToHTML(md, parser, nil)
-
 	content := template.HTML(string(html[:]))
 
 	templateData := TemplateData{
 		CONTENT: content,
-		TITLE:   in.Title,
+		TITLE:   req.title,
 	}
 
-	r := NewRequest("noted.organisation@gmail.com", mails, in.Subject, in.MarkdownBody)
+	r := NewRequest("noted.organisation@gmail.com", mails, req.subject, req.body)
 	err = r.ParseTemplate("ressources/mail.html", templateData)
 	if err != nil {
-		return nil, status.Error(codes.Internal, err.Error())
+		return status.Error(codes.Internal, err.Error())
 	}
-	err = r.SendEmailToAccounts()
+	err = r.SendEmailToAccounts(srv.secret)
 	if err != nil {
-		return nil, status.Error(codes.Internal, err.Error())
+		return status.Error(codes.Internal, err.Error())
 	}
-	return &mailingv1.SendEmailsResponse{}, nil
+	return nil
 }
