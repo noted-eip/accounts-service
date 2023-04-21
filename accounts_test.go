@@ -1,6 +1,7 @@
 package main
 
 import (
+	"accounts-service/models"
 	accountsv1 "accounts-service/protorepo/noted/accounts/v1"
 	"context"
 	"testing"
@@ -148,4 +149,73 @@ func TestAccountsAPI(t *testing.T) {
 		requireErrorHasGRPCCode(t, codes.InvalidArgument, err)
 		require.Nil(t, res)
 	})
+	t.Run("owner-cannot-update-password-with-invalid-old-password", func(t *testing.T) {
+		res, err := tu.accounts.UpdateAccountPassword(dave.Context, &accountsv1.UpdateAccountPasswordRequest{
+			AccountId:   dave.ID,
+			Password:    "new_password",
+			OldPassword: randomPassword,
+		})
+		requireErrorHasGRPCCode(t, codes.InvalidArgument, err)
+		require.Nil(t, res)
+	})
+
+	t.Run("owner-can-update-password-with-old-password", func(t *testing.T) {
+		res, err := tu.accounts.UpdateAccountPassword(dave.Context, &accountsv1.UpdateAccountPasswordRequest{
+			AccountId:   dave.ID,
+			Password:    "new_password",
+			OldPassword: davePassword,
+		})
+		require.NoError(t, err)
+		require.NotNil(t, res)
+		require.NotNil(t, res.Account)
+		require.Equal(t, "Dave Doe Jr", res.Account.Name)
+		require.Equal(t, daveEmail, res.Account.Email)
+		require.Equal(t, dave.ID, res.Account.Id)
+	})
+
+	daveUpdatedPassword := tu.randomAlphanumeric()
+
+	t.Run("stranger-update-password-with-reset-token", func(t *testing.T) {
+		reset, err := tu.accountsRepository.UpdateAccountWithResetPasswordToken(stranger.Context, &models.OneAccountFilter{Email: daveEmail})
+		require.NoError(t, err)
+		require.NotNil(t, reset)
+		require.NotNil(t, reset.Token)
+		require.Equal(t, dave.ID, reset.ID)
+		validation, err := tu.accounts.ForgetAccountPasswordValidateToken(stranger.Context, &accountsv1.ForgetAccountPasswordValidateTokenRequest{AccountId: reset.ID, Token: reset.Token})
+		require.NoError(t, err)
+		require.NotNil(t, validation)
+		require.NotNil(t, validation.AuthToken)
+		require.Equal(t, reset.Token, validation.ResetToken)
+		res, err := tu.accounts.UpdateAccountPassword(dave.Context, &accountsv1.UpdateAccountPasswordRequest{
+			AccountId: dave.ID,
+			Password:  daveUpdatedPassword,
+			Token:     validation.ResetToken,
+		})
+		require.NoError(t, err)
+		require.NotNil(t, res)
+		require.NotNil(t, res.Account)
+		require.Equal(t, res.Account.Id, dave.ID)
+		require.Equal(t, res.Account.Email, daveEmail)
+		require.Equal(t, "Dave Doe Jr", res.Account.Name)
+	})
+
+	t.Run("owner-cannot-authenticate-with-old-password", func(t *testing.T) {
+		res, err := tu.accounts.Authenticate(dave.Context, &accountsv1.AuthenticateRequest{
+			Email:    daveEmail,
+			Password: davePassword,
+		})
+		requireErrorHasGRPCCode(t, codes.InvalidArgument, err)
+		require.Nil(t, res)
+	})
+
+	t.Run("owner-authenticate-with-new-password", func(t *testing.T) {
+		res, err := tu.accounts.Authenticate(dave.Context, &accountsv1.AuthenticateRequest{
+			Email:    daveEmail,
+			Password: daveUpdatedPassword,
+		})
+		require.NoError(t, err)
+		require.NotNil(t, res)
+		require.NotEmpty(t, res.Token)
+	})
+
 }
