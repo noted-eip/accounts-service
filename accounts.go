@@ -2,8 +2,10 @@ package main
 
 import (
 	"accounts-service/auth"
+	"accounts-service/communication"
 	"accounts-service/models"
 	accountsv1 "accounts-service/protorepo/noted/accounts/v1"
+	v1 "accounts-service/protorepo/noted/notes/v1"
 	"accounts-service/validators"
 	"context"
 	"errors"
@@ -22,10 +24,11 @@ import (
 type accountsAPI struct {
 	accountsv1.UnimplementedAccountsAPIServer
 
-	auth   auth.Service
-	logger *zap.Logger
-	repo   models.AccountsRepository
-	mail   mailingAPI
+	noteService *communication.NoteServiceClient
+	auth        auth.Service
+	logger      *zap.Logger
+	repo        models.AccountsRepository
+  mail   mailingAPI
 }
 
 var _ accountsv1.AccountsAPIServer = &accountsAPI{}
@@ -45,6 +48,15 @@ func (srv *accountsAPI) CreateAccount(ctx context.Context, in *accountsv1.Create
 	acc, err := srv.repo.Create(ctx, &models.AccountPayload{Email: &in.Email, Name: &in.Name, Hash: &hashed})
 	if err != nil {
 		return nil, statusFromModelError(err)
+	}
+
+	if srv.noteService != nil {
+		_, err = srv.noteService.Groups.CreateWorkspace(ctx, &v1.CreateWorkspaceRequest{AccountId: acc.ID})
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		srv.logger.Warn("CreateWorkspace was not called on CreateAccount because it is not connected to the notes-service")
 	}
 
 	return &accountsv1.CreateAccountResponse{
@@ -124,6 +136,15 @@ func (srv *accountsAPI) DeleteAccount(ctx context.Context, in *accountsv1.Delete
 
 	if token.AccountID != in.AccountId {
 		return nil, status.Error(codes.NotFound, "account not found")
+	}
+
+	if srv.noteService != nil {
+		_, err = srv.noteService.Notes.OnAccountDelete(ctx, &v1.OnAccountDeleteRequest{})
+		if err != nil {
+			return nil, status.Error(codes.Internal, err.Error())
+		}
+	} else {
+		srv.logger.Warn("OnAccountDelete from notes-service was not called due to the fact that the accounts-service is not connected to the notes one")
 	}
 
 	err = srv.repo.Delete(ctx, &models.OneAccountFilter{ID: in.AccountId})
