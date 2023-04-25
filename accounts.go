@@ -14,7 +14,6 @@ import (
 	"go.uber.org/zap"
 	"golang.org/x/crypto/bcrypt"
 	"golang.org/x/oauth2"
-	"golang.org/x/oauth2/google"
 	"google.golang.org/genproto/protobuf/field_mask"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -224,17 +223,18 @@ const GOOGLE_APP_SECRET = "test"
 const GOOGLE_REDIRECT_URI = "test"
 const oauthStateString = "test"
 
-func getUserInfo(ctx context.Context, srv *accountsAPI) ([]byte, error) {
+func AuthenticateGoogle(in *accountsv1.AuthenticateGoogleRequest, ctx context.Context, srv *accountsAPI) (*accountsv1.CreateAccountResponse, error) {
 
-	code := ctx.Value("code").(string)
-	srv.googleOAuth = &oauth2.Config{
-		RedirectURL:  GOOGLE_REDIRECT_URI,
-		ClientID:     GOOGLE_APP_ID,
-		ClientSecret: GOOGLE_APP_SECRET,
-		Scopes: []string{"https://www.googleapis.com/auth/userinfo.email",
-			"https://www.googleapis.com/auth/userinfo.profile"},
-		Endpoint: google.Endpoint,
-	}
+	code := in.Code
+
+	// srv.googleOAuth = &oauth2.Config{
+	// 	RedirectURL:  GOOGLE_REDIRECT_URI,
+	// 	ClientID:     GOOGLE_APP_ID,
+	// 	ClientSecret: GOOGLE_APP_SECRET,
+	// 	Scopes: []string{"https://www.googleapis.com/auth/userinfo.email",
+	// 		"https://www.googleapis.com/auth/userinfo.profile"},
+	// 	Endpoint: google.Endpoint,
+	// }
 	// // change the state to the one you set in the frontend
 
 	// if state != oauthStateString {
