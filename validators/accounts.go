@@ -58,3 +58,23 @@ func ValidateListRequest(in *accountsv1.ListAccountsRequest) error {
 	}
 	return nil
 }
+
+func ValidateForgetAccountPasswordRequest(in *accountsv1.ForgetAccountPasswordRequest) error {
+	return validation.ValidateStruct(in,
+		validation.Field(&in.Email, validation.Required, is.Email))
+}
+
+func ValidateForgetAccountPasswordValidateTokenRequest(in *accountsv1.ForgetAccountPasswordValidateTokenRequest) error {
+	return validation.ValidateStruct(in,
+		validation.Field(&in.Token, validation.Required, validation.Length(4, 4)),
+		validation.Field(&in.AccountId, validation.Required, validation.NotNil))
+}
+
+func ValidateUpdateAccountPasswordRequest(in *accountsv1.UpdateAccountPasswordRequest) error {
+	return validation.ValidateStruct(in,
+		validation.Field(&in.AccountId, validation.Required),
+		validation.Field(&in.Password, validation.Required, validation.Length(4, 20)),
+		validation.Field(&in.Token, validation.When(in.Token != ""), validation.Length(4, 4)),
+		validation.Field(&in.OldPassword, validation.When(in.OldPassword != ""), validation.Length(4, 20)),
+	)
+}

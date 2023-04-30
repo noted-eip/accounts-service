@@ -5,7 +5,11 @@ package mongo
 import (
 	"accounts-service/models"
 	"context"
+	"crypto/rand"
 	"errors"
+	"fmt"
+	"math/big"
+	"time"
 
 	"github.com/jaevor/go-nanoid"
 	"go.mongodb.org/mongo-driver/bson"
@@ -116,7 +120,7 @@ func (srv *accountsRepository) GetMailsFromIDs(ctx context.Context, filter []*mo
 func (repo *accountsRepository) Delete(ctx context.Context, filter *models.OneAccountFilter) error {
 	delete, err := repo.coll.DeleteOne(ctx, filter)
 
-  if err != nil {
+	if err != nil {
 		repo.logger.Error("delete failed", zap.Error(err))
 		return err
 	}
@@ -168,6 +172,48 @@ func (repo *accountsRepository) List(ctx context.Context, filter *models.ManyAcc
 	}
 
 	return accounts, nil
+}
+
+func (repo *accountsRepository) UpdateAccountWithResetPasswordToken(ctx context.Context, filter *models.OneAccountFilter) (*models.AccountSecretToken, error) {
+	var accountSecretToken models.AccountSecretToken
+	max := big.NewInt(9999)
+	randInt, err := rand.Int(rand.Reader, max)
+	if err != nil {
+		repo.logger.Error("could not generate reset token", zap.Error(err))
+		return nil, models.ErrUnknown
+	}
+
+	tokenFormatted := fmt.Sprintf("%04d", randInt)
+	token := &models.AccountSecretToken{Token: tokenFormatted, ValidUntil: time.Now().Add(time.Hour * 1)}
+	field := bson.D{{Key: "$set", Value: token}}
+
+	err = repo.coll.FindOneAndUpdate(ctx, filter, field, options.FindOneAndUpdate().SetReturnDocument(options.After)).Decode(&accountSecretToken)
+	if err != nil {
+		if errors.Is(err, mongo.ErrNoDocuments) {
+			return nil, models.ErrNotFound
+		}
+		repo.logger.Error("update reset token failed", zap.Error(err))
+		return nil, models.ErrUnknown
+	}
+
+	return &accountSecretToken, nil
+}
+
+func (repo *accountsRepository) UpdateAccountPassword(ctx context.Context, filter *models.OneAccountFilter, account *models.AccountPayload) (*models.Account, error) {
+	var updatedAccount models.Account
+
+	field := bson.D{{Key: "$set", Value: bson.D{{Key: "hash", Value: account.Hash}}}}
+
+	err := repo.coll.FindOneAndUpdate(ctx, filter, field, options.FindOneAndUpdate().SetReturnDocument(options.After)).Decode(&updatedAccount)
+	if err != nil {
+		if errors.Is(err, mongo.ErrNoDocuments) {
+			return nil, models.ErrNotFound
+		}
+		repo.logger.Error("update account password failed", zap.Error(err))
+		return nil, models.ErrUnknown
+	}
+
+	return &updatedAccount, nil
 }
 
 func buildAccountFilter(filter *models.OneAccountFilter) *models.OneAccountFilter {

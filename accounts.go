@@ -9,6 +9,7 @@ import (
 	"accounts-service/validators"
 	"context"
 	"errors"
+	"time"
 
 	"github.com/mennanov/fmutils"
 	"go.uber.org/zap"
@@ -23,6 +24,7 @@ type accountsAPI struct {
 	accountsv1.UnimplementedAccountsAPIServer
 
 	noteService *communication.NoteServiceClient
+	mailService mailingAPI
 	auth        auth.Service
 	logger      *zap.Logger
 	repo        models.AccountsRepository
@@ -181,6 +183,102 @@ func (srv *accountsAPI) ListAccounts(ctx context.Context, in *accountsv1.ListAcc
 		accountsResp = append(accountsResp, elem)
 	}
 	return &accountsv1.ListAccountsResponse{Accounts: accountsResp}, nil
+}
+
+func (srv *accountsAPI) ForgetAccountPassword(ctx context.Context, in *accountsv1.ForgetAccountPasswordRequest) (*accountsv1.ForgetAccountPasswordResponse, error) {
+	err := validators.ValidateForgetAccountPasswordRequest(in)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, err.Error())
+	}
+
+	accountToken, err := srv.repo.UpdateAccountWithResetPasswordToken(ctx, &models.OneAccountFilter{Email: in.Email})
+	if err != nil {
+		return nil, statusFromModelError(err)
+	}
+
+	emailInformation := ForgetAccountPasswordMailContent(accountToken.ID, accountToken.Token)
+	err = srv.mailService.SendEmails(ctx, emailInformation)
+	if err != nil {
+		return nil, status.Error(codes.Internal, err.Error())
+	}
+	return &accountsv1.ForgetAccountPasswordResponse{AccountId: accountToken.ID, ValidUntil: accountToken.ValidUntil.String()}, nil
+}
+
+func (srv *accountsAPI) ForgetAccountPasswordValidateToken(ctx context.Context, in *accountsv1.ForgetAccountPasswordValidateTokenRequest) (*accountsv1.ForgetAccountPasswordValidateTokenResponse, error) {
+	err := validators.ValidateForgetAccountPasswordValidateTokenRequest(in)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, err.Error())
+	}
+
+	acc, err := srv.repo.Get(ctx, &models.OneAccountFilter{ID: in.AccountId})
+	if err != nil {
+		return nil, statusFromModelError(err)
+	}
+
+	if acc.Token != in.Token {
+		return nil, status.Error(codes.NotFound, "reset-token does not match")
+	}
+
+	if !time.Now().UTC().Before(acc.ValidUntil) {
+		return nil, status.Error(codes.InvalidArgument, "reset-token expire")
+	}
+
+	tokenString, err := srv.auth.SignToken(&auth.Token{AccountID: acc.ID})
+	if err != nil {
+		srv.logger.Error("failed to sign token", zap.Error(err))
+		return nil, status.Error(codes.Internal, "failed to authenticate user")
+	}
+
+	return &accountsv1.ForgetAccountPasswordValidateTokenResponse{Account: modelsAccountToProtobufAccount(acc), ResetToken: acc.Token, AuthToken: tokenString}, nil
+}
+
+func (srv *accountsAPI) UpdateAccountPassword(ctx context.Context, in *accountsv1.UpdateAccountPasswordRequest) (*accountsv1.UpdateAccountPasswordResponse, error) {
+	_, err := srv.authenticate(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	err = validators.ValidateUpdateAccountPasswordRequest(in)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, err.Error())
+	}
+
+	var acc *models.Account
+	if in.OldPassword != "" {
+		acc, err = srv.repo.Get(ctx, &models.OneAccountFilter{ID: in.AccountId})
+		if err != nil {
+			return nil, statusFromModelError(err)
+		}
+		err = bcrypt.CompareHashAndPassword(*acc.Hash, []byte(in.OldPassword))
+		if err != nil {
+			return nil, status.Error(codes.InvalidArgument, "password does not match")
+		}
+	} else if in.Token != "" {
+		acc, err = srv.repo.Get(ctx, &models.OneAccountFilter{ID: in.AccountId})
+		if err != nil {
+			return nil, statusFromModelError(err)
+		}
+		if acc.Token != in.Token {
+			return nil, status.Error(codes.NotFound, "reset-token does not match")
+		}
+
+		if !time.Now().UTC().Before(acc.ValidUntil) {
+			return nil, status.Error(codes.InvalidArgument, "reset-token expire")
+		}
+	} else {
+		return nil, status.Error(codes.InvalidArgument, "missing argument, old password or reset password token")
+	}
+
+	hashed, err := bcrypt.GenerateFromPassword([]byte(in.Password), 8)
+	if err != nil {
+		srv.logger.Error("bcrypt failed to hash password", zap.Error(err))
+		return nil, status.Error(codes.Internal, err.Error())
+	}
+	acc, err = srv.repo.UpdateAccountPassword(ctx, &models.OneAccountFilter{ID: in.AccountId}, &models.AccountPayload{Hash: &hashed})
+	if err != nil {
+		return nil, statusFromModelError(err)
+	}
+	return &accountsv1.UpdateAccountPasswordResponse{Account: modelsAccountToProtobufAccount(acc)}, nil
 }
 
 func (srv *accountsAPI) Authenticate(ctx context.Context, in *accountsv1.AuthenticateRequest) (*accountsv1.AuthenticateResponse, error) {

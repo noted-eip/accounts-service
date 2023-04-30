@@ -2,13 +2,16 @@ package models
 
 import (
 	"context"
+	"time"
 )
 
 type Account struct {
-	ID    string  `json:"id" bson:"_id,omitempty"`
-	Email *string `json:"email" bson:"email,omitempty"`
-	Name  *string `json:"name" bson:"name,omitempty"`
-	Hash  *[]byte `json:"hash" bson:"hash,omitempty"`
+	ID         string    `json:"id" bson:"_id,omitempty"`
+	Email      *string   `json:"email" bson:"email,omitempty"`
+	Name       *string   `json:"name" bson:"name,omitempty"`
+	Hash       *[]byte   `json:"hash" bson:"hash,omitempty"`
+	Token      string    `json:"token" bson:"token,omitempty"`
+	ValidUntil time.Time `json:"valid_until" bson:"valid_until,omitempty"`
 }
 
 type AccountPayload struct {
@@ -20,6 +23,12 @@ type AccountPayload struct {
 type OneAccountFilter struct {
 	ID    string `json:"id" bson:"_id,omitempty"`
 	Email string `json:"email" bson:"email,omitempty"`
+}
+
+type AccountSecretToken struct {
+	ID         string    `json:"id" bson:"_id,omitempty"`
+	Token      string    `json:"token" bson:"token,omitempty"`
+	ValidUntil time.Time `json:"valid_until" bson:"valid_until,omitempty"`
 }
 
 type ManyAccountsFilter struct{}
@@ -37,4 +46,8 @@ type AccountsRepository interface {
 	Update(ctx context.Context, filter *OneAccountFilter, account *AccountPayload) (*Account, error)
 
 	List(ctx context.Context, filter *ManyAccountsFilter, pagination *Pagination) ([]Account, error)
+
+	UpdateAccountWithResetPasswordToken(ctx context.Context, filter *OneAccountFilter) (*AccountSecretToken, error)
+
+	UpdateAccountPassword(ctx context.Context, filter *OneAccountFilter, account *AccountPayload) (*Account, error)
 }
