@@ -66,7 +66,8 @@ func ValidateForgetAccountPasswordRequest(in *accountsv1.ForgetAccountPasswordRe
 
 func ValidateForgetAccountPasswordValidateTokenRequest(in *accountsv1.ForgetAccountPasswordValidateTokenRequest) error {
 	return validation.ValidateStruct(in,
-		validation.Field(&in.Token, validation.Required, validation.Length(4, 4)))
+		validation.Field(&in.Token, validation.Required, validation.Length(4, 4)),
+		validation.Field(&in.AccountId, validation.Required, validation.NotNil))
 }
 
 func ValidateUpdateAccountPasswordRequest(in *accountsv1.UpdateAccountPasswordRequest) error {
