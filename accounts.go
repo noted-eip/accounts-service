@@ -9,7 +9,6 @@ import (
 	"accounts-service/validators"
 	"context"
 	"errors"
-	"fmt"
 	"time"
 
 	"github.com/mennanov/fmutils"
@@ -25,10 +24,10 @@ type accountsAPI struct {
 	accountsv1.UnimplementedAccountsAPIServer
 
 	noteService *communication.NoteServiceClient
+	mailService mailingAPI
 	auth        auth.Service
 	logger      *zap.Logger
 	repo        models.AccountsRepository
-  mail   mailingAPI
 }
 
 var _ accountsv1.AccountsAPIServer = &accountsAPI{}
@@ -197,20 +196,8 @@ func (srv *accountsAPI) ForgetAccountPassword(ctx context.Context, in *accountsv
 		return nil, statusFromModelError(err)
 	}
 
-	body := fmt.Sprintf(`<span>Bonjour,<br/>Nous avons reçu une demande pour réinitialiser votre mot de passe.
-		<br/>Si vous n'avez pas fait la demande, ignorez simplement ce message.
-		<br/>Sinon, vous pouvez réinitialiser votre mot de passe.
-		<br/>Attention, votre code n'est valable qu'une heure.
-		<br/><div style="padding:16px 24px;border:1px solid #eeeeee;background-color:#f4f4f4;
-		border-radius:3px;font-family:monospace;margin:24px 0px 24px 0px ">%s</div></span>`, accountToken.Token)
-
-	emailInformation := &SendEmailsRequest{
-		to:      []string{accountToken.ID},
-		title:   "mis à jour Mot de passe",
-		subject: "Réinitialisez votre mot de passe",
-		body:    body,
-	}
-	err = srv.mail.SendEmails(ctx, emailInformation)
+	emailInformation := ForgetAccountPasswordMailContent(accountToken.ID, accountToken.Token)
+	err = srv.mailService.SendEmails(ctx, emailInformation)
 	if err != nil {
 		return nil, status.Error(codes.Internal, err.Error())
 	}
@@ -219,7 +206,7 @@ func (srv *accountsAPI) ForgetAccountPassword(ctx context.Context, in *accountsv
 
 func (srv *accountsAPI) ForgetAccountPasswordValidateToken(ctx context.Context, in *accountsv1.ForgetAccountPasswordValidateTokenRequest) (*accountsv1.ForgetAccountPasswordValidateTokenResponse, error) {
 	err := validators.ValidateForgetAccountPasswordValidateTokenRequest(in)
-	if err != nil || in.AccountId == "" {
+	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}
 
