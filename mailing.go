@@ -27,50 +27,38 @@ type TemplateData struct {
 	TITLE   string
 }
 
-type Request struct {
-	from    string
-	to      []string
-	subject string
-	body    string
-}
-
-type SendEmailsRequest struct {
-	to      []string
-	subject string
-	title   string
-	body    string
-}
-
-func NewRequest(from string, to []string, subject, body string) *Request {
-	return &Request{
-		from:    from,
-		to:      to,
-		subject: subject,
-		body:    body,
-	}
-}
-
-func (r *Request) SendEmailToAccounts(secret string) error {
+func (r *SendEmailsRequest) PostEmails(secret string) error {
 
 	subject := "Subject: " + r.subject + "!\n"
 	mine := "MIME-version: 1.0;\nContent-Type: text/html; charset=\"UTF-8\";\n\n"
 	msg := []byte(subject + mine + r.body)
 	addr := "smtp.gmail.com:587"
 
-	auth := smtp.PlainAuth("", r.from, secret, "smtp.gmail.com")
-	if err := smtp.SendMail(addr, auth, r.from, r.to, msg); err != nil {
+	auth := smtp.PlainAuth("", r.sender, secret, "smtp.gmail.com")
+	if err := smtp.SendMail(addr, auth, r.sender, r.to, msg); err != nil {
 		return err
 	}
 	return nil
 }
 
-func (r *Request) ParseTemplate(templateFileName string, data interface{}) error {
+func (r *SendEmailsRequest) FormatEmails(templateFileName string) error {
+	extensions := parser.CommonExtensions | parser.AutoHeadingIDs
+	parser := parser.NewWithExtensions(extensions)
+	md := []byte(r.body)
+	html := markdown.ToHTML(md, parser, nil)
+	content := template.HTML(string(html[:]))
+
+	templateData := TemplateData{
+		CONTENT: content,
+		TITLE:   r.title,
+	}
+
 	t, err := template.ParseFiles(templateFileName)
 	if err != nil {
 		return err
 	}
 	buf := new(bytes.Buffer)
-	err = t.Execute(buf, data)
+	err = t.Execute(buf, templateData)
 	if err != nil {
 		return err
 	}
@@ -93,24 +81,14 @@ func (srv *mailingAPI) SendEmails(ctx context.Context, req *SendEmailsRequest) e
 	if err != nil {
 		return statusFromModelError(err)
 	}
+	req.to = mails
 
-	extensions := parser.CommonExtensions | parser.AutoHeadingIDs
-	parser := parser.NewWithExtensions(extensions)
-	md := []byte(req.body)
-	html := markdown.ToHTML(md, parser, nil)
-	content := template.HTML(string(html[:]))
-
-	templateData := TemplateData{
-		CONTENT: content,
-		TITLE:   req.title,
-	}
-
-	r := NewRequest("noted.organisation@gmail.com", mails, req.subject, req.body)
-	err = r.ParseTemplate("ressources/mail.html", templateData)
+	err = req.FormatEmails("ressources/mail.html")
 	if err != nil {
 		return status.Error(codes.Internal, err.Error())
 	}
-	err = r.SendEmailToAccounts(srv.secret)
+
+	err = req.PostEmails(srv.secret)
 	if err != nil {
 		return status.Error(codes.Internal, err.Error())
 	}
