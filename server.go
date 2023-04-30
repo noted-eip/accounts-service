@@ -130,18 +130,18 @@ func (s *server) initRepositories() {
 
 func (s *server) initAccountsAPI() {
 
-	mail := mailingAPI{
+	mailService := mailingAPI{
 		logger: s.logger,
 		repo:   s.accountsRepository,
 		secret: *gmailSuperSecret,
-  }
+	}
 
-  s.accountsService = &accountsAPI{
+	s.accountsService = &accountsAPI{
 		noteService: s.noteService,
+		mailService: mailService,
 		auth:        s.authService,
 		logger:      s.logger,
 		repo:        s.accountsRepository,
-    mail:        mail,
 	}
 }
 
