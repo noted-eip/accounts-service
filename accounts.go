@@ -8,6 +8,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io/ioutil"
 
 	"github.com/mennanov/fmutils"
@@ -218,28 +219,9 @@ func applyUpdateMask(mask *field_mask.FieldMask, msg protoreflect.ProtoMessage, 
 	return nil
 }
 
-const GOOGLE_APP_ID = "test"
-const GOOGLE_APP_SECRET = "test"
-const GOOGLE_REDIRECT_URI = "test"
-const oauthStateString = "test"
-
-func AuthenticateGoogle(in *accountsv1.AuthenticateGoogleRequest, ctx context.Context, srv *accountsAPI) (*accountsv1.CreateAccountResponse, error) {
+func (srv *accountsAPI) AuthenticateGoogle(ctx context.Context, in *accountsv1.AuthenticateGoogleRequest) (*accountsv1.AuthenticateGoogleResponse, error) {
 
 	code := in.Code
-
-	// srv.googleOAuth = &oauth2.Config{
-	// 	RedirectURL:  GOOGLE_REDIRECT_URI,
-	// 	ClientID:     GOOGLE_APP_ID,
-	// 	ClientSecret: GOOGLE_APP_SECRET,
-	// 	Scopes: []string{"https://www.googleapis.com/auth/userinfo.email",
-	// 		"https://www.googleapis.com/auth/userinfo.profile"},
-	// 	Endpoint: google.Endpoint,
-	// }
-	// // change the state to the one you set in the frontend
-
-	// if state != oauthStateString {
-	// 	return nil, status.Error(codes.InvalidArgument, "invalid oauth state")
-	// }
 
 	token, err := srv.googleOAuth.Exchange(context.Background(), code)
 	if err != nil {
@@ -262,26 +244,32 @@ func AuthenticateGoogle(in *accountsv1.AuthenticateGoogleRequest, ctx context.Co
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "failed to unmarshal response body: "+err.Error())
 	}
-
-	hashed, err := bcrypt.GenerateFromPassword([]byte(userInfo["email"].(string)), 8)
-	if err != nil {
-		srv.logger.Error("bcrypt failed to hash password", zap.Error(err))
-		return nil, status.Error(codes.Internal, err.Error())
-	}
-	// get the userinfo email in string format
 	email := userInfo["email"].(string)
-	// get the userinfo name in string format
-	name := userInfo["name"].(string)
-	acc, err := srv.repo.Create(ctx, &models.AccountPayload{Email: &email, Name: &name, Hash: &hashed})
+	id := userInfo["id"].(string)
+
+	// check if the user does not exist, register the user
+	_, err = srv.repo.Get(ctx, &models.OneAccountFilter{Email: &email})
 	if err != nil {
-		return nil, statusFromModelError(err)
+		fmt.Printf("Register the user if not exists ...")
+		hashed, err := bcrypt.GenerateFromPassword([]byte(id), 8)
+		if err != nil {
+			srv.logger.Error("bcrypt failed to hash password", zap.Error(err))
+			return nil, status.Error(codes.Internal, err.Error())
+		}
+		// get the userinfo name in string format
+		name := userInfo["name"].(string)
+
+		_, err = srv.repo.Create(ctx, &models.AccountPayload{Email: &email, Name: &name, Hash: &hashed})
+		if err != nil {
+			return nil, statusFromModelError(err)
+		}
 	}
 
-	return &accountsv1.CreateAccountResponse{
-		Account: &accountsv1.Account{
-			Id:    acc.ID,
-			Name:  *acc.Name,
-			Email: *acc.Email,
-		},
-	}, nil
+	tokenString, err := srv.auth.SignToken(&auth.Token{AccountID: id})
+	if err != nil {
+		srv.logger.Error("failed to sign token", zap.Error(err))
+		return nil, status.Error(codes.Internal, "failed to authenticate user")
+	}
+
+	return &accountsv1.AuthenticateGoogleResponse{Token: string(tokenString)}, nil
 }

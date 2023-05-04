@@ -21,6 +21,7 @@ import (
 	"google.golang.org/grpc/status"
 
 	"golang.org/x/oauth2"
+	"golang.org/x/oauth2/google"
 )
 
 type server struct {
@@ -103,10 +104,21 @@ func (s *server) initLogger() {
 	must(err, "unable to instantiate zap.Logger")
 }
 
+const GOOGLE_APP_ID = "test"
+const GOOGLE_APP_SECRET = "test"
+const GOOGLE_REDIRECT_URI = "test"
+
 func (s *server) initAuthService() {
 
 	// set setip oauth2 config for google
-
+	s.googleOauthConfig = &oauth2.Config{
+		RedirectURL:  GOOGLE_REDIRECT_URI,
+		ClientID:     GOOGLE_APP_ID,
+		ClientSecret: GOOGLE_APP_SECRET,
+		Scopes: []string{"https://www.googleapis.com/auth/userinfo.email",
+			"https://www.googleapis.com/auth/userinfo.profile"},
+		Endpoint: google.Endpoint,
+	}
 	rawKey, err := base64.StdEncoding.DecodeString(*jwtPrivateKey)
 	must(err, "could not decode jwt private key")
 	s.authService = auth.NewService(ed25519.PrivateKey(rawKey))
