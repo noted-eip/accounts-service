@@ -377,7 +377,7 @@ func (srv *accountsAPI) AuthenticateGoogle(ctx context.Context, in *accountsv1.A
 	id := userInfo["id"].(string)
 
 	// check if the user does not exist, register the user
-	_, err = srv.repo.Get(ctx, &models.OneAccountFilter{Email: &email})
+	_, err = srv.repo.Get(ctx, &models.OneAccountFilter{Email: email})
 	if err != nil {
 		fmt.Printf("Register the user if not exists ...")
 		hashed, err := bcrypt.GenerateFromPassword([]byte(id), 8)

@@ -24,9 +24,6 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/reflection"
 	"google.golang.org/grpc/status"
-
-	"golang.org/x/oauth2"
-	"golang.org/x/oauth2/google"
 )
 
 type server struct {
