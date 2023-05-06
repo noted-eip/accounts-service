@@ -11,6 +11,7 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"os"
 	"strings"
 	"time"
 
@@ -104,9 +105,10 @@ func (s *server) initLogger() {
 	must(err, "unable to instantiate zap.Logger")
 }
 
-const GOOGLE_APP_ID = "test"
-const GOOGLE_APP_SECRET = "test"
-const GOOGLE_REDIRECT_URI = "test"
+// get google_app_id, google_app_secret and google_redirect_uri from env
+var GOOGLE_APP_ID = os.Getenv("GOOGLE_APP_ID")
+var GOOGLE_APP_SECRET = os.Getenv("GOOGLE_APP_SECRET")
+var GOOGLE_REDIRECT_URI = os.Getenv("GOOGLE_REDIRECT_URI")
 
 func (s *server) initAuthService() {
 
