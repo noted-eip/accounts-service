@@ -5,7 +5,11 @@ package mongo
 import (
 	"accounts-service/models"
 	"context"
+	"crypto/rand"
 	"errors"
+	"fmt"
+	"math/big"
+	"time"
 
 	"github.com/jaevor/go-nanoid"
 	"go.mongodb.org/mongo-driver/bson"
@@ -66,8 +70,7 @@ func (repo *accountsRepository) Create(ctx context.Context, payload *models.Acco
 func (repo *accountsRepository) Get(ctx context.Context, filter *models.OneAccountFilter) (*models.Account, error) {
 	var account models.Account
 
-	accFilter := buildAccountFilter(filter)
-	err := repo.coll.FindOne(ctx, accFilter).Decode(&account)
+	err := repo.coll.FindOne(ctx, filter).Decode(&account)
 	if err != nil {
 		if errors.Is(err, mongo.ErrNoDocuments) {
 			return nil, models.ErrNotFound
@@ -79,8 +82,44 @@ func (repo *accountsRepository) Get(ctx context.Context, filter *models.OneAccou
 	return &account, nil
 }
 
+func (srv *accountsRepository) GetMailsFromIDs(ctx context.Context, filter []*models.OneAccountFilter) ([]string, error) {
+	var IDs bson.A
+	var mails []string
+
+	for _, val := range filter {
+		IDs = append(IDs, val.ID)
+	}
+
+	query := bson.D{
+		{Key: "_id", Value: bson.D{
+			{Key: "$in", Value: IDs},
+		}},
+	}
+
+	opts := options.Find().SetProjection(bson.D{{Key: "hash", Value: 0}, {Key: "_id", Value: 0}, {Key: "name", Value: 0}})
+
+	cursor, err := srv.coll.Find(ctx, query, opts)
+	if err != nil {
+		srv.logger.Error("mongo find accounts query failed", zap.Error(err))
+		return nil, err
+	}
+	defer cursor.Close(ctx)
+
+	for cursor.Next(ctx) {
+		var elem models.Account
+		err := cursor.Decode(&elem)
+		if err != nil {
+			srv.logger.Error("failed to decode mongo cursor result", zap.Error(err))
+		}
+		mails = append(mails, *elem.Email)
+	}
+
+	return mails, nil
+}
+
 func (repo *accountsRepository) Delete(ctx context.Context, filter *models.OneAccountFilter) error {
 	delete, err := repo.coll.DeleteOne(ctx, filter)
+
 	if err != nil {
 		repo.logger.Error("delete failed", zap.Error(err))
 		return err
@@ -135,8 +174,50 @@ func (repo *accountsRepository) List(ctx context.Context, filter *models.ManyAcc
 	return accounts, nil
 }
 
+func (repo *accountsRepository) UpdateAccountWithResetPasswordToken(ctx context.Context, filter *models.OneAccountFilter) (*models.AccountSecretToken, error) {
+	var accountSecretToken models.AccountSecretToken
+	max := big.NewInt(9999)
+	randInt, err := rand.Int(rand.Reader, max)
+	if err != nil {
+		repo.logger.Error("could not generate reset token", zap.Error(err))
+		return nil, models.ErrUnknown
+	}
+
+	tokenFormatted := fmt.Sprintf("%04d", randInt)
+	token := &models.AccountSecretToken{Token: tokenFormatted, ValidUntil: time.Now().Add(time.Hour * 1)}
+	field := bson.D{{Key: "$set", Value: token}}
+
+	err = repo.coll.FindOneAndUpdate(ctx, filter, field, options.FindOneAndUpdate().SetReturnDocument(options.After)).Decode(&accountSecretToken)
+	if err != nil {
+		if errors.Is(err, mongo.ErrNoDocuments) {
+			return nil, models.ErrNotFound
+		}
+		repo.logger.Error("update reset token failed", zap.Error(err))
+		return nil, models.ErrUnknown
+	}
+
+	return &accountSecretToken, nil
+}
+
+func (repo *accountsRepository) UpdateAccountPassword(ctx context.Context, filter *models.OneAccountFilter, account *models.AccountPayload) (*models.Account, error) {
+	var updatedAccount models.Account
+
+	field := bson.D{{Key: "$set", Value: bson.D{{Key: "hash", Value: account.Hash}}}}
+
+	err := repo.coll.FindOneAndUpdate(ctx, filter, field, options.FindOneAndUpdate().SetReturnDocument(options.After)).Decode(&updatedAccount)
+	if err != nil {
+		if errors.Is(err, mongo.ErrNoDocuments) {
+			return nil, models.ErrNotFound
+		}
+		repo.logger.Error("update account password failed", zap.Error(err))
+		return nil, models.ErrUnknown
+	}
+
+	return &updatedAccount, nil
+}
+
 func buildAccountFilter(filter *models.OneAccountFilter) *models.OneAccountFilter {
-	if filter.Email == nil || *filter.Email == "" {
+	if filter.Email == "" {
 		return &models.OneAccountFilter{ID: filter.ID}
 	} else if filter.ID == "" {
 		return &models.OneAccountFilter{Email: filter.Email}

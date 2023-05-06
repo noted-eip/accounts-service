@@ -47,7 +47,7 @@ func (srv *TestService) TokenFromContext(ctx context.Context) (*Token, error) {
 	return token, nil
 }
 
-// NOTE: Not sure but works for conversations tests
 func (srv *TestService) SignToken(info *Token) (string, error) {
-	return "", nil
+	bytes, err := json.Marshal(info)
+	return string(bytes), err
 }
