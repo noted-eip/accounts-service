@@ -15,8 +15,11 @@ import (
 	"strings"
 	"time"
 
+	"github.com/joho/godotenv"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
+	"golang.org/x/oauth2"
+	"golang.org/x/oauth2/google"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/reflection"
 	"google.golang.org/grpc/status"
@@ -44,6 +47,7 @@ type server struct {
 // Init initializes the dependencies of the server and panics on error.
 func (s *server) Init(opt ...grpc.ServerOption) {
 	s.initLogger()
+	s.InitEnv()
 	s.initAuthService()
 	s.initRepositories()
 	s.initAccountsAPI()
@@ -105,14 +109,15 @@ func (s *server) initLogger() {
 	must(err, "unable to instantiate zap.Logger")
 }
 
-// get google_app_id, google_app_secret and google_redirect_uri from env
-var GOOGLE_APP_ID = os.Getenv("GOOGLE_APP_ID")
-var GOOGLE_APP_SECRET = os.Getenv("GOOGLE_APP_SECRET")
-var GOOGLE_REDIRECT_URI = os.Getenv("GOOGLE_REDIRECT_URI")
-
-func (s *server) initAuthService() {
-
-	// set setip oauth2 config for google
+func (s *server) InitEnv() {
+	err := godotenv.Load()
+	if err != nil {
+		fmt.Println("Error loading .env file")
+		return
+	}
+	var GOOGLE_APP_ID string = os.Getenv("GOOGLE_APP_ID")
+	var GOOGLE_APP_SECRET string = os.Getenv("GOOGLE_APP_SECRET")
+	var GOOGLE_REDIRECT_URI string = os.Getenv("GOOGLE_REDIRECT_URI")
 	s.googleOauthConfig = &oauth2.Config{
 		RedirectURL:  GOOGLE_REDIRECT_URI,
 		ClientID:     GOOGLE_APP_ID,
@@ -121,6 +126,9 @@ func (s *server) initAuthService() {
 			"https://www.googleapis.com/auth/userinfo.profile"},
 		Endpoint: google.Endpoint,
 	}
+}
+
+func (s *server) initAuthService() {
 	rawKey, err := base64.StdEncoding.DecodeString(*jwtPrivateKey)
 	must(err, "could not decode jwt private key")
 	s.authService = auth.NewService(ed25519.PrivateKey(rawKey))
