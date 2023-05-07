@@ -388,9 +388,17 @@ func (srv *accountsAPI) AuthenticateGoogle(ctx context.Context, in *accountsv1.A
 		// get the userinfo name in string format
 		name := userInfo["name"].(string)
 
-		_, err = srv.repo.Create(ctx, &models.AccountPayload{Email: &email, Name: &name, Hash: &hashed})
+		acc, err := srv.repo.Create(ctx, &models.AccountPayload{Email: &email, Name: &name, Hash: &hashed})
 		if err != nil {
 			return nil, statusFromModelError(err)
+		}
+		if srv.noteService != nil {
+			_, err = srv.noteService.Groups.CreateWorkspace(ctx, &v1.CreateWorkspaceRequest{AccountId: acc.ID})
+			if err != nil {
+				return nil, err
+			}
+		} else {
+			srv.logger.Warn("CreateWorkspace was not called on CreateAccount because it is not connected to the notes-service")
 		}
 	}
 
