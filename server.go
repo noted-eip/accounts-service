@@ -12,11 +12,9 @@ import (
 	"errors"
 	"fmt"
 	"net"
-	"os"
 	"strings"
 	"time"
 
-	"github.com/joho/godotenv"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 	"golang.org/x/oauth2"
@@ -46,7 +44,6 @@ type server struct {
 // Init initializes the dependencies of the server and panics on error.
 func (s *server) Init(opt ...grpc.ServerOption) {
 	s.initLogger()
-	s.InitEnv()
 	s.initAuthService()
 	s.initRepositories()
 	s.initNoteServiceClient()
@@ -94,7 +91,7 @@ func (s *server) LoggerUnaryInterceptor(ctx context.Context, req interface{}, in
 
 	s.logger.Info("rpc",
 		zap.String("code", status.Code(err).String()),
-		zap.String("will", method),
+		zap.String("method", method),
 		zap.Duration("duration", end.Sub(start)),
 	)
 	return res, nil
@@ -121,19 +118,15 @@ func (s *server) initNoteServiceClient() {
 	s.noteService = noteService
 }
 
-func (s *server) InitEnv() {
-	err := godotenv.Load()
-	if err != nil {
-		fmt.Println("Error loading .env file")
-		return
-	}
-	var GOOGLE_APP_ID string = os.Getenv("GOOGLE_APP_ID")
-	var GOOGLE_APP_SECRET string = os.Getenv("GOOGLE_APP_SECRET")
-	var GOOGLE_REDIRECT_URI string = os.Getenv("GOOGLE_REDIRECT_URI")
+func (s *server) InitAuthGoogleService() {
+	const googleAppId = "871625340195-kf7c2u88u9aivgdru776a36hgel0kjja.apps.googleusercontent.com"
+	const googleRedirectUri = "https://localhost:3000/authenticate/google"
+	var googleSecret string = *googleAuthSecret
+
 	s.googleOauthConfig = &oauth2.Config{
-		RedirectURL:  GOOGLE_REDIRECT_URI,
-		ClientID:     GOOGLE_APP_ID,
-		ClientSecret: GOOGLE_APP_SECRET,
+		RedirectURL:  googleRedirectUri,
+		ClientID:     googleAppId,
+		ClientSecret: googleSecret,
 		Scopes: []string{"https://www.googleapis.com/auth/userinfo.email",
 			"https://www.googleapis.com/auth/userinfo.profile"},
 		Endpoint: google.Endpoint,
@@ -141,6 +134,7 @@ func (s *server) InitEnv() {
 }
 
 func (s *server) initAuthService() {
+	s.InitAuthGoogleService()
 	rawKey, err := base64.StdEncoding.DecodeString(*jwtPrivateKey)
 	must(err, "could not decode jwt private key")
 	s.authService = auth.NewService(ed25519.PrivateKey(rawKey))
