@@ -282,10 +282,11 @@ func (srv *accountsAPI) UpdateAccountPassword(ctx context.Context, in *accountsv
 }
 
 func (srv *accountsAPI) SendGroupInviteMail(ctx context.Context, in *accountsv1.SendGroupInviteMailRequest) (*accountsv1.SendGroupInviteMailResponse, error) {
-	// err := validators.ValidateSendGroupInviteMailRequest(in)
-	// if err != nil {
-	// 	return nil, status.Error(codes.InvalidArgument, err.Error())
-	// }
+	emailInformation := TaMethodeMailContent(accountToken.ID, accountToken.Token)
+	err = srv.mailService.SendEmails(ctx, emailInformation)
+	if err != nil {
+		return nil, status.Error(codes.Internal, err.Error())
+	}
 	return &accountsv1.SendGroupInviteMailResponse{}, nil
 }
 
