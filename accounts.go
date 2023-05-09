@@ -10,7 +10,6 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"io/ioutil"
 	"time"
 
@@ -42,25 +41,9 @@ func (srv *accountsAPI) CreateAccount(ctx context.Context, in *accountsv1.Create
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}
-
-	hashed, err := bcrypt.GenerateFromPassword([]byte(in.Password), 8)
-	if err != nil {
-		srv.logger.Error("bcrypt failed to hash password", zap.Error(err))
-		return nil, status.Error(codes.Internal, err.Error())
-	}
-
-	acc, err := srv.repo.Create(ctx, &models.AccountPayload{Email: &in.Email, Name: &in.Name, Hash: &hashed})
+	acc, err := createUser(ctx, srv, in.Email, in.Name, in.Password)
 	if err != nil {
 		return nil, statusFromModelError(err)
-	}
-
-	if srv.noteService != nil {
-		_, err = srv.noteService.Groups.CreateWorkspace(ctx, &v1.CreateWorkspaceRequest{AccountId: acc.ID})
-		if err != nil {
-			return nil, err
-		}
-	} else {
-		srv.logger.Warn("CreateWorkspace was not called on CreateAccount because it is not connected to the notes-service")
 	}
 
 	return &accountsv1.CreateAccountResponse{
@@ -380,26 +363,11 @@ func (srv *accountsAPI) AuthenticateGoogle(ctx context.Context, in *accountsv1.A
 	// check if the user does not exist, register the user
 	_, err = srv.repo.Get(ctx, &models.OneAccountFilter{Email: email})
 	if err != nil {
-		fmt.Printf("Register the user if not exists ...")
-		hashed, err := bcrypt.GenerateFromPassword([]byte(id), 8)
-		if err != nil {
-			srv.logger.Error("bcrypt failed to hash password", zap.Error(err))
-			return nil, status.Error(codes.Internal, err.Error())
-		}
-		// get the userinfo name in string format
+		// Create user if doens't exist
 		name := userInfo["name"].(string)
-
-		acc, err := srv.repo.Create(ctx, &models.AccountPayload{Email: &email, Name: &name, Hash: &hashed})
+		_, err = createUser(ctx, srv, email, name, id)
 		if err != nil {
 			return nil, statusFromModelError(err)
-		}
-		if srv.noteService != nil {
-			_, err = srv.noteService.Groups.CreateWorkspace(ctx, &v1.CreateWorkspaceRequest{AccountId: acc.ID})
-			if err != nil {
-				return nil, err
-			}
-		} else {
-			srv.logger.Warn("CreateWorkspace was not called on CreateAccount because it is not connected to the notes-service")
 		}
 	}
 
@@ -410,4 +378,26 @@ func (srv *accountsAPI) AuthenticateGoogle(ctx context.Context, in *accountsv1.A
 	}
 
 	return &accountsv1.AuthenticateGoogleResponse{Token: string(tokenString)}, nil
+}
+
+func createUser(ctx context.Context, srv *accountsAPI, Email string, Name string, Password string) (*models.Account, error) {
+	hashed, err := bcrypt.GenerateFromPassword([]byte(Password), 8)
+	if err != nil {
+		srv.logger.Error("bcrypt failed to hash password", zap.Error(err))
+		return nil, status.Error(codes.Internal, err.Error())
+	}
+	acc, err := srv.repo.Create(ctx, &models.AccountPayload{Email: &Email, Name: &Name, Hash: &hashed})
+	if err != nil {
+		return nil, statusFromModelError(err)
+	}
+
+	if srv.noteService != nil {
+		_, err = srv.noteService.Groups.CreateWorkspace(ctx, &v1.CreateWorkspaceRequest{AccountId: acc.ID})
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		srv.logger.Warn("CreateWorkspace was not called on CreateAccount because it is not connected to the notes-service")
+	}
+	return acc, err
 }
