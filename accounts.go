@@ -241,8 +241,18 @@ func (srv *accountsAPI) UpdateAccountPassword(ctx context.Context, in *accountsv
 		if err != nil {
 			return nil, status.Error(codes.InvalidArgument, "password does not match")
 		}
-	} else if in.Token != "" {
-		acc, err = srv.repo.Get(ctx, &models.OneAccountFilter{ID: in.AccountId})
+		} else {
+			srv.logger.Warn("CreateWorkspace was not called on CreateAccount because it is not connected to the notes-service")
+		}
+		
+		return &accountsv1.CreateAccountResponse{
+			Account: &accountsv1.Account{
+				Id:    acc.ID,
+				Name:  *acc.Name,
+				Email: *acc.Email,
+			},
+		}, nil
+	}acc, err = srv.repo.Get(ctx, &models.OneAccountFilter{ID: in.AccountId})
 		if err != nil {
 			return nil, statusFromModelError(err)
 		}
