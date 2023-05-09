@@ -349,10 +349,11 @@ func applyUpdateMask(mask *field_mask.FieldMask, msg protoreflect.ProtoMessage, 
 }
 
 func (srv *accountsAPI) AuthenticateGoogle(ctx context.Context, in *accountsv1.AuthenticateGoogleRequest) (*accountsv1.AuthenticateGoogleResponse, error) {
-
-	code := in.Code
-
-	token, err := srv.googleOAuth.Exchange(context.Background(), code)
+	err := validators.ValidateAuthenticateGoogleRequest(in)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, err.Error())
+	}
+	token, err := srv.googleOAuth.Exchange(context.Background(), in.Code)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "failed to exchange token: "+err.Error())
 	}
