@@ -1,6 +1,9 @@
 package main
 
-import "fmt"
+import (
+	accountsv1 "accounts-service/protorepo/noted/accounts/v1"
+	"fmt"
+)
 
 type SendEmailsRequest struct {
 	to      []string
@@ -23,6 +26,22 @@ func ForgetAccountPasswordMailContent(accountID string, token string) *SendEmail
 		sender:  "noted.organisation@gmail.com",
 		title:   "Mise à jour de mot de passe",
 		subject: "Réinitialisez votre mot de passe",
+		body:    body,
+	}
+}
+
+func SendGroupInviteMailContent(in *accountsv1.SendGroupInviteMailRequest, linkInvite string) *SendEmailsRequest {
+
+	body := fmt.Sprintf(`<span>Bonjour,<br/>Vous avez été invité à rejoindre le groupe %s.
+	<br/>Veuillez cliquer sur le lien ci-dessous pour accepter l'invitation.
+	<br/><a href="%s">%s</a>
+	<br/>Attention, cette invitation est valable jusqu'au %s</span>`, in.GroupName, linkInvite, linkInvite, in.ValidUntil)
+
+	return &SendEmailsRequest{
+		to:      []string{in.RecipientId},
+		sender:  "noted.organisation@gmail.com",
+		title:   "Invitation à rejoindre un groupe",
+		subject: "Vous avez été invité à rejoindre un groupe from " + in.RecipientId,
 		body:    body,
 	}
 }
