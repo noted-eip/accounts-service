@@ -8,12 +8,16 @@ import (
 	v1 "accounts-service/protorepo/noted/notes/v1"
 	"accounts-service/validators"
 	"context"
+	"encoding/json"
 	"errors"
+	"fmt"
+	"io/ioutil"
 	"time"
 
 	"github.com/mennanov/fmutils"
 	"go.uber.org/zap"
 	"golang.org/x/crypto/bcrypt"
+	"golang.org/x/oauth2"
 	"google.golang.org/genproto/protobuf/field_mask"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -28,6 +32,7 @@ type accountsAPI struct {
 	auth        auth.Service
 	logger      *zap.Logger
 	repo        models.AccountsRepository
+	googleOAuth *oauth2.Config
 }
 
 var _ accountsv1.AccountsAPIServer = &accountsAPI{}
@@ -341,4 +346,68 @@ func applyUpdateMask(mask *field_mask.FieldMask, msg protoreflect.ProtoMessage, 
 	fmutils.Filter(msg, mask.GetPaths())
 	fmutils.Filter(msg, allowedFields)
 	return nil
+}
+
+func (srv *accountsAPI) AuthenticateGoogle(ctx context.Context, in *accountsv1.AuthenticateGoogleRequest) (*accountsv1.AuthenticateGoogleResponse, error) {
+	err := validators.ValidateAuthenticateGoogleRequest(in)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, err.Error())
+	}
+	token, err := srv.googleOAuth.Exchange(context.Background(), in.Code)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "failed to exchange token: "+err.Error())
+	}
+
+	userinfo, err := srv.googleOAuth.Client(context.Background(), token).Get("https://www.googleapis.com/oauth2/v2/userinfo")
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "failed to get userinfo: "+err.Error())
+	}
+
+	defer userinfo.Body.Close()
+	content, err := ioutil.ReadAll(userinfo.Body)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "failed to read response body: "+err.Error())
+	}
+
+	var userInfo map[string]interface{}
+	err = json.Unmarshal(content, &userInfo)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "failed to unmarshal response body: "+err.Error())
+	}
+	email := userInfo["email"].(string)
+	id := userInfo["id"].(string)
+
+	// check if the user does not exist, register the user
+	_, err = srv.repo.Get(ctx, &models.OneAccountFilter{Email: email})
+	if err != nil {
+		fmt.Printf("Register the user if not exists ...")
+		hashed, err := bcrypt.GenerateFromPassword([]byte(id), 8)
+		if err != nil {
+			srv.logger.Error("bcrypt failed to hash password", zap.Error(err))
+			return nil, status.Error(codes.Internal, err.Error())
+		}
+		// get the userinfo name in string format
+		name := userInfo["name"].(string)
+
+		acc, err := srv.repo.Create(ctx, &models.AccountPayload{Email: &email, Name: &name, Hash: &hashed})
+		if err != nil {
+			return nil, statusFromModelError(err)
+		}
+		if srv.noteService != nil {
+			_, err = srv.noteService.Groups.CreateWorkspace(ctx, &v1.CreateWorkspaceRequest{AccountId: acc.ID})
+			if err != nil {
+				return nil, err
+			}
+		} else {
+			srv.logger.Warn("CreateWorkspace was not called on CreateAccount because it is not connected to the notes-service")
+		}
+	}
+
+	tokenString, err := srv.auth.SignToken(&auth.Token{AccountID: id})
+	if err != nil {
+		srv.logger.Error("failed to sign token", zap.Error(err))
+		return nil, status.Error(codes.Internal, "failed to authenticate user")
+	}
+
+	return &accountsv1.AuthenticateGoogleResponse{Token: string(tokenString)}, nil
 }
