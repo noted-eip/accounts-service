@@ -78,3 +78,9 @@ func ValidateUpdateAccountPasswordRequest(in *accountsv1.UpdateAccountPasswordRe
 		validation.Field(&in.OldPassword, validation.When(in.OldPassword != ""), validation.Length(4, 20)),
 	)
 }
+
+func ValidateValidateAccountRequest(in *accountsv1.ValidateAccountRequest) error {
+	return validation.ValidateStruct(in,
+		validation.Field(&in.AccountId, validation.Required, validation.NotNil),
+		validation.Field(&in.ValidationToken, validation.Required, validation.NotNil))
+}
