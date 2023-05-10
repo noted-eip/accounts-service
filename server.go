@@ -12,6 +12,7 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"os"
 	"strings"
 	"time"
 
@@ -120,17 +121,27 @@ func (s *server) initNoteServiceClient() {
 
 func (s *server) InitAuthGoogleService() {
 	const googleAppId = "871625340195-kf7c2u88u9aivgdru776a36hgel0kjja.apps.googleusercontent.com"
-	const googleRedirectUri = "https://localhost:3000/authenticate/google"
+	var googleRedirectUri = ""
+	var googleAuthSecret = os.Getenv("GOOGLE_SECRET_AUTH")
 
-	if *googleAuthSecret == "" {
-		panic(fmt.Errorf("empty google secret from environement"))
+	if googleAuthSecret == "" {
+		panic(fmt.Errorf("empty google secret from environment"))
 	}
-	var googleSecret string = *googleAuthSecret
+
+	if *environment == "production" {
+		googleRedirectUri = "http://localhost:3000/authenticate/google"
+	} else if *environment == "development" {
+		googleRedirectUri = "https://noted-eip.vercel.app/authenticate/google"
+	}
+
+	if googleRedirectUri == "" {
+		panic(fmt.Errorf("empty google auth uri due to environment (production or development)"))
+	}
 
 	s.googleOauthConfig = &oauth2.Config{
 		RedirectURL:  googleRedirectUri,
 		ClientID:     googleAppId,
-		ClientSecret: googleSecret,
+		ClientSecret: googleAuthSecret,
 		Scopes: []string{"https://www.googleapis.com/auth/userinfo.email",
 			"https://www.googleapis.com/auth/userinfo.profile"},
 		Endpoint: google.Endpoint,

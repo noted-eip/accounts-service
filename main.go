@@ -19,7 +19,6 @@ var (
 	mongoDbName      = app.Flag("mongo-db-name", "name of the mongo database").Default("accounts-service").String()
 	jwtPrivateKey    = app.Flag("jwt-private-key", "base64 encoded ed25519 private key").Default("SGfCQAb05CtmhEesWxcrfXSQR6JjmEMeyjR7Mo21S60ZDW9VVTUuCvEMlGjlqiw4I/z8T11KqAXexvGIPiuffA==").String()
 	gmailSuperSecret = app.Flag("gmail-super-secret", "token to authenticate accounts service with noted gmail account").Default("").String()
-	googleAuthSecret = app.Flag("google-auth-secret", "google auth secret").Default("").String()
 )
 
 var (
