@@ -79,8 +79,16 @@ func ValidateUpdateAccountPasswordRequest(in *accountsv1.UpdateAccountPasswordRe
 	)
 }
 
+
 func ValidateValidateAccountRequest(in *accountsv1.ValidateAccountRequest) error {
 	return validation.ValidateStruct(in,
 		validation.Field(&in.AccountId, validation.Required, validation.NotNil),
-		validation.Field(&in.ValidationToken, validation.Required, validation.NotNil))
+		validation.Field(&in.ValidationToken, validation.Required, validation.NotNil)
+  )
+}
+
+func ValidateAuthenticateGoogleRequest(in *accountsv1.AuthenticateGoogleRequest) error {
+	return validation.ValidateStruct(in,
+		validation.Field(&in.Code, validation.Required, validation.NotNil),
+	)
 }

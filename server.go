@@ -17,6 +17,8 @@ import (
 
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
+	"golang.org/x/oauth2"
+	"golang.org/x/oauth2/google"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/reflection"
 	"google.golang.org/grpc/status"
@@ -36,6 +38,8 @@ type server struct {
 	noteService     *communication.NoteServiceClient
 
 	grpcServer *grpc.Server
+
+	googleOauthConfig *oauth2.Config
 }
 
 // Init initializes the dependencies of the server and panics on error.
@@ -91,7 +95,6 @@ func (s *server) LoggerUnaryInterceptor(ctx context.Context, req interface{}, in
 		zap.String("method", method),
 		zap.Duration("duration", end.Sub(start)),
 	)
-
 	return res, nil
 }
 
@@ -116,7 +119,27 @@ func (s *server) initNoteServiceClient() {
 	s.noteService = noteService
 }
 
+func (s *server) InitAuthGoogleService() {
+	const googleAppId = "871625340195-kf7c2u88u9aivgdru776a36hgel0kjja.apps.googleusercontent.com"
+	const googleRedirectUri = "https://localhost:3000/authenticate/google"
+
+	if *googleAuthSecret == "" {
+		panic(fmt.Errorf("empty google secret from environement"))
+	}
+	var googleSecret string = *googleAuthSecret
+
+	s.googleOauthConfig = &oauth2.Config{
+		RedirectURL:  googleRedirectUri,
+		ClientID:     googleAppId,
+		ClientSecret: googleSecret,
+		Scopes: []string{"https://www.googleapis.com/auth/userinfo.email",
+			"https://www.googleapis.com/auth/userinfo.profile"},
+		Endpoint: google.Endpoint,
+	}
+}
+
 func (s *server) initAuthService() {
+	s.InitAuthGoogleService()
 	rawKey, err := base64.StdEncoding.DecodeString(*jwtPrivateKey)
 	must(err, "could not decode jwt private key")
 	s.authService = auth.NewService(ed25519.PrivateKey(rawKey))
@@ -147,6 +170,7 @@ func (s *server) initAccountsAPI() {
 		repo:        s.accountsRepository,
 		pendingRepo: s.pendingAccountsRepository,
 		env:         environment,
+		googleOAuth: s.googleOauthConfig,
 	}
 }
 
