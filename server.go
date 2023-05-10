@@ -121,6 +121,10 @@ func (s *server) initNoteServiceClient() {
 func (s *server) InitAuthGoogleService() {
 	const googleAppId = "871625340195-kf7c2u88u9aivgdru776a36hgel0kjja.apps.googleusercontent.com"
 	const googleRedirectUri = "https://localhost:3000/authenticate/google"
+
+	if *googleAuthSecret == "" {
+		panic(fmt.Errorf("empty google secret from environement"))
+	}
 	var googleSecret string = *googleAuthSecret
 
 	s.googleOauthConfig = &oauth2.Config{
