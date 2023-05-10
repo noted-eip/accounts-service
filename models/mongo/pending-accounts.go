@@ -48,8 +48,8 @@ func NewPendingAccountsRepository(db *mongo.Database, logger *zap.Logger) models
 	return rep
 }
 
-func (repo *pendingAccountsRepository) Create(ctx context.Context, payload *models.PendingAccountPayload) (*models.PendingAccount, error) {
-	account := models.PendingAccount{ID: repo.newUUID(), Email: payload.Email, Name: payload.Name, Hash: payload.Hash}
+func (repo *pendingAccountsRepository) Create(ctx context.Context, payload *models.AccountPayload) (*models.PendingAccount, error) {
+	account := models.PendingAccount{ID: repo.newUUID(), Email: payload.Email, Name: payload.Name, Hash: payload.Hash, Token: repo.newUUID()}
 
 	_, err := repo.coll.InsertOne(ctx, account)
 	if err != nil {
@@ -63,7 +63,7 @@ func (repo *pendingAccountsRepository) Create(ctx context.Context, payload *mode
 	return &account, nil
 }
 
-func (repo *pendingAccountsRepository) Get(ctx context.Context, filter *models.OnePendingAccountFilter) (*models.PendingAccount, error) {
+func (repo *pendingAccountsRepository) Get(ctx context.Context, filter *models.OneAccountFilter) (*models.PendingAccount, error) {
 	var account models.PendingAccount
 
 	err := repo.coll.FindOne(ctx, filter).Decode(&account)
@@ -78,7 +78,7 @@ func (repo *pendingAccountsRepository) Get(ctx context.Context, filter *models.O
 	return &account, nil
 }
 
-func (srv *pendingAccountsRepository) GetMailsFromIDs(ctx context.Context, filter []*models.OnePendingAccountFilter) ([]string, error) {
+func (srv *pendingAccountsRepository) GetMailsFromIDs(ctx context.Context, filter []*models.OneAccountFilter) ([]string, error) {
 	var IDs bson.A
 	var mails []string
 
@@ -113,7 +113,7 @@ func (srv *pendingAccountsRepository) GetMailsFromIDs(ctx context.Context, filte
 	return mails, nil
 }
 
-func (repo *pendingAccountsRepository) Delete(ctx context.Context, filter *models.OnePendingAccountFilter) error {
+func (repo *pendingAccountsRepository) Delete(ctx context.Context, filter *models.OneAccountFilter) error {
 	delete, err := repo.coll.DeleteOne(ctx, filter)
 
 	if err != nil {
@@ -127,7 +127,7 @@ func (repo *pendingAccountsRepository) Delete(ctx context.Context, filter *model
 	return nil
 }
 
-func (repo *pendingAccountsRepository) Update(ctx context.Context, filter *models.OnePendingAccountFilter, account *models.PendingAccountPayload) (*models.PendingAccount, error) {
+func (repo *pendingAccountsRepository) Update(ctx context.Context, filter *models.OneAccountFilter, account *models.AccountPayload) (*models.PendingAccount, error) {
 	var updatedAccount models.PendingAccount
 
 	field := bson.D{{Key: "$set", Value: bson.D{{Key: "name", Value: account.Name}}}}

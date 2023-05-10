@@ -13,30 +13,19 @@ type PendingAccount struct {
 	Token string  `json:"token" bson:"token,omitempty"`
 }
 
-type PendingAccountPayload struct {
-	Name  *string `json:"name" bson:"name,omitempty"`
-	Email *string `json:"email" bson:"email,omitempty"`
-	Hash  *[]byte `json:"hash" bson:"hash,omitempty"`
-}
-
-type OnePendingAccountFilter struct {
-	ID    string `json:"id" bson:"_id,omitempty"`
-	Email string `json:"email" bson:"email,omitempty"`
-}
-
 type PendingAccountSecretToken struct {
 	ID    string `json:"id" bson:"_id,omitempty"`
 	Token string `json:"token" bson:"token,omitempty"`
 }
 
 type PendingAccountsRepository interface {
-	Create(ctx context.Context, filter *PendingAccountPayload) (*PendingAccount, error)
+	Create(ctx context.Context, filter *AccountPayload) (*PendingAccount, error)
 
-	Get(ctx context.Context, filter *OnePendingAccountFilter) (*PendingAccount, error)
+	Get(ctx context.Context, filter *OneAccountFilter) (*PendingAccount, error)
 
-	GetMailsFromIDs(ctx context.Context, filter []*OnePendingAccountFilter) ([]string, error)
+	GetMailsFromIDs(ctx context.Context, filter []*OneAccountFilter) ([]string, error)
 
-	Delete(ctx context.Context, filter *OnePendingAccountFilter) error
+	Delete(ctx context.Context, filter *OneAccountFilter) error
 
-	Update(ctx context.Context, filter *OnePendingAccountFilter, account *PendingAccountPayload) (*PendingAccount, error)
+	Update(ctx context.Context, filter *OneAccountFilter, account *AccountPayload) (*PendingAccount, error)
 }
