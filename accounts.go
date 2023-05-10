@@ -28,6 +28,8 @@ type accountsAPI struct {
 	auth        auth.Service
 	logger      *zap.Logger
 	repo        models.AccountsRepository
+	pendingRepo models.PendingAccountsRepository
+	env         *string
 }
 
 var _ accountsv1.AccountsAPIServer = &accountsAPI{}
@@ -44,27 +46,35 @@ func (srv *accountsAPI) CreateAccount(ctx context.Context, in *accountsv1.Create
 		return nil, status.Error(codes.Internal, err.Error())
 	}
 
-	acc, err := srv.repo.Create(ctx, &models.AccountPayload{Email: &in.Email, Name: &in.Name, Hash: &hashed})
-	if err != nil {
-		return nil, statusFromModelError(err)
-	}
-
-	if srv.noteService != nil {
-		_, err = srv.noteService.Groups.CreateWorkspace(ctx, &v1.CreateWorkspaceRequest{AccountId: acc.ID})
+	respAccount := &accountsv1.Account{}
+	if *srv.env == envIsDev {
+		acc, err := srv.pendingRepo.Create(ctx, &models.AccountPayload{Email: &in.Email, Name: &in.Name, Hash: &hashed})
 		if err != nil {
-			return nil, err
+			return nil, statusFromModelError(err)
+		}
+		respAccount = modelsPendingAccountToProtobufAccount(acc)
+		emailInformation := ValidateAccountMailContent(acc.ID, *acc.Name, acc.Token)
+		err = srv.mailService.SendEmails(ctx, emailInformation, true)
+		if err != nil {
+			return nil, status.Error(codes.Internal, err.Error())
 		}
 	} else {
-		srv.logger.Warn("CreateWorkspace was not called on CreateAccount because it is not connected to the notes-service")
+		acc, err := srv.repo.Create(ctx, &models.AccountPayload{Email: &in.Email, Name: &in.Name, Hash: &hashed})
+		if err != nil {
+			return nil, statusFromModelError(err)
+		}
+		respAccount = modelsAccountToProtobufAccount(acc)
+		if srv.noteService != nil {
+			_, err = srv.noteService.Groups.CreateWorkspace(ctx, &v1.CreateWorkspaceRequest{AccountId: respAccount.Id})
+			if err != nil {
+				return nil, err
+			}
+		} else {
+			srv.logger.Warn("CreateWorkspace was not called on CreateAccount because it is not connected to the notes-service")
+		}
 	}
 
-	return &accountsv1.CreateAccountResponse{
-		Account: &accountsv1.Account{
-			Id:    acc.ID,
-			Name:  *acc.Name,
-			Email: *acc.Email,
-		},
-	}, nil
+	return &accountsv1.CreateAccountResponse{Account: respAccount}, nil
 }
 
 func (srv *accountsAPI) GetAccount(ctx context.Context, in *accountsv1.GetAccountRequest) (*accountsv1.GetAccountResponse, error) {
@@ -197,7 +207,7 @@ func (srv *accountsAPI) ForgetAccountPassword(ctx context.Context, in *accountsv
 	}
 
 	emailInformation := ForgetAccountPasswordMailContent(accountToken.ID, accountToken.Token)
-	err = srv.mailService.SendEmails(ctx, emailInformation)
+	err = srv.mailService.SendEmails(ctx, emailInformation, false)
 	if err != nil {
 		return nil, status.Error(codes.Internal, err.Error())
 	}
@@ -281,6 +291,37 @@ func (srv *accountsAPI) UpdateAccountPassword(ctx context.Context, in *accountsv
 	return &accountsv1.UpdateAccountPasswordResponse{Account: modelsAccountToProtobufAccount(acc)}, nil
 }
 
+func (srv *accountsAPI) ValidateAccount(ctx context.Context, in *accountsv1.ValidateAccountRequest) (*accountsv1.ValidateAccountResponse, error) {
+	err := validators.ValidateValidateAccountRequest(in)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, err.Error())
+	}
+
+	pendingAcc, err := srv.pendingRepo.Get(ctx, &models.OneAccountFilter{ID: in.AccountId})
+	if err != nil {
+		return nil, statusFromModelError(err)
+	}
+
+	if pendingAcc.Token != in.ValidationToken {
+		return nil, status.Error(codes.InvalidArgument, "validation token does not match")
+	}
+
+	acc, err := srv.repo.Create(ctx, &models.AccountPayload{Email: pendingAcc.Email, Name: pendingAcc.Name, Hash: pendingAcc.Hash})
+	if err != nil {
+		return nil, statusFromModelError(err)
+	}
+
+	if srv.noteService != nil {
+		_, err = srv.noteService.Groups.CreateWorkspace(ctx, &v1.CreateWorkspaceRequest{AccountId: acc.ID})
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		srv.logger.Warn("CreateWorkspace was not called on CreateAccount because it is not connected to the notes-service")
+	}
+	return &accountsv1.ValidateAccountResponse{Account: modelsAccountToProtobufAccount(acc)}, nil
+}
+
 func (srv *accountsAPI) Authenticate(ctx context.Context, in *accountsv1.AuthenticateRequest) (*accountsv1.AuthenticateResponse, error) {
 	acc, err := srv.repo.Get(ctx, &models.OneAccountFilter{Email: in.Email})
 	if err != nil {
@@ -327,6 +368,10 @@ func statusFromModelError(err error) error {
 }
 
 func modelsAccountToProtobufAccount(acc *models.Account) *accountsv1.Account {
+	return &accountsv1.Account{Id: acc.ID, Name: *acc.Name, Email: *acc.Email}
+}
+
+func modelsPendingAccountToProtobufAccount(acc *models.PendingAccount) *accountsv1.Account {
 	return &accountsv1.Account{Id: acc.ID, Name: *acc.Name, Email: *acc.Email}
 }
 
