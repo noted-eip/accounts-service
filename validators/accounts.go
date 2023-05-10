@@ -78,3 +78,12 @@ func ValidateUpdateAccountPasswordRequest(in *accountsv1.UpdateAccountPasswordRe
 		validation.Field(&in.OldPassword, validation.When(in.OldPassword != ""), validation.Length(4, 20)),
 	)
 }
+
+func ValidateSendGoupInviteMail(in *accountsv1.SendGroupInviteMailRequest) error {
+	return validation.ValidateStruct(in,
+		validation.Field(&in.RecipientId, validation.Required, validation.NotNil),
+		validation.Field(&in.SenderId, validation.Required, validation.NotNil),
+		validation.Field(&in.GroupName, validation.Required, validation.NotNil),
+		validation.Field(&in.RecipientId != &in.SenderId, validation.Required),
+	)
+}
