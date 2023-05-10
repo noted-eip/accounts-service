@@ -306,48 +306,6 @@ func (srv *accountsAPI) Authenticate(ctx context.Context, in *accountsv1.Authent
 	return &accountsv1.AuthenticateResponse{Token: tokenString}, nil
 }
 
-func (srv *accountsAPI) authenticate(ctx context.Context) (*auth.Token, error) {
-	token, err := srv.auth.TokenFromContext(ctx)
-	if err != nil {
-		srv.logger.Debug("failed to authenticate request", zap.Error(err))
-		return nil, status.Error(codes.Unauthenticated, "invalid token")
-	}
-	return token, nil
-}
-
-func statusFromModelError(err error) error {
-	if err == nil {
-		return nil
-	}
-	if errors.Is(err, models.ErrNotFound) {
-		return status.Error(codes.NotFound, "not found")
-	}
-	if errors.Is(err, models.ErrDuplicateKeyFound) {
-		return status.Error(codes.AlreadyExists, "already exists")
-	}
-	if errors.Is(err, models.ErrUpdateInvalidField) {
-		return status.Error(codes.InvalidArgument, "invalid argument")
-	}
-	return status.Error(codes.Internal, "internal error")
-}
-
-func modelsAccountToProtobufAccount(acc *models.Account) *accountsv1.Account {
-	return &accountsv1.Account{Id: acc.ID, Name: *acc.Name, Email: *acc.Email}
-}
-
-func applyUpdateMask(mask *field_mask.FieldMask, msg protoreflect.ProtoMessage, allowedFields []string) error {
-	if mask == nil {
-		mask = &field_mask.FieldMask{Paths: allowedFields}
-	}
-	mask.Normalize()
-	if !mask.IsValid(msg) {
-		return status.Error(codes.InvalidArgument, "invalid field mask")
-	}
-	fmutils.Filter(msg, mask.GetPaths())
-	fmutils.Filter(msg, allowedFields)
-	return nil
-}
-
 func (srv *accountsAPI) AuthenticateGoogle(ctx context.Context, in *accountsv1.AuthenticateGoogleRequest) (*accountsv1.AuthenticateGoogleResponse, error) {
 	err := validators.ValidateAuthenticateGoogleRequest(in)
 	if err != nil {
@@ -410,4 +368,46 @@ func (srv *accountsAPI) AuthenticateGoogle(ctx context.Context, in *accountsv1.A
 	}
 
 	return &accountsv1.AuthenticateGoogleResponse{Token: string(tokenString)}, nil
+}
+
+func (srv *accountsAPI) authenticate(ctx context.Context) (*auth.Token, error) {
+	token, err := srv.auth.TokenFromContext(ctx)
+	if err != nil {
+		srv.logger.Debug("failed to authenticate request", zap.Error(err))
+		return nil, status.Error(codes.Unauthenticated, "invalid token")
+	}
+	return token, nil
+}
+
+func statusFromModelError(err error) error {
+	if err == nil {
+		return nil
+	}
+	if errors.Is(err, models.ErrNotFound) {
+		return status.Error(codes.NotFound, "not found")
+	}
+	if errors.Is(err, models.ErrDuplicateKeyFound) {
+		return status.Error(codes.AlreadyExists, "already exists")
+	}
+	if errors.Is(err, models.ErrUpdateInvalidField) {
+		return status.Error(codes.InvalidArgument, "invalid argument")
+	}
+	return status.Error(codes.Internal, "internal error")
+}
+
+func modelsAccountToProtobufAccount(acc *models.Account) *accountsv1.Account {
+	return &accountsv1.Account{Id: acc.ID, Name: *acc.Name, Email: *acc.Email}
+}
+
+func applyUpdateMask(mask *field_mask.FieldMask, msg protoreflect.ProtoMessage, allowedFields []string) error {
+	if mask == nil {
+		mask = &field_mask.FieldMask{Paths: allowedFields}
+	}
+	mask.Normalize()
+	if !mask.IsValid(msg) {
+		return status.Error(codes.InvalidArgument, "invalid field mask")
+	}
+	fmutils.Filter(msg, mask.GetPaths())
+	fmutils.Filter(msg, allowedFields)
+	return nil
 }
