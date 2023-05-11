@@ -85,5 +85,6 @@ func ValidateSendGoupInviteMail(in *accountsv1.SendGroupInviteMailRequest) error
 		validation.Field(&in.SenderId, validation.Required, validation.NotNil),
 		validation.Field(&in.GroupName, validation.Required, validation.NotNil),
 		validation.Field(&in.RecipientId != &in.SenderId, validation.Required),
+		validation.Field(&in.InviteLink, validation.Required, validation.NotNil),
 	)
 }
