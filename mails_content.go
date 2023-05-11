@@ -30,12 +30,12 @@ func ForgetAccountPasswordMailContent(accountID string, token string) *SendEmail
 	}
 }
 
-func SendGroupInviteMailContent(in *accountsv1.SendGroupInviteMailRequest, linkInvite string) *SendEmailsRequest {
+func SendGroupInviteMailContent(in *accountsv1.SendGroupInviteMailRequest) *SendEmailsRequest {
 
 	body := fmt.Sprintf(`<span>Bonjour,<br/>Vous avez été invité à rejoindre le groupe %s.
 	<br/>Veuillez cliquer sur le lien ci-dessous pour accepter l'invitation.
 	<br/><a href="%s">%s</a>
-	<br/>Attention, cette invitation est valable jusqu'au %s</span>`, in.GroupName, linkInvite, linkInvite, in.ValidUntil)
+	<br/>Attention, cette invitation est valable jusqu'au %s</span>`, in.GroupName, in.InviteLink, in.InviteLink, in.ValidUntil)
 
 	return &SendEmailsRequest{
 		to:      []string{in.RecipientId},

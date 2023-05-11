@@ -286,12 +286,8 @@ func (srv *accountsAPI) SendGroupInviteMail(ctx context.Context, in *accountsv1.
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}
+	emailInformation := SendGroupInviteMailContent(in)
 
-	LinkInvite := ""
-	// generate the link invite for the receipent ID
-
-	emailInformation := SendGroupInviteMailContent(in, LinkInvite)
-	// STEP 2 : SendGroupInviteMailContent
 	err = srv.mailService.SendEmails(ctx, emailInformation)
 	if err != nil {
 		return nil, status.Error(codes.Internal, err.Error())
