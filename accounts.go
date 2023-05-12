@@ -10,9 +10,10 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"io/ioutil"
 	"time"
+
+	"net/http"
 
 	"github.com/mennanov/fmutils"
 	"go.uber.org/zap"
@@ -306,53 +307,58 @@ func (srv *accountsAPI) Authenticate(ctx context.Context, in *accountsv1.Authent
 	return &accountsv1.AuthenticateResponse{Token: tokenString}, nil
 }
 
+func getGoogleUserInfo(accessToken string) ([]byte, error) {
+	// Create a new HTTP request with the authorization header containing the access token.
+	req, err := http.NewRequest("GET", "https://www.googleapis.com/oauth2/v3/userinfo?access_token="+accessToken, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	// Send the HTTP request.
+	client := &http.Client{}
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	// Read the response body.
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return nil, err
+	}
+
+	// Return the response body.
+	return body, nil
+}
+
+type googleUserInfo struct {
+	Email string `json:"email"`
+	Name  string `json:"name"`
+}
+
 func (srv *accountsAPI) AuthenticateGoogle(ctx context.Context, in *accountsv1.AuthenticateGoogleRequest) (*accountsv1.AuthenticateGoogleResponse, error) {
 	err := validators.ValidateAuthenticateGoogleRequest(in)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}
-	token, err := srv.googleOAuth.Exchange(context.Background(), in.Code)
+	content, err := getGoogleUserInfo(in.ClientAccessToken)
 	if err != nil {
-		return nil, status.Error(codes.InvalidArgument, "failed to exchange token: "+err.Error())
+		return nil, status.Error(codes.Internal, err.Error())
 	}
-
-	userinfo, err := srv.googleOAuth.Client(context.Background(), token).Get("https://www.googleapis.com/oauth2/v2/userinfo")
-	if err != nil {
-		return nil, status.Error(codes.InvalidArgument, "failed to get userinfo: "+err.Error())
-	}
-
-	defer userinfo.Body.Close()
-	content, err := ioutil.ReadAll(userinfo.Body)
-	if err != nil {
-		return nil, status.Error(codes.InvalidArgument, "failed to read response body: "+err.Error())
-	}
-
-	var userInfo map[string]interface{}
+	var userInfo googleUserInfo
 	err = json.Unmarshal(content, &userInfo)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "failed to unmarshal response body: "+err.Error())
 	}
-	email := userInfo["email"].(string)
-	id := userInfo["id"].(string)
-
-	// check if the user does not exist, register the user
-	_, err = srv.repo.Get(ctx, &models.OneAccountFilter{Email: email})
-	if err != nil {
-		fmt.Printf("Register the user if not exists ...")
-		hashed, err := bcrypt.GenerateFromPassword([]byte(id), 8)
-		if err != nil {
-			srv.logger.Error("bcrypt failed to hash password", zap.Error(err))
-			return nil, status.Error(codes.Internal, err.Error())
-		}
-		// get the userinfo name in string format
-		name := userInfo["name"].(string)
-
-		acc, err := srv.repo.Create(ctx, &models.AccountPayload{Email: &email, Name: &name, Hash: &hashed})
+	account, err := srv.repo.Get(ctx, &models.OneAccountFilter{Email: userInfo.Email})
+	if err != nil && err == models.ErrNotFound {
+		account, err = srv.repo.Create(ctx, &models.AccountPayload{Email: &userInfo.Email, Name: &userInfo.Name})
 		if err != nil {
 			return nil, statusFromModelError(err)
 		}
 		if srv.noteService != nil {
-			_, err = srv.noteService.Groups.CreateWorkspace(ctx, &v1.CreateWorkspaceRequest{AccountId: acc.ID})
+			_, err = srv.noteService.Groups.CreateWorkspace(ctx, &v1.CreateWorkspaceRequest{AccountId: account.ID})
 			if err != nil {
 				return nil, err
 			}
@@ -361,7 +367,7 @@ func (srv *accountsAPI) AuthenticateGoogle(ctx context.Context, in *accountsv1.A
 		}
 	}
 
-	tokenString, err := srv.auth.SignToken(&auth.Token{AccountID: id})
+	tokenString, err := srv.auth.SignToken(&auth.Token{AccountID: account.ID})
 	if err != nil {
 		srv.logger.Error("failed to sign token", zap.Error(err))
 		return nil, status.Error(codes.Internal, "failed to authenticate user")
