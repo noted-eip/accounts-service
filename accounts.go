@@ -287,7 +287,7 @@ func (srv *accountsAPI) UpdateAccountPassword(ctx context.Context, in *accountsv
 }
 
 func (srv *accountsAPI) SendGroupInviteMail(ctx context.Context, in *accountsv1.SendGroupInviteMailRequest) (*accountsv1.SendGroupInviteMailResponse, error) {
-	err := validators.ValidateSendGoupInviteMail(in)
+	err := validators.ValidateSendGroupInviteMail(in)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}
