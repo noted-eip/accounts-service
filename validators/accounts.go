@@ -2,10 +2,13 @@ package validators
 
 import (
 	accountsv1 "accounts-service/protorepo/noted/accounts/v1"
+	"errors"
 
 	validation "github.com/go-ozzo/ozzo-validation/v4"
 	"github.com/go-ozzo/ozzo-validation/v4/is"
 )
+
+type notSameRecipientAndSenderRule struct{}
 
 func ValidateCreateAccountRequest(in *accountsv1.CreateAccountRequest) error {
 	return validation.ValidateStruct(in,
@@ -79,12 +82,20 @@ func ValidateUpdateAccountPasswordRequest(in *accountsv1.UpdateAccountPasswordRe
 	)
 }
 
-func ValidateSendGoupInviteMail(in *accountsv1.SendGroupInviteMailRequest) error {
+func (r notSameRecipientAndSenderRule) Validate(value interface{}) error {
+	in := value.(*accountsv1.SendGroupInviteMailRequest)
+	if in.RecipientId == in.SenderId {
+		return errors.New("RecipientId and SenderId cannot be the same")
+	}
+	return nil
+}
+
+func ValidateSendGroupInviteMail(in *accountsv1.SendGroupInviteMailRequest) error {
 	return validation.ValidateStruct(in,
 		validation.Field(&in.RecipientId, validation.Required, validation.NotNil),
 		validation.Field(&in.SenderId, validation.Required, validation.NotNil),
+		validation.Field(&in, notSameRecipientAndSenderRule{}),
 		validation.Field(&in.GroupName, validation.Required, validation.NotNil),
-		validation.Field(&in.RecipientId != &in.SenderId, validation.Required),
 		validation.Field(&in.InviteLink, validation.Required, validation.NotNil),
 	)
 }
