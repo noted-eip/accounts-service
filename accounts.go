@@ -288,6 +288,11 @@ func (srv *accountsAPI) UpdateAccountPassword(ctx context.Context, in *accountsv
 }
 
 func (srv *accountsAPI) Authenticate(ctx context.Context, in *accountsv1.AuthenticateRequest) (*accountsv1.AuthenticateResponse, error) {
+	err := validators.ValidateAuthenticateRequest(in)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, err.Error())
+	}
+
 	acc, err := srv.repo.Get(ctx, &models.OneAccountFilter{Email: in.Email})
 	if err != nil {
 		return nil, statusFromModelError(err)
