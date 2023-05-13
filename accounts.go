@@ -287,6 +287,20 @@ func (srv *accountsAPI) UpdateAccountPassword(ctx context.Context, in *accountsv
 	return &accountsv1.UpdateAccountPasswordResponse{Account: modelsAccountToProtobufAccount(acc)}, nil
 }
 
+func (srv *accountsAPI) SendGroupInviteMail(ctx context.Context, in *accountsv1.SendGroupInviteMailRequest) (*accountsv1.SendGroupInviteMailResponse, error) {
+	err := validators.ValidateSendGroupInviteMail(in)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, err.Error())
+	}
+	emailInformation := SendGroupInviteMailContent(in)
+
+	err = srv.mailService.SendEmails(ctx, emailInformation)
+	if err != nil {
+		return nil, status.Error(codes.Internal, err.Error())
+	}
+	return &accountsv1.SendGroupInviteMailResponse{}, nil
+}
+
 func (srv *accountsAPI) Authenticate(ctx context.Context, in *accountsv1.AuthenticateRequest) (*accountsv1.AuthenticateResponse, error) {
 	err := validators.ValidateAuthenticateRequest(in)
 	if err != nil {

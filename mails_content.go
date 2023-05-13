@@ -1,6 +1,9 @@
 package main
 
-import "fmt"
+import (
+	accountsv1 "accounts-service/protorepo/noted/accounts/v1"
+	"fmt"
+)
 
 type SendEmailsRequest struct {
 	to      []string
@@ -23,6 +26,21 @@ func ForgetAccountPasswordMailContent(accountID string, token string) *SendEmail
 		sender:  "noted.organisation@gmail.com",
 		title:   "Mise à jour de mot de passe",
 		subject: "Réinitialisez votre mot de passe",
+		body:    body,
+	}
+}
+
+func SendGroupInviteMailContent(in *accountsv1.SendGroupInviteMailRequest) *SendEmailsRequest {
+	body := fmt.Sprintf(`<span>Bonjour,<br/>Vous avez été invité à rejoindre le groupe %s.
+	<br/>Veuillez vous connecter à votre profil pour accepter ou refuser l'invitation.
+	<a href="https://noted-eip.vercel.app/profile">Visitez mon profil</a>
+	<br/>Attention, cette invitation est valable jusqu'au %s</span>`, in.GroupName, in.ValidUntil)
+
+	return &SendEmailsRequest{
+		to:      []string{in.RecipientId},
+		sender:  "noted.organisation@gmail.com",
+		title:   "Invitation à rejoindre un groupe",
+		subject: "Vous avez été invité à rejoindre le groupe " + in.GroupName,
 		body:    body,
 	}
 }
