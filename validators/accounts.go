@@ -102,6 +102,6 @@ func ValidateSendGroupInviteMail(in *accountsv1.SendGroupInviteMailRequest) erro
 
 func ValidateAuthenticateGoogleRequest(in *accountsv1.AuthenticateGoogleRequest) error {
 	return validation.ValidateStruct(in,
-		validation.Field(&in.Code, validation.Required, validation.NotNil),
+		validation.Field(&in.ClientAccessToken, validation.Required, validation.NotNil),
 	)
 }
