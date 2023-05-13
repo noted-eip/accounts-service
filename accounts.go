@@ -313,7 +313,7 @@ func (srv *accountsAPI) AuthenticateGoogle(ctx context.Context, in *accountsv1.A
 		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}
 
-	content, err := getGoogleUserInfo("ya29.a0AWY7Ckna7Uc4rnnj0mt8v8-lXyxStvF8FDeaJs6NewrNDthVWa7QQPAVGo9EfWu8UuVPH0GGjfvUXVwW-BaEmqYzKW0y6l__x6OsKaGhJ-wzv7vdvqM74791QW1eb1BrefCVVE58AAfoGhqjsTUro2hgFaLMYQaCgYKAbkSARISFQG1tDrpFASpiQcWSdZu_FX8-kXZpg0165" /*in.ClientAccessToken*/)
+	content, err := getGoogleUserInfo(in.ClientAccessToken)
 	if err != nil {
 		return nil, status.Error(codes.Internal, err.Error())
 	}
