@@ -333,6 +333,7 @@ func (srv *accountsAPI) AuthenticateGoogle(ctx context.Context, in *accountsv1.A
 
 	account, err := srv.repo.Get(ctx, &models.OneAccountFilter{Email: email})
 	if err != nil && err == models.ErrNotFound {
+		// Creating the account without password, he would never be able to login without GoogleAuthenticate
 		account, err = srv.repo.Create(ctx, &models.AccountPayload{Email: &email, Name: &name})
 		if err != nil {
 			return nil, statusFromModelError(err)
