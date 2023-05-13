@@ -96,7 +96,6 @@ func ValidateSendGroupInviteMail(in *accountsv1.SendGroupInviteMailRequest) erro
 		validation.Field(&in.SenderId, validation.Required, validation.NotNil),
 		validation.Field(&in, notSameRecipientAndSenderRule{}),
 		validation.Field(&in.GroupName, validation.Required, validation.NotNil),
-		validation.Field(&in.InviteLink, validation.Required, validation.NotNil),
 	)
 }
 
