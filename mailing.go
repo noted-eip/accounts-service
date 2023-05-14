@@ -84,7 +84,7 @@ func (srv *mailingAPI) SendEmails(ctx context.Context, req *SendEmailsRequest) e
 	}
 	req.to = mails
 
-	err = req.FormatEmails("ressources/mail.html")
+	err = req.FormatEmails("mail.html")
 	if err != nil {
 		currentPath, err := os.Executable()
 		if err == nil {
