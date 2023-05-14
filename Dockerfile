@@ -8,4 +8,5 @@ RUN go build .
 FROM alpine:latest
 WORKDIR /app
 COPY --from=build /app/accounts-service .
+COPY --from=build /app/mail.html .
 ENTRYPOINT [ "./accounts-service" ]
