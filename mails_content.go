@@ -33,8 +33,8 @@ func ForgetAccountPasswordMailContent(accountID string, token string) *SendEmail
 func SendGroupInviteMailContent(in *accountsv1.SendGroupInviteMailRequest) *SendEmailsRequest {
 	body := fmt.Sprintf(`<span>Bonjour,<br/>Vous avez été invité à rejoindre le groupe %s.
 	<br/>Veuillez vous connecter à votre profil pour accepter ou refuser l'invitation.
-	<a href="https://noted-eip.vercel.app/profile">Visitez mon profil</a>
-	<br/>Attention, cette invitation est valable jusqu'au %s</span>`, in.GroupName, in.ValidUntil)
+	<a href="https://noted-eip.vercel.app/profile" style="color: blue">Visitez mon profil (https://noted-eip.vercel.app/profile) </a>
+	<br/>Attention, cette invitation est valable seulement 2 semaines</span>`, in.GroupName)
 
 	return &SendEmailsRequest{
 		to:      []string{in.RecipientId},

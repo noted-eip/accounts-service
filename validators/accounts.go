@@ -82,21 +82,20 @@ func ValidateUpdateAccountPasswordRequest(in *accountsv1.UpdateAccountPasswordRe
 	)
 }
 
-func (r notSameRecipientAndSenderRule) Validate(value interface{}) error {
-	in := value.(*accountsv1.SendGroupInviteMailRequest)
-	if in.RecipientId == in.SenderId {
-		return errors.New("RecipientId and SenderId cannot be the same")
-	}
-	return nil
-}
-
 func ValidateSendGroupInviteMail(in *accountsv1.SendGroupInviteMailRequest) error {
-	return validation.ValidateStruct(in,
+	err := validation.ValidateStruct(in,
 		validation.Field(&in.RecipientId, validation.Required, validation.NotNil),
 		validation.Field(&in.SenderId, validation.Required, validation.NotNil),
-		validation.Field(&in, notSameRecipientAndSenderRule{}),
 		validation.Field(&in.GroupName, validation.Required, validation.NotNil),
 	)
+	if err != nil {
+		return err
+	}
+
+	if in.RecipientId == in.SenderId {
+		return errors.New("recipient and sender IDs cannot be the same")
+	}
+	return nil
 }
 
 func ValidateAuthenticateGoogleRequest(in *accountsv1.AuthenticateGoogleRequest) error {
