@@ -6,6 +6,7 @@ import (
 	"context"
 	"html/template"
 	"net/smtp"
+	"os"
 
 	"go.uber.org/zap"
 	"google.golang.org/grpc/codes"
@@ -88,8 +89,12 @@ func (srv *mailingAPI) SendEmails(ctx context.Context, req *SendEmailsRequest, i
 		return statusFromModelError(err)
 	}
 
-	err = req.FormatEmails("ressources/mail.html")
+	err = req.FormatEmails("mail.html")
 	if err != nil {
+		currentPath, err := os.Executable()
+		if err == nil {
+			srv.logger.Error("Formating email error from direcory " + currentPath)
+		}
 		return status.Error(codes.Internal, err.Error())
 	}
 

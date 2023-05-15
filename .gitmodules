@@ -1,3 +1,4 @@
 [submodule "protorepo"]
 	path = protorepo
 	url = git@github.com:noted-eip/protorepo.git
+	branch = main

@@ -1,6 +1,9 @@
 package main
 
-import "fmt"
+import (
+	accountsv1 "accounts-service/protorepo/noted/accounts/v1"
+	"fmt"
+)
 
 type SendEmailsRequest struct {
 	to      []string
@@ -38,6 +41,21 @@ func ValidateAccountMailContent(accountID string, name string, token string) *Se
 		sender:  "noted.organisation@gmail.com",
 		title:   "Validation de votre compte",
 		subject: "Valider votre compte Noted",
+		body:    body,
+	}
+}
+
+func SendGroupInviteMailContent(in *accountsv1.SendGroupInviteMailRequest) *SendEmailsRequest {
+	body := fmt.Sprintf(`<span>Bonjour,<br/>Vous avez été invité à rejoindre le groupe %s.
+	<br/>Veuillez vous connecter à votre profil pour accepter ou refuser l'invitation.
+	<a href="https://noted-eip.vercel.app/profile" style="color: blue">Visitez mon profil (https://noted-eip.vercel.app/profile) </a>
+	<br/>Attention, cette invitation est valable seulement 2 semaines</span>`, in.GroupName)
+
+	return &SendEmailsRequest{
+		to:      []string{in.RecipientId},
+		sender:  "noted.organisation@gmail.com",
+		title:   "Invitation à rejoindre un groupe",
+		subject: "Vous avez été invité à rejoindre le groupe " + in.GroupName,
 		body:    body,
 	}
 }

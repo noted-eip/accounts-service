@@ -10,9 +10,10 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"io/ioutil"
 	"time"
+
+	"net/http"
 
 	"github.com/mennanov/fmutils"
 	"go.uber.org/zap"
@@ -327,7 +328,26 @@ func (srv *accountsAPI) ValidateAccount(ctx context.Context, in *accountsv1.Vali
 	return &accountsv1.ValidateAccountResponse{Account: modelsAccountToProtobufAccount(acc)}, nil
 }
 
+func (srv *accountsAPI) SendGroupInviteMail(ctx context.Context, in *accountsv1.SendGroupInviteMailRequest) (*accountsv1.SendGroupInviteMailResponse, error) {
+	err := validators.ValidateSendGroupInviteMail(in)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, err.Error())
+	}
+	emailInformation := SendGroupInviteMailContent(in)
+
+	err = srv.mailService.SendEmails(ctx, emailInformation, false)
+	if err != nil {
+		return nil, status.Error(codes.Internal, err.Error())
+	}
+	return &accountsv1.SendGroupInviteMailResponse{}, nil
+}
+
 func (srv *accountsAPI) Authenticate(ctx context.Context, in *accountsv1.AuthenticateRequest) (*accountsv1.AuthenticateResponse, error) {
+	err := validators.ValidateAuthenticateRequest(in)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, err.Error())
+	}
+
 	acc, err := srv.repo.Get(ctx, &models.OneAccountFilter{Email: in.Email})
 	if err != nil {
 		return nil, statusFromModelError(err)
@@ -345,6 +365,51 @@ func (srv *accountsAPI) Authenticate(ctx context.Context, in *accountsv1.Authent
 	}
 
 	return &accountsv1.AuthenticateResponse{Token: tokenString}, nil
+}
+
+func (srv *accountsAPI) AuthenticateGoogle(ctx context.Context, in *accountsv1.AuthenticateGoogleRequest) (*accountsv1.AuthenticateGoogleResponse, error) {
+	err := validators.ValidateAuthenticateGoogleRequest(in)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, err.Error())
+	}
+
+	content, err := getGoogleUserInfo(in.ClientAccessToken)
+	if err != nil {
+		return nil, status.Error(codes.Internal, err.Error())
+	}
+
+	var userInfo map[string]interface{}
+	err = json.Unmarshal(content, &userInfo)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "failed to unmarshal response body: "+err.Error())
+	}
+	email := userInfo["email"].(string)
+	name := userInfo["name"].(string)
+
+	account, err := srv.repo.Get(ctx, &models.OneAccountFilter{Email: email})
+	if err != nil && err == models.ErrNotFound {
+		// Creating the account without password, he would never be able to login without GoogleAuthenticate
+		account, err = srv.repo.Create(ctx, &models.AccountPayload{Email: &email, Name: &name})
+		if err != nil {
+			return nil, statusFromModelError(err)
+		}
+		if srv.noteService != nil {
+			_, err = srv.noteService.Groups.CreateWorkspace(ctx, &v1.CreateWorkspaceRequest{AccountId: account.ID})
+			if err != nil {
+				return nil, err
+			}
+		} else {
+			srv.logger.Warn("CreateWorkspace was not called on CreateAccount because it is not connected to the notes-service")
+		}
+	}
+
+	tokenString, err := srv.auth.SignToken(&auth.Token{AccountID: account.ID})
+	if err != nil {
+		srv.logger.Error("failed to sign token", zap.Error(err))
+		return nil, status.Error(codes.Internal, "failed to authenticate user")
+	}
+
+	return &accountsv1.AuthenticateGoogleResponse{Token: string(tokenString)}, nil
 }
 
 func (srv *accountsAPI) authenticate(ctx context.Context) (*auth.Token, error) {
@@ -393,66 +458,23 @@ func applyUpdateMask(mask *field_mask.FieldMask, msg protoreflect.ProtoMessage, 
 	return nil
 }
 
-func (srv *accountsAPI) AuthenticateGoogle(ctx context.Context, in *accountsv1.AuthenticateGoogleRequest) (*accountsv1.AuthenticateGoogleResponse, error) {
-	err := validators.ValidateAuthenticateGoogleRequest(in)
+func getGoogleUserInfo(accessToken string) ([]byte, error) {
+	req, err := http.NewRequest("GET", "https://www.googleapis.com/oauth2/v3/userinfo?access_token="+accessToken, nil)
 	if err != nil {
-		return nil, status.Error(codes.InvalidArgument, err.Error())
-	}
-	token, err := srv.googleOAuth.Exchange(context.Background(), in.Code)
-	if err != nil {
-		return nil, status.Error(codes.InvalidArgument, "failed to exchange token: "+err.Error())
+		return nil, err
 	}
 
-	userinfo, err := srv.googleOAuth.Client(context.Background(), token).Get("https://www.googleapis.com/oauth2/v2/userinfo")
+	client := &http.Client{}
+	resp, err := client.Do(req)
 	if err != nil {
-		return nil, status.Error(codes.InvalidArgument, "failed to get userinfo: "+err.Error())
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return nil, err
 	}
 
-	defer userinfo.Body.Close()
-	content, err := ioutil.ReadAll(userinfo.Body)
-	if err != nil {
-		return nil, status.Error(codes.InvalidArgument, "failed to read response body: "+err.Error())
-	}
-
-	var userInfo map[string]interface{}
-	err = json.Unmarshal(content, &userInfo)
-	if err != nil {
-		return nil, status.Error(codes.InvalidArgument, "failed to unmarshal response body: "+err.Error())
-	}
-	email := userInfo["email"].(string)
-	id := userInfo["id"].(string)
-
-	// check if the user does not exist, register the user
-	_, err = srv.repo.Get(ctx, &models.OneAccountFilter{Email: email})
-	if err != nil {
-		fmt.Printf("Register the user if not exists ...")
-		hashed, err := bcrypt.GenerateFromPassword([]byte(id), 8)
-		if err != nil {
-			srv.logger.Error("bcrypt failed to hash password", zap.Error(err))
-			return nil, status.Error(codes.Internal, err.Error())
-		}
-		// get the userinfo name in string format
-		name := userInfo["name"].(string)
-
-		acc, err := srv.repo.Create(ctx, &models.AccountPayload{Email: &email, Name: &name, Hash: &hashed})
-		if err != nil {
-			return nil, statusFromModelError(err)
-		}
-		if srv.noteService != nil {
-			_, err = srv.noteService.Groups.CreateWorkspace(ctx, &v1.CreateWorkspaceRequest{AccountId: acc.ID})
-			if err != nil {
-				return nil, err
-			}
-		} else {
-			srv.logger.Warn("CreateWorkspace was not called on CreateAccount because it is not connected to the notes-service")
-		}
-	}
-
-	tokenString, err := srv.auth.SignToken(&auth.Token{AccountID: id})
-	if err != nil {
-		srv.logger.Error("failed to sign token", zap.Error(err))
-		return nil, status.Error(codes.Internal, "failed to authenticate user")
-	}
-
-	return &accountsv1.AuthenticateGoogleResponse{Token: string(tokenString)}, nil
+	return body, nil
 }
