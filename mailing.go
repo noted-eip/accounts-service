@@ -17,10 +17,9 @@ import (
 )
 
 type mailingAPI struct {
-	logger      *zap.Logger
-	repo        models.AccountsRepository
-	pendingRepo models.PendingAccountsRepository
-	secret      string
+	logger *zap.Logger
+	repo   models.AccountsRepository
+	secret string
 }
 
 type TemplateData struct {
@@ -68,7 +67,7 @@ func (r *SendEmailsRequest) FormatEmails(templateFileName string) error {
 	return nil
 }
 
-func (srv *mailingAPI) SendEmails(ctx context.Context, req *SendEmailsRequest, isAccountValidation bool) error {
+func (srv *mailingAPI) SendEmails(ctx context.Context, req *SendEmailsRequest) error {
 
 	if srv.secret == "" {
 		return status.Error(codes.Internal, "could not retrieve super secret from environement")
@@ -79,15 +78,11 @@ func (srv *mailingAPI) SendEmails(ctx context.Context, req *SendEmailsRequest, i
 		filters = append(filters, &models.OneAccountFilter{ID: accountID})
 	}
 
-	var err error
-	if !isAccountValidation {
-		req.to, err = srv.repo.GetMailsFromIDs(ctx, filters)
-	} else {
-		req.to, err = srv.pendingRepo.GetMailsFromIDs(ctx, filters)
-	}
+	mails, err := srv.repo.GetMailsFromIDs(ctx, filters)
 	if err != nil {
 		return statusFromModelError(err)
 	}
+	req.to = mails
 
 	err = req.FormatEmails("mail.html")
 	if err != nil {

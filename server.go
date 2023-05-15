@@ -32,8 +32,7 @@ type server struct {
 
 	mongoDB *mongo.Database
 
-	accountsRepository        models.AccountsRepository
-	pendingAccountsRepository models.PendingAccountsRepository
+	accountsRepository models.AccountsRepository
 
 	accountsService accountsv1.AccountsAPIServer
 	noteService     *communication.NoteServiceClient
@@ -161,16 +160,14 @@ func (s *server) initRepositories() {
 	s.mongoDB, err = mongo.NewDatabase(context.Background(), *mongoUri, *mongoDbName, s.logger)
 	must(err, "could not instantiate mongo database")
 	s.accountsRepository = mongo.NewAccountsRepository(s.mongoDB.DB, s.logger)
-	s.pendingAccountsRepository = mongo.NewPendingAccountsRepository(s.mongoDB.DB, s.logger)
 }
 
 func (s *server) initAccountsAPI() {
 
 	mailService := mailingAPI{
-		logger:      s.logger,
-		repo:        s.accountsRepository,
-		pendingRepo: s.pendingAccountsRepository,
-		secret:      *gmailSuperSecret,
+		logger: s.logger,
+		repo:   s.accountsRepository,
+		secret: *gmailSuperSecret,
 	}
 
 	s.accountsService = &accountsAPI{
@@ -179,8 +176,6 @@ func (s *server) initAccountsAPI() {
 		auth:        s.authService,
 		logger:      s.logger,
 		repo:        s.accountsRepository,
-		pendingRepo: s.pendingAccountsRepository,
-		env:         environment,
 		googleOAuth: s.googleOauthConfig,
 	}
 }
