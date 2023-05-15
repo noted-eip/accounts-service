@@ -30,6 +30,21 @@ func ForgetAccountPasswordMailContent(accountID string, token string) *SendEmail
 	}
 }
 
+func ValidateAccountMailContent(accountID string, name string, token string) *SendEmailsRequest {
+	body := fmt.Sprintf(`<span>Bonjour %s,<br/>Vous êtes presque prêt à parcourir Noted.
+		<br/>Cliquez sur le lien ci-dessous pour vérifier votre adresse e-mail.
+		<br/><div style="padding:16px 24px;border:1px solid #eeeeee;background-color:#f4f4f4;
+		border-radius:3px;font-family:monospace;margin:24px 0px 24px 0px ">%s</div></span>`, name, token)
+
+	return &SendEmailsRequest{
+		to:      []string{accountID},
+		sender:  "noted.organisation@gmail.com",
+		title:   "Validation de votre compte",
+		subject: "Valider votre compte Noted",
+		body:    body,
+	}
+}
+
 func SendGroupInviteMailContent(in *accountsv1.SendGroupInviteMailRequest) *SendEmailsRequest {
 	body := fmt.Sprintf(`<span>Bonjour,<br/>Vous avez été invité à rejoindre le groupe %s.
 	<br/>Veuillez vous connecter à votre profil pour accepter ou refuser l'invitation.
