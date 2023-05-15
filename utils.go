@@ -44,8 +44,6 @@ func newTestUtilsOrDie(t *testing.T) *testUtils {
 	randomAlphanumeric, err := nanoid.CustomASCII("0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ", 8)
 	require.NoError(t, err)
 
-	env := "production"
-
 	return &testUtils{
 		logger:             logger,
 		auth:               auth,
@@ -57,7 +55,6 @@ func newTestUtilsOrDie(t *testing.T) *testUtils {
 			auth:   auth,
 			logger: logger,
 			repo:   accountsRepository,
-			env:    &env,
 		},
 	}
 }
