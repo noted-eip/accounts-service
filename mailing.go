@@ -1,5 +1,6 @@
 package main
 
+/*
 import (
 	"accounts-service/models"
 	"bytes"
@@ -99,3 +100,4 @@ func (srv *mailingAPI) SendEmails(ctx context.Context, req *SendEmailsRequest) e
 	}
 	return nil
 }
+*/
