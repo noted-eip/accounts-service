@@ -208,17 +208,14 @@ func (srv *accountsAPI) ForgetAccountPassword(ctx context.Context, in *accountsv
 
 	emailInformation := ForgetAccountPasswordMailContent(accountToken.ID, accountToken.Token)
 
-	// ADDED
 	filters := []*models.OneAccountFilter{}
 	for _, accountID := range emailInformation.To {
 		filters = append(filters, &models.OneAccountFilter{ID: accountID})
 	}
-	// GET UN SEUL mail from ID...
 	mails, err := srv.repo.GetMailsFromIDs(ctx, filters)
 	if err != nil {
 		return nil, statusFromModelError(err)
 	}
-	// !ADDED
 
 	err = srv.mailingService.SendEmails(ctx, emailInformation, mails)
 	if err != nil {
@@ -311,7 +308,6 @@ func (srv *accountsAPI) SendGroupInviteMail(ctx context.Context, in *accountsv1.
 	}
 	emailInformation := SendGroupInviteMailContent(in)
 
-	// ADDED
 	filters := []*models.OneAccountFilter{}
 	for _, accountID := range emailInformation.To {
 		filters = append(filters, &models.OneAccountFilter{ID: accountID})
@@ -320,7 +316,6 @@ func (srv *accountsAPI) SendGroupInviteMail(ctx context.Context, in *accountsv1.
 	if err != nil {
 		return nil, statusFromModelError(err)
 	}
-	// !ADDED
 
 	err = srv.mailingService.SendEmails(ctx, emailInformation, mails)
 	if err != nil {
