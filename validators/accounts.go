@@ -25,6 +25,18 @@ func ValidateGetAccountRequest(in *accountsv1.GetAccountRequest) error {
 	)
 }
 
+func ValidateGetMailsFromIDsInternal(accountsIDs *[]string) error {
+	var err error = nil
+
+	if len(*accountsIDs) <= 0 {
+		return errors.New("Accounts Id list is nil or empty")
+	}
+	for _, id := range *accountsIDs {
+		err = validation.Validate(id, validation.Required)
+	}
+	return err
+}
+
 func ValidateUpdateAccountRequest(in *accountsv1.UpdateAccountRequest) error {
 	err := validation.Validate(in.AccountId, validation.Required)
 	if err != nil {
