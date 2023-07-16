@@ -100,27 +100,21 @@ func (srv *accountsAPI) GetAccount(ctx context.Context, in *accountsv1.GetAccoun
 	return &accountsv1.GetAccountResponse{Account: modelsAccountToProtobufAccount(account)}, nil
 }
 
-// NOTE : Function dedicated to services only
-func (srv *accountsAPI) GetMailsFromIDsInternal(ctx context.Context, accountsIDs *[]string) (*[]string, error) {
-	_, err := srv.authenticate(ctx)
-	if err != nil {
-		return nil, err
-	}
-
-	err = validators.ValidateGetMailsFromIDsInternal(accountsIDs)
+func (srv *accountsAPI) GetMailsFromIDs(ctx context.Context, in *accountsv1.GetMailsFromIDsRequest) (*accountsv1.GetMailsFromIDsResponse, error) {
+	err := validators.ValidateGetMailsFromIDs(in)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}
 
 	filters := []*models.OneAccountFilter{}
-	for _, accountID := range *accountsIDs {
+	for _, accountID := range in.AccountsIds {
 		filters = append(filters, &models.OneAccountFilter{ID: accountID})
 	}
 	mails, err := srv.repo.GetMailsFromIDs(ctx, filters)
 	if err != nil {
 		return nil, statusFromModelError(err)
 	}
-	return &mails, nil
+	return &accountsv1.GetMailsFromIDsResponse{Emails: mails}, nil
 }
 
 func (srv *accountsAPI) UpdateAccount(ctx context.Context, in *accountsv1.UpdateAccountRequest) (*accountsv1.UpdateAccountResponse, error) {

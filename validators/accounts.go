@@ -25,13 +25,13 @@ func ValidateGetAccountRequest(in *accountsv1.GetAccountRequest) error {
 	)
 }
 
-func ValidateGetMailsFromIDsInternal(accountsIDs *[]string) error {
+func ValidateGetMailsFromIDs(in *accountsv1.GetMailsFromIDsRequest) error {
 	var err error = nil
 
-	if len(*accountsIDs) <= 0 {
+	if len(in.AccountsIds) <= 0 {
 		return errors.New("Accounts Id list is nil or empty")
 	}
-	for _, id := range *accountsIDs {
+	for _, id := range in.AccountsIds {
 		err = validation.Validate(id, validation.Required)
 	}
 	return err
