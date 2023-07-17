@@ -124,6 +124,25 @@ func TestAccountsAPI(t *testing.T) {
 		require.Equal(t, dave.ID, res.Account.Id)
 	})
 
+	t.Run("service-can-get-emails-by-accounts-ids", func(t *testing.T) {
+		res, err := tu.accounts.GetMailsFromIDs(context.TODO(), &accountsv1.GetMailsFromIDsRequest{
+			AccountsIds: []string{
+				dave.ID,
+			},
+		})
+		require.NoError(t, err)
+		require.NotNil(t, res)
+		require.NotNil(t, res.Emails)
+		require.NotEmpty(t, res.Emails)
+		require.Equal(t, daveEmail, res.Emails[0])
+	})
+
+	t.Run("service-cannot-get-emails-by-no-accounts-ids", func(t *testing.T) {
+		res, err := tu.accounts.GetMailsFromIDs(context.TODO(), &accountsv1.GetMailsFromIDsRequest{})
+		require.Error(t, err)
+		require.Nil(t, res)
+	})
+
 	t.Run("owner-can-update-account-name", func(t *testing.T) {
 		res, err := tu.accounts.UpdateAccount(dave.Context, &accountsv1.UpdateAccountRequest{
 			AccountId: dave.ID,
