@@ -4,6 +4,9 @@ import (
 	"accounts-service/auth"
 	"accounts-service/communication"
 	"accounts-service/models"
+
+	mailing "github.com/noted-eip/noted/mailing-service"
+
 	accountsv1 "accounts-service/protorepo/noted/accounts/v1"
 	v1 "accounts-service/protorepo/noted/notes/v1"
 	"accounts-service/validators"
@@ -28,8 +31,9 @@ import (
 type accountsAPI struct {
 	accountsv1.UnimplementedAccountsAPIServer
 
-	noteService *communication.NoteServiceClient
-	mailService mailingAPI
+	noteService    *communication.NoteServiceClient
+	mailingService mailing.Service
+
 	auth        auth.Service
 	logger      *zap.Logger
 	repo        models.AccountsRepository
@@ -220,7 +224,17 @@ func (srv *accountsAPI) ForgetAccountPassword(ctx context.Context, in *accountsv
 	}
 
 	emailInformation := ForgetAccountPasswordMailContent(accountToken.ID, accountToken.Token)
-	err = srv.mailService.SendEmails(ctx, emailInformation)
+
+	filters := []*models.OneAccountFilter{}
+	for _, accountID := range emailInformation.To {
+		filters = append(filters, &models.OneAccountFilter{ID: accountID})
+	}
+	mails, err := srv.repo.GetMailsFromIDs(ctx, filters)
+	if err != nil {
+		return nil, statusFromModelError(err)
+	}
+
+	err = srv.mailingService.SendEmails(ctx, emailInformation, mails)
 	if err != nil {
 		return nil, status.Error(codes.Internal, err.Error())
 	}
@@ -311,7 +325,16 @@ func (srv *accountsAPI) SendGroupInviteMail(ctx context.Context, in *accountsv1.
 	}
 	emailInformation := SendGroupInviteMailContent(in)
 
-	err = srv.mailService.SendEmails(ctx, emailInformation)
+	filters := []*models.OneAccountFilter{}
+	for _, accountID := range emailInformation.To {
+		filters = append(filters, &models.OneAccountFilter{ID: accountID})
+	}
+	mails, err := srv.repo.GetMailsFromIDs(ctx, filters)
+	if err != nil {
+		return nil, statusFromModelError(err)
+	}
+
+	err = srv.mailingService.SendEmails(ctx, emailInformation, mails)
 	if err != nil {
 		return nil, status.Error(codes.Internal, err.Error())
 	}

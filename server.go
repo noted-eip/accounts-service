@@ -5,6 +5,9 @@ import (
 	"accounts-service/communication"
 	"accounts-service/models"
 	"accounts-service/models/mongo"
+
+	mailing "github.com/noted-eip/noted/mailing-service"
+
 	accountsv1 "accounts-service/protorepo/noted/accounts/v1"
 	"context"
 	"crypto/ed25519"
@@ -28,7 +31,8 @@ import (
 type server struct {
 	logger *zap.Logger
 
-	authService auth.Service
+	authService    auth.Service
+	mailingService mailing.Service
 
 	mongoDB *mongo.Database
 
@@ -46,6 +50,7 @@ type server struct {
 func (s *server) Init(opt ...grpc.ServerOption) {
 	s.initLogger()
 	s.initAuthService()
+	s.initMailingService()
 	s.initRepositories()
 	s.initNoteServiceClient()
 	s.initAccountsAPI()
@@ -162,21 +167,18 @@ func (s *server) initRepositories() {
 	s.accountsRepository = mongo.NewAccountsRepository(s.mongoDB.DB, s.logger)
 }
 
+func (s *server) initMailingService() {
+	s.mailingService = mailing.NewService(s.logger, *gmailSuperSecret)
+}
+
 func (s *server) initAccountsAPI() {
-
-	mailService := mailingAPI{
-		logger: s.logger,
-		repo:   s.accountsRepository,
-		secret: *gmailSuperSecret,
-	}
-
 	s.accountsService = &accountsAPI{
-		noteService: s.noteService,
-		mailService: mailService,
-		auth:        s.authService,
-		logger:      s.logger,
-		repo:        s.accountsRepository,
-		googleOAuth: s.googleOauthConfig,
+		noteService:    s.noteService,
+		mailingService: s.mailingService,
+		auth:           s.authService,
+		logger:         s.logger,
+		repo:           s.accountsRepository,
+		googleOAuth:    s.googleOauthConfig,
 	}
 }
 
