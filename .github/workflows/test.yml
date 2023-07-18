@@ -19,6 +19,6 @@ jobs:
           mongodb-version: "6.0"
       - uses: actions/setup-go@v3
         with:
-          go-version: "1.18.1"
+          go-version: "1.19.1"
       - name: Run tests
         run: go test -v
