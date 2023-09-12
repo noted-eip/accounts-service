@@ -216,6 +216,25 @@ func (repo *accountsRepository) UpdateAccountPassword(ctx context.Context, filte
 	return &updatedAccount, nil
 }
 
+// Horrible way of doing it before delivery
+func (repo *accountsRepository) RegisterUserToMobileBeta(ctx context.Context, filter *models.OneAccountFilter) (*models.Account, error) {
+	var updatedAccount models.Account
+
+	field := bson.D{{Key: "$set", Value: bson.D{{Key: "is_in_mobile_beta", Value: true}}}}
+
+	err := repo.coll.FindOneAndUpdate(ctx, filter, field, options.FindOneAndUpdate().SetReturnDocument(options.After)).Decode(&updatedAccount)
+	if err != nil {
+		if errors.Is(err, mongo.ErrNoDocuments) {
+			return nil, models.ErrNotFound
+		}
+		repo.logger.Error("update account password failed", zap.Error(err))
+		return nil, models.ErrUnknown
+	}
+
+	return &updatedAccount, nil
+
+}
+
 func buildAccountFilter(filter *models.OneAccountFilter) *models.OneAccountFilter {
 	if filter.Email == "" {
 		return &models.OneAccountFilter{ID: filter.ID}
