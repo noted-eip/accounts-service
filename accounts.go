@@ -417,7 +417,17 @@ func (srv *accountsAPI) AuthenticateGoogle(ctx context.Context, in *accountsv1.A
 }
 
 func (srv *accountsAPI) RegisterUserToMobileBeta(ctx context.Context, in *accountsv1.RegisterUserToMobileBetaRequest) (*accountsv1.RegisterUserToMobileBetaResponse, error) {
-	_, err := srv.repo.RegisterUserToMobileBeta(ctx, &models.OneAccountFilter{
+	_, err := srv.authenticate(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	err = validators.ValidateRegisterUserToMobileBeta(in)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, err.Error())
+	}
+
+	_, err = srv.repo.RegisterUserToMobileBeta(ctx, &models.OneAccountFilter{
 		ID: in.AccountId,
 	})
 	if err != nil {
@@ -425,23 +435,25 @@ func (srv *accountsAPI) RegisterUserToMobileBeta(ctx context.Context, in *accoun
 	}
 
 	// TODO: This is ugly we should do our own firebase wrapper service
-	fbProjectName := os.Getenv("FIREBASE_PROJECT_NAME")
-	if fbProjectName == "" {
+	fbProjectNb := os.Getenv("FIREBASE_PROJECT_NB")
+	if fbProjectNb == "" {
 		return nil, status.Error(codes.Internal, "firebase project name has not been given")
 	}
 
-	// Horrendous stuff aswell but it's right now the "best" way to do it
+	// Horrendous stuff aswell but it's right now the "best" way to get an email from the user's ID
 	res, err := srv.repo.GetMailsFromIDs(ctx, []*models.OneAccountFilter{{ID: in.AccountId}})
 	if err != nil {
 		return nil, statusFromModelError(err)
 	}
 	userEmail := res[0]
 
-	call := srv.firebaseService.Projects.Testers.BatchAdd(fbProjectName, &firebaseappdistribution.GoogleFirebaseAppdistroV1BatchAddTestersRequest{
-		Emails: []string{
-			userEmail,
-		},
-	})
+	call := srv.firebaseService.Projects.Testers.BatchAdd(
+		"projects/"+fbProjectNb,
+		&firebaseappdistribution.GoogleFirebaseAppdistroV1BatchAddTestersRequest{
+			Emails: []string{
+				userEmail,
+			},
+		})
 
 	_, err = call.Do()
 	if err != nil {
