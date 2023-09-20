@@ -447,6 +447,10 @@ func (srv *accountsAPI) RegisterUserToMobileBeta(ctx context.Context, in *accoun
 	}
 	userEmail := res[0]
 
+	print(srv.firebaseService)
+	print(srv.firebaseService.Projects)
+	print(srv.firebaseService.Projects.Testers)
+
 	call := srv.firebaseService.Projects.Testers.BatchAdd(
 		"projects/"+fbProjectNb,
 		&firebaseappdistribution.GoogleFirebaseAppdistroV1BatchAddTestersRequest{
