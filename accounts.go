@@ -460,7 +460,7 @@ func (srv *accountsAPI) RegisterUserToMobileBeta(ctx context.Context, in *accoun
 		return nil, err
 	}
 
-	groupCall := srv.firebaseService.Projects.Groups.BatchJoin("Beta 0.1", &firebaseappdistribution.GoogleFirebaseAppdistroV1BatchJoinGroupRequest{
+	groupCall := srv.firebaseService.Projects.Groups.BatchJoin("projects/"+fbProjectNb+"/groups/Beta 0.1", &firebaseappdistribution.GoogleFirebaseAppdistroV1BatchJoinGroupRequest{
 		Emails: []string{
 			userEmail,
 		},
