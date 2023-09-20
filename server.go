@@ -196,8 +196,6 @@ func (s *server) initGrpcServer(opt ...grpc.ServerOption) {
 func (s *server) initFirebaseService() {
 	jsonCredentialBase64 := os.Getenv("JSON_FIREBASE_CREDS_B64")
 
-	print(jsonCredentialBase64)
-	print("\n")
 	if jsonCredentialBase64 == "" {
 		panic("please give google api key in base64 json as JSON_FIREBASE_CREDS_B64 (env variable)")
 	}
