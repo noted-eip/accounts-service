@@ -178,12 +178,13 @@ func (s *server) initMailingService() {
 
 func (s *server) initAccountsAPI() {
 	s.accountsService = &accountsAPI{
-		noteService:    s.noteService,
-		mailingService: s.mailingService,
-		auth:           s.authService,
-		logger:         s.logger,
-		repo:           s.accountsRepository,
-		googleOAuth:    s.googleOauthConfig,
+		noteService:     s.noteService,
+		mailingService:  s.mailingService,
+		auth:            s.authService,
+		logger:          s.logger,
+		repo:            s.accountsRepository,
+		googleOAuth:     s.googleOauthConfig,
+		firebaseService: s.firebaseService,
 	}
 }
 
@@ -214,7 +215,8 @@ func (s *server) initFirebaseService() {
 	print("\n")
 
 	s.firebaseService = firebaseService
-	print(s.firebaseService)
+	s.accountsService.
+		print(s.firebaseService)
 	print("\n")
 }
 
