@@ -23,6 +23,8 @@ import (
 	"go.uber.org/zap/zapcore"
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/google"
+	"google.golang.org/api/firebaseappdistribution/v1"
+	"google.golang.org/api/option"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/reflection"
 	"google.golang.org/grpc/status"
@@ -41,6 +43,8 @@ type server struct {
 	accountsService accountsv1.AccountsAPIServer
 	noteService     *communication.NoteServiceClient
 
+	firebaseService *firebaseappdistribution.Service
+
 	grpcServer *grpc.Server
 
 	googleOauthConfig *oauth2.Config
@@ -53,6 +57,7 @@ func (s *server) Init(opt ...grpc.ServerOption) {
 	s.initMailingService()
 	s.initRepositories()
 	s.initNoteServiceClient()
+	s.initFirebaseService()
 	s.initAccountsAPI()
 	s.initGrpcServer(opt...)
 }
@@ -185,6 +190,22 @@ func (s *server) initAccountsAPI() {
 func (s *server) initGrpcServer(opt ...grpc.ServerOption) {
 	s.grpcServer = grpc.NewServer(opt...)
 	accountsv1.RegisterAccountsAPIServer(s.grpcServer, s.accountsService)
+}
+
+func (s *server) initFirebaseService() {
+	jsonCredentialBase64 := os.Getenv("JSON_FIREBASE_CREDS_B64")
+
+	if jsonCredentialBase64 == "" {
+		panic("please give google api key in base64 json as JSON_FIREBASE_CREDS_B64 (env variable)")
+	}
+
+	jsonCredential, err := base64.StdEncoding.DecodeString(jsonCredentialBase64)
+	must(err, "could not decode base64 json firebase creds")
+
+	firebaseService, err := firebaseappdistribution.NewService(context.Background(), option.WithCredentialsJSON(jsonCredential))
+	must(err, "firebase connection could not be initialized")
+
+	s.firebaseService = firebaseService
 }
 
 func must(err error, msg string) {

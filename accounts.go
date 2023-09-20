@@ -4,6 +4,10 @@ import (
 	"accounts-service/auth"
 	"accounts-service/communication"
 	"accounts-service/models"
+	"io"
+	"os"
+
+	"google.golang.org/api/firebaseappdistribution/v1"
 
 	mailing "github.com/noted-eip/noted/mailing-service"
 
@@ -13,7 +17,6 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"io/ioutil"
 	"time"
 
 	"net/http"
@@ -33,6 +36,8 @@ type accountsAPI struct {
 
 	noteService    *communication.NoteServiceClient
 	mailingService mailing.Service
+
+	firebaseService *firebaseappdistribution.Service
 
 	auth        auth.Service
 	logger      *zap.Logger
@@ -411,6 +416,53 @@ func (srv *accountsAPI) AuthenticateGoogle(ctx context.Context, in *accountsv1.A
 	return &accountsv1.AuthenticateGoogleResponse{Token: string(tokenString)}, nil
 }
 
+func (srv *accountsAPI) RegisterUserToMobileBeta(ctx context.Context, in *accountsv1.RegisterUserToMobileBetaRequest) (*accountsv1.RegisterUserToMobileBetaResponse, error) {
+	_, err := srv.authenticate(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	err = validators.ValidateRegisterUserToMobileBeta(in)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, err.Error())
+	}
+
+	_, err = srv.repo.RegisterUserToMobileBeta(ctx, &models.OneAccountFilter{
+		ID: in.AccountId,
+	})
+	if err != nil {
+		return nil, statusFromModelError(err)
+	}
+
+	// TODO: This is ugly we should do our own firebase wrapper service
+	fbProjectNb := os.Getenv("FIREBASE_PROJECT_NB")
+	if fbProjectNb == "" {
+		return nil, status.Error(codes.Internal, "firebase project name has not been given")
+	}
+
+	// Horrendous stuff aswell but it's right now the "best" way to get an email from the user's ID
+	res, err := srv.repo.GetMailsFromIDs(ctx, []*models.OneAccountFilter{{ID: in.AccountId}})
+	if err != nil {
+		return nil, statusFromModelError(err)
+	}
+	userEmail := res[0]
+
+	call := srv.firebaseService.Projects.Testers.BatchAdd(
+		"projects/"+fbProjectNb,
+		&firebaseappdistribution.GoogleFirebaseAppdistroV1BatchAddTestersRequest{
+			Emails: []string{
+				userEmail,
+			},
+		})
+
+	_, err = call.Do()
+	if err != nil {
+		return nil, err
+	}
+
+	return &accountsv1.RegisterUserToMobileBetaResponse{}, nil
+}
+
 func (srv *accountsAPI) authenticate(ctx context.Context) (*auth.Token, error) {
 	token, err := srv.auth.TokenFromContext(ctx)
 	if err != nil {
@@ -437,7 +489,7 @@ func statusFromModelError(err error) error {
 }
 
 func modelsAccountToProtobufAccount(acc *models.Account) *accountsv1.Account {
-	return &accountsv1.Account{Id: acc.ID, Name: *acc.Name, Email: *acc.Email}
+	return &accountsv1.Account{Id: acc.ID, Name: *acc.Name, Email: *acc.Email, IsInMobileBeta: acc.IsInMobileBeta}
 }
 
 func applyUpdateMask(mask *field_mask.FieldMask, msg protoreflect.ProtoMessage, allowedFields []string) error {
@@ -466,7 +518,7 @@ func getGoogleUserInfo(accessToken string) ([]byte, error) {
 	}
 	defer resp.Body.Close()
 
-	body, err := ioutil.ReadAll(resp.Body)
+	body, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return nil, err
 	}
