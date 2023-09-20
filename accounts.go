@@ -447,10 +447,6 @@ func (srv *accountsAPI) RegisterUserToMobileBeta(ctx context.Context, in *accoun
 	}
 	userEmail := res[0]
 
-	print(srv.firebaseService)
-	print(srv.firebaseService.Projects)
-	print(srv.firebaseService.Projects.Testers)
-
 	call := srv.firebaseService.Projects.Testers.BatchAdd(
 		"projects/"+fbProjectNb,
 		&firebaseappdistribution.GoogleFirebaseAppdistroV1BatchAddTestersRequest{
@@ -460,6 +456,16 @@ func (srv *accountsAPI) RegisterUserToMobileBeta(ctx context.Context, in *accoun
 		})
 
 	_, err = call.Do()
+	if err != nil {
+		return nil, err
+	}
+
+	groupCall := srv.firebaseService.Projects.Groups.BatchJoin("Beta 0.1", &firebaseappdistribution.GoogleFirebaseAppdistroV1BatchJoinGroupRequest{
+		Emails: []string{
+			userEmail,
+		},
+	})
+	_, err = groupCall.Do()
 	if err != nil {
 		return nil, err
 	}
