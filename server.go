@@ -195,17 +195,26 @@ func (s *server) initGrpcServer(opt ...grpc.ServerOption) {
 func (s *server) initFirebaseService() {
 	jsonCredentialBase64 := os.Getenv("JSON_FIREBASE_CREDS_B64")
 
+	print(jsonCredentialBase64)
 	if jsonCredentialBase64 == "" {
 		panic("please give google api key in base64 json as JSON_FIREBASE_CREDS_B64 (env variable)")
 	}
 
 	jsonCredential, err := base64.StdEncoding.DecodeString(jsonCredentialBase64)
 	must(err, "could not decode base64 json firebase creds")
+	print(jsonCredential)
+	print("\n")
 
 	firebaseService, err := firebaseappdistribution.NewService(context.Background(), option.WithCredentialsJSON(jsonCredential))
 	must(err, "firebase connection could not be initialized")
+	print(err)
+	print("\n")
+	print(firebaseService)
+	print("\n")
 
 	s.firebaseService = firebaseService
+	print(s.firebaseService)
+	print("\n")
 }
 
 func must(err error, msg string) {
