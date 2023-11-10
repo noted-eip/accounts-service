@@ -55,6 +55,12 @@ func ValidateDeleteAccountRequest(in *accountsv1.DeleteAccountRequest) error {
 	)
 }
 
+func ValidateRegisterUserToMobileBeta(in *accountsv1.RegisterUserToMobileBetaRequest) error {
+	return validation.ValidateStruct(in,
+		validation.Field(&in.AccountId, validation.Required),
+	)
+}
+
 func ValidateAuthenticateRequest(in *accountsv1.AuthenticateRequest) error {
 	return validation.ValidateStruct(in,
 		validation.Field(&in.Email, validation.Required, is.Email),

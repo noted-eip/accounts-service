@@ -12,6 +12,7 @@ type Account struct {
 	Hash            *[]byte   `json:"hash" bson:"hash,omitempty"`
 	ValidationToken string    `json:"validation_token" bson:"validation_token,omitempty"`
 	IsValidate      bool      `json:"is_validate" bson:"is_validate"`
+	IsInMobileBeta  bool      `json:"is_in_mobile_beta" bson:"is_in_mobile_beta,omitempty"`
 	Token           string    `json:"token" bson:"token,omitempty"`
 	ValidUntil      time.Time `json:"valid_until" bson:"valid_until,omitempty"`
 }
@@ -54,4 +55,6 @@ type AccountsRepository interface {
 	UpdateAccountPassword(ctx context.Context, filter *OneAccountFilter, account *AccountPayload) (*Account, error)
 
 	UpdateAccountValidationState(ctx context.Context, filter *OneAccountFilter) (*Account, error)
+
+	RegisterUserToMobileBeta(ctx context.Context, filter *OneAccountFilter) (*Account, error)
 }
