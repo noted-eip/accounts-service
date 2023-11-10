@@ -115,3 +115,10 @@ func ValidateAuthenticateGoogleRequest(in *accountsv1.AuthenticateGoogleRequest)
 		validation.Field(&in.ClientAccessToken, validation.Required, validation.NotNil),
 	)
 }
+
+func ValidateAccountValidationStateRequest(in *accountsv1.ValidateAccountRequest) error {
+	return validation.ValidateStruct(in,
+		validation.Field(&in.AccountId, validation.Required),
+		validation.Field(&in.ValidationToken, validation.Required, validation.Length(6, 6)),
+	)
+}
