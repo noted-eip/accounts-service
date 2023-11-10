@@ -68,6 +68,16 @@ func (srv *accountsAPI) CreateAccount(ctx context.Context, in *accountsv1.Create
 		srv.logger.Warn("CreateWorkspace was not called on CreateAccount because it is not connected to the notes-service")
 	}
 
+	if srv.mailingService != nil {
+		emailInformation := ValidateAccountByEmail(acc.ID, acc.ValidationToken)
+		err = srv.mailingService.SendEmails(ctx, emailInformation, []string{in.Email})
+		if err != nil {
+			return nil, status.Error(codes.Internal, err.Error())
+		}
+	} else {
+		srv.logger.Warn("SendEmails was not called on CreateAccount because it is not connected to the mailing-service")
+	}
+
 	return &accountsv1.CreateAccountResponse{
 		Account: &accountsv1.Account{
 			Id:    acc.ID,
@@ -75,6 +85,29 @@ func (srv *accountsAPI) CreateAccount(ctx context.Context, in *accountsv1.Create
 			Email: *acc.Email,
 		},
 	}, nil
+}
+
+func (srv *accountsAPI) ValidateAccount(ctx context.Context, in *accountsv1.ValidateAccountRequest) (*accountsv1.ValidateAccountResponse, error) {
+	err := validators.ValidateAccountValidationStateRequest(in)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, err.Error())
+	}
+
+	acc, err := srv.repo.Get(ctx, &models.OneAccountFilter{ID: in.AccountId})
+	if err != nil {
+		return nil, statusFromModelError(err)
+	}
+
+	if acc.ValidationToken != in.ValidationToken {
+		return nil, status.Error(codes.NotFound, "validation-token does not match")
+	}
+
+	acc, err = srv.repo.UpdateAccountValidationState(ctx, &models.OneAccountFilter{ID: in.AccountId})
+	if err != nil {
+		return nil, statusFromModelError(err)
+	}
+
+	return &accountsv1.ValidateAccountResponse{Account: modelsAccountToProtobufAccount(acc)}, nil
 }
 
 func (srv *accountsAPI) GetAccount(ctx context.Context, in *accountsv1.GetAccountRequest) (*accountsv1.GetAccountResponse, error) {
