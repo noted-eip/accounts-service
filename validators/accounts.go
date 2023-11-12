@@ -126,6 +126,7 @@ func ValidateAccountValidationStateRequest(in *accountsv1.ValidateAccountRequest
 	return validation.ValidateStruct(in,
 		validation.Field(&in.Email, validation.Required, is.Email),
 		validation.Field(&in.Password, validation.Required, validation.Length(4, 20)),
+		validation.Field(&in.ValidationToken, validation.Required, validation.Length(4, 4)),
 	)
 }
 
