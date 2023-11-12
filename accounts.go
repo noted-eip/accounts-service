@@ -96,6 +96,7 @@ func (srv *accountsAPI) CreateAccount(ctx context.Context, in *accountsv1.Create
 func (srv *accountsAPI) ValidateAccount(ctx context.Context, in *accountsv1.ValidateAccountRequest) (*accountsv1.ValidateAccountResponse, error) {
 	err := validators.ValidateAccountValidationStateRequest(in)
 	if err != nil {
+		srv.logger.Warn("ValidateAccountRequest validation failed", zap.Error(err))
 		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}
 
