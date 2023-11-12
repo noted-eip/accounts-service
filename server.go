@@ -57,7 +57,7 @@ func (s *server) Init(opt ...grpc.ServerOption) {
 	s.initMailingService()
 	s.initRepositories()
 	s.initNoteServiceClient()
-	// s.initFirebaseService()
+	s.initFirebaseService()
 	s.initAccountsAPI()
 	s.initGrpcServer(opt...)
 }
@@ -159,7 +159,7 @@ func (s *server) InitAuthGoogleService() {
 }
 
 func (s *server) initAuthService() {
-	// s.InitAuthGoogleService()
+	s.InitAuthGoogleService()
 	rawKey, err := base64.StdEncoding.DecodeString(*jwtPrivateKey)
 	must(err, "could not decode jwt private key")
 	s.authService = auth.NewService(ed25519.PrivateKey(rawKey))
