@@ -109,7 +109,7 @@ func (srv *accountsAPI) ValidateAccount(ctx context.Context, in *accountsv1.Vali
 		return nil, status.Error(codes.InvalidArgument, "wrong password or email")
 	}
 
-	if acc.IsValidate {
+	if acc.IsValidated {
 		return nil, status.Error(codes.InvalidArgument, "account already validate")
 	}
 
@@ -137,14 +137,14 @@ func (srv *accountsAPI) GetAccount(ctx context.Context, in *accountsv1.GetAccoun
 	}
 
 	if in.AccountId != "" {
-		account, err := srv.repo.Get(ctx, &models.OneAccountFilter{ID: in.AccountId, IsValidate: true})
+		account, err := srv.repo.Get(ctx, &models.OneAccountFilter{ID: in.AccountId, IsValidated: true})
 		if err != nil {
 			return nil, statusFromModelError(err)
 		}
 		return &accountsv1.GetAccountResponse{Account: modelsAccountToProtobufAccount(account)}, nil
 	}
 
-	account, err := srv.repo.Get(ctx, &models.OneAccountFilter{Email: in.Email, IsValidate: true})
+	account, err := srv.repo.Get(ctx, &models.OneAccountFilter{Email: in.Email, IsValidated: true})
 	if err != nil {
 		return nil, statusFromModelError(err)
 	}
@@ -189,7 +189,7 @@ func (srv *accountsAPI) UpdateAccount(ctx context.Context, in *accountsv1.Update
 		return nil, err
 	}
 
-	account, err := srv.repo.Update(ctx, &models.OneAccountFilter{ID: in.AccountId, IsValidate: true}, &models.AccountPayload{Name: &in.Account.Name})
+	account, err := srv.repo.Update(ctx, &models.OneAccountFilter{ID: in.AccountId, IsValidated: true}, &models.AccountPayload{Name: &in.Account.Name})
 	if err != nil {
 		return nil, statusFromModelError(err)
 	}
@@ -542,7 +542,7 @@ func (srv *accountsAPI) IsAccountValidate(ctx context.Context, in *accountsv1.Is
 		return nil, status.Error(codes.InvalidArgument, "wrong password or email")
 	}
 
-	return &accountsv1.IsAccountValidateResponse{IsAccountValidate: acc.IsValidate}, nil
+	return &accountsv1.IsAccountValidateResponse{IsAccountValidate: acc.IsValidated}, nil
 }
 
 func (srv *accountsAPI) SendValidationToken(ctx context.Context, in *accountsv1.SendValidationTokenRequest) (*accountsv1.SendValidationTokenResponse, error) {
@@ -561,7 +561,7 @@ func (srv *accountsAPI) SendValidationToken(ctx context.Context, in *accountsv1.
 		return nil, status.Error(codes.InvalidArgument, "wrong password or email")
 	}
 
-	if acc.IsValidate {
+	if acc.IsValidated {
 		return nil, status.Error(codes.InvalidArgument, "account already validate")
 	}
 

@@ -84,7 +84,7 @@ func (tu *testUtils) validateTestAccount(t *testing.T, email string, password st
 	err = bcrypt.CompareHashAndPassword(*acc.Hash, []byte(password))
 	require.NoError(t, err)
 
-	res, err := tu.accountsRepository.UpdateAccountValidationState(context.TODO(), &models.OneAccountFilter{Email: email, IsValidate: false})
+	res, err := tu.accountsRepository.UpdateAccountValidationState(context.TODO(), &models.OneAccountFilter{Email: email, IsValidated: false})
 	require.NoError(t, err)
 	ctx, err := tu.auth.ContextWithToken(context.TODO(), &auth.Token{AccountID: res.ID})
 	require.NoError(t, err)

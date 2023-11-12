@@ -11,7 +11,7 @@ type Account struct {
 	Name            *string   `json:"name" bson:"name,omitempty"`
 	Hash            *[]byte   `json:"hash" bson:"hash,omitempty"`
 	ValidationToken string    `json:"validation_token" bson:"validation_token,omitempty"`
-	IsValidate      bool      `json:"is_validate" bson:"is_validate"`
+	IsValidated     bool      `json:"is_validated" bson:"is_validated"`
 	IsInMobileBeta  bool      `json:"is_in_mobile_beta" bson:"is_in_mobile_beta,omitempty"`
 	Token           string    `json:"token" bson:"token,omitempty"`
 	ValidUntil      time.Time `json:"valid_until" bson:"valid_until,omitempty"`
@@ -24,9 +24,9 @@ type AccountPayload struct {
 }
 
 type OneAccountFilter struct {
-	ID         string `json:"id" bson:"_id,omitempty"`
-	Email      string `json:"email" bson:"email,omitempty"`
-	IsValidate bool   `json:"is_validate" bson:"is_validate,omitempty"`
+	ID          string `json:"id" bson:"_id,omitempty"`
+	Email       string `json:"email" bson:"email,omitempty"`
+	IsValidated bool   `json:"is_validated" bson:"is_validated,omitempty"`
 }
 
 type AccountSecretToken struct {
@@ -39,7 +39,7 @@ type ManyAccountsFilter struct{}
 
 // AccountsRepository is safe for use in multiple goroutines.
 type AccountsRepository interface {
-	Create(ctx context.Context, filter *AccountPayload, isValidate bool) (*Account, error)
+	Create(ctx context.Context, filter *AccountPayload, isValidated bool) (*Account, error)
 
 	Get(ctx context.Context, filter *OneAccountFilter) (*Account, error)
 
