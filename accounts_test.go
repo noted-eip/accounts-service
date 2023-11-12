@@ -54,7 +54,7 @@ func TestAccountsAPI(t *testing.T) {
 	davePassword := tu.randomAlphanumeric()
 	daveEmail := tu.randomAlphanumeric() + "@outlook.fr"
 	dave := tu.newTestAccount(t, "Dave Doe", daveEmail, davePassword)
-
+	dave = tu.validateTestAccount(t, daveEmail, davePassword)
 	t.Run("owner-can-authenticate", func(t *testing.T) {
 		res, err := tu.accounts.Authenticate(dave.Context, &accountsv1.AuthenticateRequest{
 			Email:    daveEmail,
@@ -98,7 +98,9 @@ func TestAccountsAPI(t *testing.T) {
 		require.Equal(t, dave.ID, res.Account.Id)
 	})
 
-	stranger := tu.newTestAccount(t, "Stranger", tu.randomAlphanumeric()+"@google.com", randomPassword)
+	strangerEmail := tu.randomAlphanumeric() + "@google.com"
+	stranger := tu.newTestAccount(t, "Stranger", strangerEmail, randomPassword)
+	stranger = tu.validateTestAccount(t, strangerEmail, randomPassword)
 
 	t.Run("stranger-can-get-account-by-id", func(t *testing.T) {
 		res, err := tu.accounts.GetAccount(stranger.Context, &accountsv1.GetAccountRequest{

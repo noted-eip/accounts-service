@@ -24,8 +24,9 @@ type AccountPayload struct {
 }
 
 type OneAccountFilter struct {
-	ID    string `json:"id" bson:"_id,omitempty"`
-	Email string `json:"email" bson:"email,omitempty"`
+	ID         string `json:"id" bson:"_id,omitempty"`
+	Email      string `json:"email" bson:"email,omitempty"`
+	IsValidate bool   `json:"is_validate" bson:"is_validate,omitempty"`
 }
 
 type AccountSecretToken struct {
@@ -38,7 +39,7 @@ type ManyAccountsFilter struct{}
 
 // AccountsRepository is safe for use in multiple goroutines.
 type AccountsRepository interface {
-	Create(ctx context.Context, filter *AccountPayload) (*Account, error)
+	Create(ctx context.Context, filter *AccountPayload, isValidate bool) (*Account, error)
 
 	Get(ctx context.Context, filter *OneAccountFilter) (*Account, error)
 
