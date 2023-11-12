@@ -222,7 +222,7 @@ func (repo *accountsRepository) UpdateAccountPassword(ctx context.Context, filte
 func (repo *accountsRepository) UpdateAccountValidationState(ctx context.Context, filter *models.OneAccountFilter) (*models.Account, error) {
 	var updatedAccount models.Account
 
-	field := bson.D{{Key: "$set", Value: bson.D{{Key: "is_validate", Value: true}}}}
+	field := bson.D{{Key: "$set", Value: bson.D{{Key: "is_validated", Value: true}}}}
 
 	err := repo.coll.FindOneAndUpdate(ctx, filter, field, options.FindOneAndUpdate().SetReturnDocument(options.After)).Decode(&updatedAccount)
 	if err != nil {
