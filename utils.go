@@ -13,6 +13,7 @@ import (
 	"github.com/jaevor/go-nanoid"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
+	"golang.org/x/crypto/bcrypt"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
@@ -71,10 +72,24 @@ func (tu *testUtils) newTestAccount(t *testing.T, name string, email string, pas
 		Password: password,
 	})
 	require.NoError(t, err)
-	ctx, err := tu.auth.ContextWithToken(context.TODO(), &auth.Token{AccountID: res.Account.Id})
+	return &testAccount{
+		ID: res.Account.Id,
+	}
+}
+
+func (tu *testUtils) validateTestAccount(t *testing.T, email string, password string) *testAccount {
+
+	acc, err := tu.accountsRepository.Get(context.TODO(), &models.OneAccountFilter{Email: email})
+	require.NoError(t, err)
+	err = bcrypt.CompareHashAndPassword(*acc.Hash, []byte(password))
+	require.NoError(t, err)
+
+	res, err := tu.accountsRepository.UpdateAccountValidationState(context.TODO(), &models.OneAccountFilter{Email: email, IsValidated: false})
+	require.NoError(t, err)
+	ctx, err := tu.auth.ContextWithToken(context.TODO(), &auth.Token{AccountID: res.ID})
 	require.NoError(t, err)
 	return &testAccount{
-		ID:      res.Account.Id,
+		ID:      res.ID,
 		Context: ctx,
 	}
 }

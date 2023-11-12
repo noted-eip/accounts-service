@@ -4,6 +4,7 @@ import (
 	"accounts-service/auth"
 	"accounts-service/communication"
 	"accounts-service/models"
+	"fmt"
 	"io"
 	"os"
 
@@ -59,7 +60,7 @@ func (srv *accountsAPI) CreateAccount(ctx context.Context, in *accountsv1.Create
 		return nil, status.Error(codes.Internal, err.Error())
 	}
 
-	acc, err := srv.repo.Create(ctx, &models.AccountPayload{Email: &in.Email, Name: &in.Name, Hash: &hashed})
+	acc, err := srv.repo.Create(ctx, &models.AccountPayload{Email: &in.Email, Name: &in.Name, Hash: &hashed}, false)
 	if err != nil {
 		return nil, statusFromModelError(err)
 	}
@@ -73,6 +74,16 @@ func (srv *accountsAPI) CreateAccount(ctx context.Context, in *accountsv1.Create
 		srv.logger.Warn("CreateWorkspace was not called on CreateAccount because it is not connected to the notes-service")
 	}
 
+	if srv.mailingService != nil {
+		emailInformation := ValidateAccountByEmail(acc.ID, acc.ValidationToken)
+		err = srv.mailingService.SendEmails(ctx, emailInformation, []string{in.Email})
+		if err != nil {
+			return nil, status.Error(codes.Internal, err.Error())
+		}
+	} else {
+		srv.logger.Warn("SendEmails was not called on CreateAccount because it is not connected to the mailing-service")
+	}
+
 	return &accountsv1.CreateAccountResponse{
 		Account: &accountsv1.Account{
 			Id:    acc.ID,
@@ -80,6 +91,38 @@ func (srv *accountsAPI) CreateAccount(ctx context.Context, in *accountsv1.Create
 			Email: *acc.Email,
 		},
 	}, nil
+}
+
+func (srv *accountsAPI) ValidateAccount(ctx context.Context, in *accountsv1.ValidateAccountRequest) (*accountsv1.ValidateAccountResponse, error) {
+	err := validators.ValidateAccountValidationStateRequest(in)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, err.Error())
+	}
+
+	acc, err := srv.repo.Get(ctx, &models.OneAccountFilter{Email: in.Email})
+	if err != nil {
+		return nil, statusFromModelError(err)
+	}
+
+	err = bcrypt.CompareHashAndPassword(*acc.Hash, []byte(in.Password))
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "wrong password or email")
+	}
+
+	if acc.IsValidated {
+		return nil, status.Error(codes.InvalidArgument, "account already validate")
+	}
+
+	if acc.ValidationToken != in.ValidationToken {
+		return nil, status.Error(codes.NotFound, "validation-token does not match")
+	}
+
+	acc, err = srv.repo.UpdateAccountValidationState(ctx, &models.OneAccountFilter{ID: acc.ID})
+	if err != nil {
+		return nil, statusFromModelError(err)
+	}
+
+	return &accountsv1.ValidateAccountResponse{Account: modelsAccountToProtobufAccount(acc)}, nil
 }
 
 func (srv *accountsAPI) GetAccount(ctx context.Context, in *accountsv1.GetAccountRequest) (*accountsv1.GetAccountResponse, error) {
@@ -94,14 +137,14 @@ func (srv *accountsAPI) GetAccount(ctx context.Context, in *accountsv1.GetAccoun
 	}
 
 	if in.AccountId != "" {
-		account, err := srv.repo.Get(ctx, &models.OneAccountFilter{ID: in.AccountId})
+		account, err := srv.repo.Get(ctx, &models.OneAccountFilter{ID: in.AccountId, IsValidated: true})
 		if err != nil {
 			return nil, statusFromModelError(err)
 		}
 		return &accountsv1.GetAccountResponse{Account: modelsAccountToProtobufAccount(account)}, nil
 	}
 
-	account, err := srv.repo.Get(ctx, &models.OneAccountFilter{Email: in.Email})
+	account, err := srv.repo.Get(ctx, &models.OneAccountFilter{Email: in.Email, IsValidated: true})
 	if err != nil {
 		return nil, statusFromModelError(err)
 	}
@@ -146,7 +189,7 @@ func (srv *accountsAPI) UpdateAccount(ctx context.Context, in *accountsv1.Update
 		return nil, err
 	}
 
-	account, err := srv.repo.Update(ctx, &models.OneAccountFilter{ID: in.AccountId}, &models.AccountPayload{Name: &in.Account.Name})
+	account, err := srv.repo.Update(ctx, &models.OneAccountFilter{ID: in.AccountId, IsValidated: true}, &models.AccountPayload{Name: &in.Account.Name})
 	if err != nil {
 		return nil, statusFromModelError(err)
 	}
@@ -393,7 +436,7 @@ func (srv *accountsAPI) AuthenticateGoogle(ctx context.Context, in *accountsv1.A
 	account, err := srv.repo.Get(ctx, &models.OneAccountFilter{Email: email})
 	if err != nil && err == models.ErrNotFound {
 		// Creating the account without password, he would never be able to login without GoogleAuthenticate
-		account, err = srv.repo.Create(ctx, &models.AccountPayload{Email: &email, Name: &name})
+		account, err = srv.repo.Create(ctx, &models.AccountPayload{Email: &email, Name: &name}, true)
 		if err != nil {
 			return nil, statusFromModelError(err)
 		}
@@ -480,6 +523,58 @@ func (srv *accountsAPI) authenticate(ctx context.Context) (*auth.Token, error) {
 		return nil, status.Error(codes.Unauthenticated, "invalid token")
 	}
 	return token, nil
+}
+
+func (srv *accountsAPI) IsAccountValidate(ctx context.Context, in *accountsv1.IsAccountValidateRequest) (*accountsv1.IsAccountValidateResponse, error) {
+	err := validators.ValidateIsAccountValidateRequest(in)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, err.Error())
+	}
+
+	acc, err := srv.repo.Get(ctx, &models.OneAccountFilter{Email: in.Email})
+	if err != nil {
+		return nil, statusFromModelError(err)
+	}
+
+	err = bcrypt.CompareHashAndPassword(*acc.Hash, []byte(in.Password))
+	if err != nil {
+		fmt.Println("bcrypt error")
+		return nil, status.Error(codes.InvalidArgument, "wrong password or email")
+	}
+
+	return &accountsv1.IsAccountValidateResponse{IsAccountValidate: acc.IsValidated}, nil
+}
+
+func (srv *accountsAPI) SendValidationToken(ctx context.Context, in *accountsv1.SendValidationTokenRequest) (*accountsv1.SendValidationTokenResponse, error) {
+	err := validators.ValidateSendValidationToken(in)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, err.Error())
+	}
+
+	acc, err := srv.repo.Get(ctx, &models.OneAccountFilter{Email: in.Email})
+	if err != nil {
+		return nil, statusFromModelError(err)
+	}
+
+	err = bcrypt.CompareHashAndPassword(*acc.Hash, []byte(in.Password))
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "wrong password or email")
+	}
+
+	if acc.IsValidated {
+		return nil, status.Error(codes.InvalidArgument, "account already validate")
+	}
+
+	if srv.mailingService != nil {
+		emailInformation := ValidateAccountByEmail(acc.ID, acc.ValidationToken)
+		err = srv.mailingService.SendEmails(ctx, emailInformation, []string{in.Email})
+		if err != nil {
+			return nil, status.Error(codes.Internal, err.Error())
+		}
+	} else {
+		srv.logger.Warn("SendEmails was not called on CreateAccount because it is not connected to the mailing-service")
+	}
+	return &accountsv1.SendValidationTokenResponse{}, nil
 }
 
 func statusFromModelError(err error) error {

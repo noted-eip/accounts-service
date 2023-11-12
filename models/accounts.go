@@ -6,13 +6,15 @@ import (
 )
 
 type Account struct {
-	ID             string    `json:"id" bson:"_id,omitempty"`
-	Email          *string   `json:"email" bson:"email,omitempty"`
-	Name           *string   `json:"name" bson:"name,omitempty"`
-	IsInMobileBeta bool      `json:"is_in_mobile_beta" bson:"is_in_mobile_beta,omitempty"`
-	Hash           *[]byte   `json:"hash" bson:"hash,omitempty"`
-	Token          string    `json:"token" bson:"token,omitempty"`
-	ValidUntil     time.Time `json:"valid_until" bson:"valid_until,omitempty"`
+	ID              string    `json:"id" bson:"_id,omitempty"`
+	Email           *string   `json:"email" bson:"email,omitempty"`
+	Name            *string   `json:"name" bson:"name,omitempty"`
+	Hash            *[]byte   `json:"hash" bson:"hash,omitempty"`
+	ValidationToken string    `json:"validation_token" bson:"validation_token,omitempty"`
+	IsValidated     bool      `json:"is_validated" bson:"is_validated"`
+	IsInMobileBeta  bool      `json:"is_in_mobile_beta" bson:"is_in_mobile_beta,omitempty"`
+	Token           string    `json:"token" bson:"token,omitempty"`
+	ValidUntil      time.Time `json:"valid_until" bson:"valid_until,omitempty"`
 }
 
 type AccountPayload struct {
@@ -22,8 +24,9 @@ type AccountPayload struct {
 }
 
 type OneAccountFilter struct {
-	ID    string `json:"id" bson:"_id,omitempty"`
-	Email string `json:"email" bson:"email,omitempty"`
+	ID          string `json:"id" bson:"_id,omitempty"`
+	Email       string `json:"email" bson:"email,omitempty"`
+	IsValidated bool   `json:"is_validated" bson:"is_validated,omitempty"`
 }
 
 type AccountSecretToken struct {
@@ -36,7 +39,7 @@ type ManyAccountsFilter struct{}
 
 // AccountsRepository is safe for use in multiple goroutines.
 type AccountsRepository interface {
-	Create(ctx context.Context, filter *AccountPayload) (*Account, error)
+	Create(ctx context.Context, filter *AccountPayload, isValidated bool) (*Account, error)
 
 	Get(ctx context.Context, filter *OneAccountFilter) (*Account, error)
 
@@ -51,6 +54,8 @@ type AccountsRepository interface {
 	UpdateAccountWithResetPasswordToken(ctx context.Context, filter *OneAccountFilter) (*AccountSecretToken, error)
 
 	UpdateAccountPassword(ctx context.Context, filter *OneAccountFilter, account *AccountPayload) (*Account, error)
+
+	UpdateAccountValidationState(ctx context.Context, filter *OneAccountFilter) (*Account, error)
 
 	RegisterUserToMobileBeta(ctx context.Context, filter *OneAccountFilter) (*Account, error)
 }

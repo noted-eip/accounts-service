@@ -9,6 +9,7 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
+	m "math/rand"
 	"time"
 
 	"github.com/jaevor/go-nanoid"
@@ -52,8 +53,10 @@ func NewAccountsRepository(db *mongo.Database, logger *zap.Logger) models.Accoun
 	return rep
 }
 
-func (repo *accountsRepository) Create(ctx context.Context, payload *models.AccountPayload) (*models.Account, error) {
-	account := models.Account{ID: repo.newUUID(), Email: payload.Email, Name: payload.Name, Hash: payload.Hash}
+func (repo *accountsRepository) Create(ctx context.Context, payload *models.AccountPayload, isValidated bool) (*models.Account, error) {
+
+	token := m.Intn(10000)
+	account := models.Account{ID: repo.newUUID(), Email: payload.Email, Name: payload.Name, Hash: payload.Hash, ValidationToken: fmt.Sprint(token), IsValidated: isValidated}
 
 	_, err := repo.coll.InsertOne(ctx, account)
 	if err != nil {
@@ -216,6 +219,22 @@ func (repo *accountsRepository) UpdateAccountPassword(ctx context.Context, filte
 	return &updatedAccount, nil
 }
 
+func (repo *accountsRepository) UpdateAccountValidationState(ctx context.Context, filter *models.OneAccountFilter) (*models.Account, error) {
+	var updatedAccount models.Account
+
+	field := bson.D{{Key: "$set", Value: bson.D{{Key: "is_validated", Value: true}}}}
+
+	err := repo.coll.FindOneAndUpdate(ctx, filter, field, options.FindOneAndUpdate().SetReturnDocument(options.After)).Decode(&updatedAccount)
+	if err != nil {
+		if errors.Is(err, mongo.ErrNoDocuments) {
+			return nil, models.ErrNotFound
+		}
+		repo.logger.Error("update account validation state failed", zap.Error(err))
+		return nil, models.ErrUnknown
+	}
+	return &updatedAccount, nil
+}
+
 // Horrible way of doing it before delivery
 func (repo *accountsRepository) RegisterUserToMobileBeta(ctx context.Context, filter *models.OneAccountFilter) (*models.Account, error) {
 	var updatedAccount models.Account
@@ -227,12 +246,12 @@ func (repo *accountsRepository) RegisterUserToMobileBeta(ctx context.Context, fi
 		if errors.Is(err, mongo.ErrNoDocuments) {
 			return nil, models.ErrNotFound
 		}
+
 		repo.logger.Error("update account password failed", zap.Error(err))
 		return nil, models.ErrUnknown
 	}
 
 	return &updatedAccount, nil
-
 }
 
 func buildAccountFilter(filter *models.OneAccountFilter) *models.OneAccountFilter {
