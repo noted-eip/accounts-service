@@ -137,14 +137,14 @@ func (srv *accountsAPI) GetAccount(ctx context.Context, in *accountsv1.GetAccoun
 	}
 
 	if in.AccountId != "" {
-		account, err := srv.repo.Get(ctx, &models.OneAccountFilter{ID: in.AccountId})
+		account, err := srv.repo.Get(ctx, &models.OneAccountFilter{ID: in.AccountId, IsValidated: true})
 		if err != nil {
 			return nil, statusFromModelError(err)
 		}
 		return &accountsv1.GetAccountResponse{Account: modelsAccountToProtobufAccount(account)}, nil
 	}
 
-	account, err := srv.repo.Get(ctx, &models.OneAccountFilter{Email: in.Email})
+	account, err := srv.repo.Get(ctx, &models.OneAccountFilter{Email: in.Email, IsValidated: true})
 	if err != nil {
 		return nil, statusFromModelError(err)
 	}
