@@ -4,7 +4,6 @@ import (
 	"accounts-service/auth"
 	"accounts-service/communication"
 	"accounts-service/models"
-	"fmt"
 	"io"
 	"os"
 
@@ -102,6 +101,10 @@ func (srv *accountsAPI) ValidateAccount(ctx context.Context, in *accountsv1.Vali
 	acc, err := srv.repo.Get(ctx, &models.OneAccountFilter{Email: in.Email})
 	if err != nil {
 		return nil, statusFromModelError(err)
+	}
+
+	if acc.Hash == nil {
+		return nil, status.Error(codes.InvalidArgument, "account created with google (no password)")
 	}
 
 	err = bcrypt.CompareHashAndPassword(*acc.Hash, []byte(in.Password))
@@ -536,10 +539,11 @@ func (srv *accountsAPI) IsAccountValidate(ctx context.Context, in *accountsv1.Is
 		return nil, statusFromModelError(err)
 	}
 
-	err = bcrypt.CompareHashAndPassword(*acc.Hash, []byte(in.Password))
-	if err != nil {
-		fmt.Println("bcrypt error")
-		return nil, status.Error(codes.InvalidArgument, "wrong password or email")
+	if acc.Hash != nil {
+		err = bcrypt.CompareHashAndPassword(*acc.Hash, []byte(in.Password))
+		if err != nil {
+			return nil, status.Error(codes.InvalidArgument, "wrong password or email")
+		}
 	}
 
 	return &accountsv1.IsAccountValidateResponse{IsAccountValidate: acc.IsValidated}, nil
@@ -554,6 +558,10 @@ func (srv *accountsAPI) SendValidationToken(ctx context.Context, in *accountsv1.
 	acc, err := srv.repo.Get(ctx, &models.OneAccountFilter{Email: in.Email})
 	if err != nil {
 		return nil, statusFromModelError(err)
+	}
+
+	if acc.Hash == nil {
+		return nil, status.Error(codes.InvalidArgument, "account created with google (no password)")
 	}
 
 	err = bcrypt.CompareHashAndPassword(*acc.Hash, []byte(in.Password))
