@@ -56,7 +56,7 @@ func NewAccountsRepository(db *mongo.Database, logger *zap.Logger) models.Accoun
 func (repo *accountsRepository) Create(ctx context.Context, payload *models.AccountPayload, isValidated bool) (*models.Account, error) {
 
 	token := m.Intn(10000)
-	account := models.Account{ID: repo.newUUID(), Email: payload.Email, Name: payload.Name, Hash: payload.Hash, ValidationToken: fmt.Sprint(token), IsValidated: isValidated}
+	account := models.Account{ID: repo.newUUID(), Email: payload.Email, Name: payload.Name, Hash: payload.Hash, ValidationToken: fmt.Sprint(token)}
 
 	_, err := repo.coll.InsertOne(ctx, account)
 	if err != nil {
@@ -65,6 +65,10 @@ func (repo *accountsRepository) Create(ctx context.Context, payload *models.Acco
 		}
 		repo.logger.Error("insert failed", zap.Error(err), zap.String("email", *account.Email))
 		return nil, err
+	}
+	if isValidated {
+		field := bson.D{{Key: "$set", Value: bson.D{{Key: "is_validated", Value: true}}}}
+		repo.coll.FindOneAndUpdate(ctx, models.AccountPayload{Email: payload.Email}, field, options.FindOneAndUpdate().SetReturnDocument(options.After)).Decode(&account)
 	}
 
 	return &account, nil
