@@ -15,7 +15,7 @@ func TestAccountsAPI(t *testing.T) {
 	randomEmail := tu.randomAlphanumeric() + "@gmail.com"
 	randomPassword := tu.randomAlphanumeric()
 
-	t.Run("create-account", func(t *testing.T) {
+	t.Run("create-account-and-is-not-validate", func(t *testing.T) {
 		res, err := tu.accounts.CreateAccount(context.Background(), &accountsv1.CreateAccountRequest{
 			Name:     "John Doe",
 			Password: randomPassword,
@@ -27,6 +27,13 @@ func TestAccountsAPI(t *testing.T) {
 		require.Equal(t, "John Doe", res.Account.Name)
 		require.Equal(t, randomEmail, res.Account.Email)
 		require.NotEmpty(t, res.Account.Id)
+
+		res_validation, err := tu.accounts.IsAccountValidate(context.Background(), &accountsv1.IsAccountValidateRequest{
+			Email:    randomEmail,
+			Password: randomPassword,
+		})
+		require.NoError(t, err)
+		require.Equal(t, false, res_validation.IsAccountValidate)
 	})
 
 	t.Run("cannot-create-account-with-existing-email", func(t *testing.T) {
