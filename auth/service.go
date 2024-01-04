@@ -10,7 +10,6 @@ import (
 	"errors"
 	"fmt"
 	"strings"
-	"time"
 
 	"github.com/golang-jwt/jwt"
 	"google.golang.org/grpc/metadata"
@@ -109,7 +108,6 @@ func (srv *service) ContextWithToken(parent context.Context, info *Token) (conte
 
 func (srv *service) SignToken(info *Token) (string, error) {
 	jwtTok := jwt.NewWithClaims(&jwt.SigningMethodEd25519{}, info)
-	jwtTok.Claims.(jwt.MapClaims)["exp"] = time.Now().Add(time.Hour * 24 * 60).Unix()
 	return jwtTok.SignedString(srv.key)
 }
 
