@@ -223,7 +223,7 @@ func (repo *accountsRepository) UpdateAccountPassword(ctx context.Context, filte
 	return &updatedAccount, nil
 }
 
-// Horrible way of doing it before delivery to moc google oauth
+// Moc google account
 func (repo *accountsRepository) UnsetAccountPasswordAndSetValidationState(ctx context.Context, filter *models.OneAccountFilter) (*models.Account, error) {
 	var updatedAccount models.Account
 
