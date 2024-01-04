@@ -223,6 +223,23 @@ func (repo *accountsRepository) UpdateAccountPassword(ctx context.Context, filte
 	return &updatedAccount, nil
 }
 
+// Moc google account
+func (repo *accountsRepository) UnsetAccountPasswordAndSetValidationState(ctx context.Context, filter *models.OneAccountFilter) (*models.Account, error) {
+	var updatedAccount models.Account
+
+	field := bson.D{{Key: "$unset", Value: bson.D{{Key: "hash", Value: 0}}}, {Key: "$set", Value: bson.D{{Key: "is_validated", Value: true}}}}
+	err := repo.coll.FindOneAndUpdate(ctx, filter, field, options.FindOneAndUpdate().SetReturnDocument(options.After)).Decode(&updatedAccount)
+	if err != nil {
+		if errors.Is(err, mongo.ErrNoDocuments) {
+			return nil, models.ErrNotFound
+		}
+		repo.logger.Error("unset account password failed", zap.Error(err))
+		return nil, models.ErrUnknown
+	}
+
+	return &updatedAccount, nil
+}
+
 func (repo *accountsRepository) UpdateAccountValidationState(ctx context.Context, filter *models.OneAccountFilter) (*models.Account, error) {
 	var updatedAccount models.Account
 

@@ -403,6 +403,10 @@ func (srv *accountsAPI) Authenticate(ctx context.Context, in *accountsv1.Authent
 		return nil, statusFromModelError(err)
 	}
 
+	if acc.Hash == nil {
+		return nil, status.Error(codes.InvalidArgument, "account created with google (no password)")
+	}
+
 	err = bcrypt.CompareHashAndPassword(*acc.Hash, []byte(in.Password))
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "wrong password or email")

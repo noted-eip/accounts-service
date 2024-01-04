@@ -58,4 +58,6 @@ type AccountsRepository interface {
 	UpdateAccountValidationState(ctx context.Context, filter *OneAccountFilter) (*Account, error)
 
 	RegisterUserToMobileBeta(ctx context.Context, filter *OneAccountFilter) (*Account, error)
+
+	UnsetAccountPasswordAndSetValidationState(ctx context.Context, filter *OneAccountFilter) (*Account, error)
 }
