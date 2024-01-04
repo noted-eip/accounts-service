@@ -246,4 +246,43 @@ func TestAccountsAPI(t *testing.T) {
 		require.NotEmpty(t, res.Token)
 	})
 
+	randomEmailGoogle := tu.randomAlphanumeric() + "@gmail.com"
+	randomPasswordGoogle := tu.randomAlphanumeric()
+
+	t.Run("create-pseudo-google-account", func(t *testing.T) {
+		res, err := tu.accounts.CreateAccount(context.Background(), &accountsv1.CreateAccountRequest{
+			Name:     "John Martin",
+			Password: randomPasswordGoogle,
+			Email:    randomEmailGoogle,
+		})
+		require.NoError(t, err)
+		require.NotNil(t, res)
+		require.NotNil(t, res.Account)
+		require.Equal(t, "John Martin", res.Account.Name)
+		require.Equal(t, randomEmailGoogle, res.Account.Email)
+		require.NotEmpty(t, res.Account.Id)
+
+		googleAccount, err := tu.accountsRepository.UnsetAccountPasswordAndSetValidationState(context.Background(), &models.OneAccountFilter{
+			Email: randomEmailGoogle,
+		})
+
+		require.NoError(t, err)
+		require.NotNil(t, googleAccount)
+		require.Nil(t, googleAccount.Hash)
+
+		res_validation, err := tu.accounts.IsAccountValidate(context.Background(), &accountsv1.IsAccountValidateRequest{
+			Email:    randomEmailGoogle,
+			Password: randomPasswordGoogle,
+		})
+		require.NoError(t, err)
+		require.Equal(t, true, res_validation.IsAccountValidate)
+
+		token, err := tu.accounts.Authenticate(context.Background(), &accountsv1.AuthenticateRequest{
+			Email:    randomEmailGoogle,
+			Password: randomPasswordGoogle,
+		})
+		require.Error(t, err, "account created with google (no password)")
+		require.Nil(t, token)
+	})
+
 }
