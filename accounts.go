@@ -421,6 +421,20 @@ func (srv *accountsAPI) Authenticate(ctx context.Context, in *accountsv1.Authent
 	return &accountsv1.AuthenticateResponse{Token: tokenString}, nil
 }
 
+func (srv *accountsAPI) GetAccessTokenGoogle(ctx context.Context, in *accountsv1.GetAccessTokenGoogleRequest) (*accountsv1.GetAccessTokenGoogleResponse, error) {
+	err := validators.ValidateGetAccessTokenGoogleRequest(in)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, err.Error())
+	}
+
+	token, err := srv.googleOAuth.Exchange(context.Background(), in.Code)
+	if err != nil {
+		return nil, status.Error(codes.Internal, err.Error())
+	}
+
+	return &accountsv1.GetAccessTokenGoogleResponse{AccessToken: token.AccessToken}, nil
+}
+
 func (srv *accountsAPI) AuthenticateGoogle(ctx context.Context, in *accountsv1.AuthenticateGoogleRequest) (*accountsv1.AuthenticateGoogleResponse, error) {
 	err := validators.ValidateAuthenticateGoogleRequest(in)
 	if err != nil {

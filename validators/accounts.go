@@ -116,6 +116,12 @@ func ValidateSendGroupInviteMail(in *accountsv1.SendGroupInviteMailRequest) erro
 	return nil
 }
 
+func ValidateGetAccessTokenGoogleRequest(in *accountsv1.GetAccessTokenGoogleRequest) error {
+	return validation.ValidateStruct(in,
+		validation.Field(&in.Code, validation.Required, validation.NotNil),
+	)
+}
+
 func ValidateAuthenticateGoogleRequest(in *accountsv1.AuthenticateGoogleRequest) error {
 	return validation.ValidateStruct(in,
 		validation.Field(&in.ClientAccessToken, validation.Required, validation.NotNil),
