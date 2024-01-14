@@ -139,7 +139,7 @@ func (s *server) InitAuthGoogleService() {
 	}
 
 	if *environment == "production" {
-		googleRedirectUri = "https://noted-eip.vercel.app/authenticate/google"
+		googleRedirectUri = "https://notes-are-noted.vercel.app/authenticate/google"
 	} else if *environment == "development" {
 		googleRedirectUri = "http://localhost:3000/authenticate/google"
 	}
