@@ -152,8 +152,10 @@ func (s *server) InitAuthGoogleService() {
 		RedirectURL:  googleRedirectUri,
 		ClientID:     googleAppId,
 		ClientSecret: googleAuthSecret,
-		Scopes: []string{"https://www.googleapis.com/auth/userinfo.email",
-			"https://www.googleapis.com/auth/userinfo.profile"},
+		Scopes: []string{
+			"https://www.googleapis.com/auth/userinfo.email",
+			"https://www.googleapis.com/auth/userinfo.profile",
+		},
 		Endpoint: google.Endpoint,
 	}
 }
