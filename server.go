@@ -139,9 +139,9 @@ func (s *server) InitAuthGoogleService() {
 	}
 
 	if *environment == "production" {
-		googleRedirectUri = "http://localhost:3000/authenticate/google"
-	} else if *environment == "development" {
 		googleRedirectUri = "https://noted-eip.vercel.app/authenticate/google"
+	} else if *environment == "development" {
+		googleRedirectUri = "http://localhost:3000/authenticate/google"
 	}
 
 	if googleRedirectUri == "" {
