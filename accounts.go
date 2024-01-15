@@ -451,6 +451,11 @@ func (srv *accountsAPI) AuthenticateGoogle(ctx context.Context, in *accountsv1.A
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "failed to unmarshal response body: "+err.Error())
 	}
+
+	if userInfo["email"] == nil || userInfo["name"] == nil {
+		return nil, status.Error(codes.InvalidArgument, "missing email or name in response body")
+	}
+
 	email := userInfo["email"].(string)
 	name := userInfo["name"].(string)
 
