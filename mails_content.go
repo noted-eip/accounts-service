@@ -40,14 +40,14 @@ func ValidateAccountByEmail(accountID string, token string) *mailing.SendEmailsR
 }
 
 func SendGroupInviteMailContent(in *accountsv1.SendGroupInviteMailRequest) *mailing.SendEmailsRequest {
-	body := fmt.Sprintf(`
-	<span>
-		Bonjour, <br/>Vous avez été invité à rejoindre le groupe %s. <br/>
-		Veuillez vous connecter à votre profil pour accepter ou refuser l'invitation.
+	body := fmt.Sprintf(`<span>Bonjour, <br/>
+	Vous avez été invité à rejoindre le groupe %s. <br/> 
+	Veuillez vous connecter à votre profil pour accepter ou refuser l'invitation.
 		<a href="https://noted-eip.vercel.app/profile" style="color: blue">
 			Visitez mon profil 
 		</a>
-		<br/>Attention, cette invitation est valable seulement 2 semaines
+	<br/>
+	Attention, cette invitation est valable seulement 2 semaines<br/>
 	</span>`, in.GroupName)
 
 	return &mailing.SendEmailsRequest{
