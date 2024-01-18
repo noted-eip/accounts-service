@@ -256,7 +256,6 @@ func (repo *accountsRepository) UpdateAccountValidationState(ctx context.Context
 	return &updatedAccount, nil
 }
 
-// Horrible way of doing it before delivery
 func (repo *accountsRepository) RegisterUserToMobileBeta(ctx context.Context, filter *models.OneAccountFilter) (*models.Account, error) {
 	var updatedAccount models.Account
 
@@ -273,13 +272,4 @@ func (repo *accountsRepository) RegisterUserToMobileBeta(ctx context.Context, fi
 	}
 
 	return &updatedAccount, nil
-}
-
-func buildAccountFilter(filter *models.OneAccountFilter) *models.OneAccountFilter {
-	if filter.Email == "" {
-		return &models.OneAccountFilter{ID: filter.ID}
-	} else if filter.ID == "" {
-		return &models.OneAccountFilter{Email: filter.Email}
-	}
-	return &models.OneAccountFilter{Email: filter.Email, ID: filter.ID}
 }

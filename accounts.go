@@ -503,13 +503,11 @@ func (srv *accountsAPI) RegisterUserToMobileBeta(ctx context.Context, in *accoun
 		return nil, statusFromModelError(err)
 	}
 
-	// TODO: This is ugly we should do our own firebase wrapper service
 	fbProjectNb := os.Getenv("FIREBASE_PROJECT_NB")
 	if fbProjectNb == "" {
 		return nil, status.Error(codes.Internal, "firebase project name has not been given")
 	}
 
-	// Horrendous stuff aswell but it's right now the "best" way to get an email from the user's ID
 	res, err := srv.repo.GetMailsFromIDs(ctx, []*models.OneAccountFilter{{ID: in.AccountId}})
 	if err != nil {
 		return nil, statusFromModelError(err)
