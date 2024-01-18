@@ -54,9 +54,9 @@ func NewAccountsRepository(db *mongo.Database, logger *zap.Logger) models.Accoun
 }
 
 func (repo *accountsRepository) Create(ctx context.Context, payload *models.AccountPayload, isValidated bool) (*models.Account, error) {
-
-	token := m.Intn(10000)
-	account := models.Account{ID: repo.newUUID(), Email: payload.Email, Name: payload.Name, Hash: payload.Hash, ValidationToken: fmt.Sprint(token)}
+	token := m.Intn(9999)
+	tokenFormatted := fmt.Sprintf("%04d", token)
+	account := models.Account{ID: repo.newUUID(), Email: payload.Email, Name: payload.Name, Hash: payload.Hash, ValidationToken: tokenFormatted}
 
 	_, err := repo.coll.InsertOne(ctx, account)
 	if err != nil {
