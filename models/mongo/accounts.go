@@ -54,9 +54,9 @@ func NewAccountsRepository(db *mongo.Database, logger *zap.Logger) models.Accoun
 }
 
 func (repo *accountsRepository) Create(ctx context.Context, payload *models.AccountPayload, isValidated bool) (*models.Account, error) {
-
-	token := m.Intn(10000)
-	account := models.Account{ID: repo.newUUID(), Email: payload.Email, Name: payload.Name, Hash: payload.Hash, ValidationToken: fmt.Sprint(token)}
+	token := m.Intn(9999)
+	tokenFormatted := fmt.Sprintf("%04d", token)
+	account := models.Account{ID: repo.newUUID(), Email: payload.Email, Name: payload.Name, Hash: payload.Hash, ValidationToken: tokenFormatted}
 
 	_, err := repo.coll.InsertOne(ctx, account)
 	if err != nil {
@@ -256,7 +256,6 @@ func (repo *accountsRepository) UpdateAccountValidationState(ctx context.Context
 	return &updatedAccount, nil
 }
 
-// Horrible way of doing it before delivery
 func (repo *accountsRepository) RegisterUserToMobileBeta(ctx context.Context, filter *models.OneAccountFilter) (*models.Account, error) {
 	var updatedAccount models.Account
 
@@ -273,13 +272,4 @@ func (repo *accountsRepository) RegisterUserToMobileBeta(ctx context.Context, fi
 	}
 
 	return &updatedAccount, nil
-}
-
-func buildAccountFilter(filter *models.OneAccountFilter) *models.OneAccountFilter {
-	if filter.Email == "" {
-		return &models.OneAccountFilter{ID: filter.ID}
-	} else if filter.ID == "" {
-		return &models.OneAccountFilter{Email: filter.Email}
-	}
-	return &models.OneAccountFilter{Email: filter.Email, ID: filter.ID}
 }
